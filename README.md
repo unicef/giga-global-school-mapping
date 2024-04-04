@@ -23,6 +23,14 @@
 ## 📜 Description
 This work leverages deep learning and high-resolution satellite images for automated school mapping. This work is developed under Giga, a global initiative by UNICEF-ITU to connect every school to the internet by 2030.
 
+Obtaining complete and accurate information on schools locations is a critical first step to accelerating digital connectivity and driving progress towards SDG4: Quality Education. However, precise GPS coordinate of schools are often inaccurate, incomplete, or even completely non-existent in many developing countries.  In support of the Giga initiative, we leverage machine learning and remote sensing data to accelerate school mapping. This work aims to support government agencies and connectivity providers in improving school location data to better estimate the costs of digitally connecting schools and plan the strategic allocation of their financial resources.
+
+<p>
+<img src="./assets/workflow.png" width="80%" height="80%" />
+
+This code accompanies the following paper(s):
+- Doerksen, K., Tingzon, I., and Kim, D. (2024). AI-powered school mapping and connectivity status prediction using Earth observation. ICLR 2024 Machine Learning for Remote Sensing (ML4RS) Workshop.
+
 ## 📂 Dataset
 For each school and non-school location in our dataset, we downloaded 300 x 300 m, 500 x 500 px high-resolution satellite images from Maxar with a spatial resolution of 60 cm/px. 
 
@@ -117,11 +125,15 @@ data
     
 ```
 
+## Acknowledgment
+Global high-resolution satellite images (60 cm/px) from Maxar made available with the generous support of the US State Department. We are also grateful to Dell for providing us with access to High Performance Computing (HPC) clusters with NVIDIA GPU support. 
+
 ## Citation
+If you find this repository useful, please consider giving a star ⭐ and citation 🦖:
 ```
 @article{doerksen2024aipowered,
   title={AI-powered school mapping and connectivity status prediction using Earth Observation},
   author={Doerksen, Kelsey and Tingzon, Isabelle and Kim, Ho-Hyung},
-  year={2023}
+  year={2024}
 }
 ```
