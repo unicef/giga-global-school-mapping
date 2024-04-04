@@ -26,7 +26,13 @@ def download_data(config):
     osm_nonschools = download_utils.download_osm(config, category="non_school")
 
     # Download Microsoft Building Footprints
-    download_utils.download_ms(config, verbose=True)
+    download_utils.download_buildings(config, source="ms", verbose=True)
+    # Download Google Open Buildings
+    download_utils.download_buildings(config, source="google", verbose=True)
+
+    # Download Global Human Settlements Layers
+    download_utils.download_ghsl(config, type="built_c")
+    download_utils.download_ghsl(config, type="smod")
     
 
 def main():
