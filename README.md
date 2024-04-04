@@ -35,18 +35,43 @@ This repository is divided into the following files and folders:
 ## 💻 Usage
 
 ### Setup
-1. Download anaconda or miniconda.
-2. Create a virtual environment.
-```s
-conda create -n envname python=x.x anaconda
-```
-3. Activate virtual environment.
-```s
+```sh
+conda create -n envname
 conda activate envname
-```
-4. Install requirements
-```s
 pip install -r requirements.txt
+```
+
+### Data Download 
+To download the relevant datasets, run:
+```s
+python data_download.py \
+--config="configs/<DATA_CONFIG_FILE_NAME>.yaml"
+```
+
+### Data Preparation
+To run the data cleaning pipeline:
+```s
+python data_preparation.py \
+--config="configs/<DATA_CONFIG_FILE_NAME>.yaml"
+```
+
+### Model Training
+To train the CNN model, run:
+```s
+python train_cnn.py \
+--cnn_config="configs/cnn_configs/<CNN_CONFIG_FILE_NAME>.yaml" \
+--iso="<ISO_CODE>"
+```
+
+### Model Prediction
+For model prediction, run:
+```s
+python sat_predict.py \
+--data_config="configs/<DATA_CONFIG_FILE_NAME>.yaml" \
+--model_config="configs/cnn_configs/<CNN_CONFIG_FILE_NAME>.yaml" \
+--sat_config="configs/sat_configs/<SAT_CONFIG_FILE_NAME>.yaml" \
+--sat_creds="configs/sat_configs/<SAT_CREDENTIALS_FILE_NAME>.yaml" \
+--iso="<ISO_CODE>"
 ```
 
 ## 📂 File Organization 
@@ -83,4 +108,13 @@ data
             ├──AIA_overture.geojson
             └── ...
     
+```
+
+## Citation
+```
+@article{doerksen2024aipowered,
+  title={AI-powered school mapping and connectivity status prediction using Earth Observation},
+  author={Doerksen, Kelsey and Tingzon, Isabelle and Kim, Ho-Hyung},
+  year={2023}
+}
 ```

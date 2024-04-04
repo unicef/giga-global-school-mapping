@@ -260,6 +260,10 @@ def _get_geoboundaries(config, iso_code, out_dir=None, adm_level="ADM0"):
 
     # Read data using GeoPandas
     geoboundary = gpd.read_file(out_file)
+    if 'shapeName' in geoboundary.columns:
+        geoboundary["shapeName"] = geoboundary["shapeName"].apply(
+            lambda x: "".join([char if char.isalnum() or char == '-' else " " for char in x])
+        )
     return geoboundary
 
 
