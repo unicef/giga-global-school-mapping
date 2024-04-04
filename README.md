@@ -1,6 +1,6 @@
 <div align="center">
 
-# UNICEF-Giga: Global School Mapping using AI and Satellite Images
+# UNICEF-Giga: Global School Mapping 
 
 <p>
 <b><a href="#-description">Description</a></b>
@@ -29,7 +29,7 @@ For each school and non-school location in our dataset, we downloaded 300 x 300 
 ## 💻 Code Organization 
 This repository is divided into the following files and folders:
 - **notebooks/**: contains all Jupyter notebooks for exploratory data analysis and model prediction.
-- **utils/**: contains utility methods for data cleaning, data visualization, model development, and model training routines.
+- **utils/**: contains utility methods for loading datasets, building model, and performing training routines.
 - **src/**: contains scripts runnable scripts for automated data cleaning and model training/evaluation.
 
 ## 💻 Usage
@@ -60,6 +60,13 @@ To train the CNN model, run:
 ```s
 python train_cnn.py \
 --cnn_config="configs/cnn_configs/<CNN_CONFIG_FILE_NAME>.yaml" \
+--iso="<ISO_CODE>"
+```
+
+To run the ViT-based models:
+```s
+python train_model.py \
+--cnn_config="configs/model_configs/<MODEL_CONFIG_FILE_NAME>.yaml" \
 --iso="<ISO_CODE>"
 ```
 
