@@ -129,10 +129,11 @@ data
 Global high-resolution satellite images (60 cm/px) from Maxar made available with the generous support of the US State Department. We are also grateful to Dell for providing us with access to High Performance Computing (HPC) clusters with NVIDIA GPU support. 
 
 ## Citation
+If you find this repository useful, please consider giving a star ⭐ and citation 🦖:
 ```
 @article{doerksen2024aipowered,
   title={AI-powered school mapping and connectivity status prediction using Earth Observation},
   author={Doerksen, Kelsey and Tingzon, Isabelle and Kim, Ho-Hyung},
-  year={2023}
+  year={2024}
 }
 ```
