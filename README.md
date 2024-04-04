@@ -1,6 +1,6 @@
 <div align="center">
 
-# Scalable Automated School Mapping 
+# UNICEF-Giga: Global School Mapping using AI and Satellite Images
 
 <p>
 <b><a href="#-description">Description</a></b>
@@ -21,10 +21,10 @@
 </div>
 
 ## 📜 Description
-This work leverages deep learning and high-resolution satellite images for automated school mapping across X countries. This work is developed under Giga, a global initiative by UNICEF-ITU to connect every school to the internet by 2030.
+This work leverages deep learning and high-resolution satellite images for automated school mapping. This work is developed under Giga, a global initiative by UNICEF-ITU to connect every school to the internet by 2030.
 
 ## 📂 Dataset
-For each school and non-school location in our dataset, we downloaded 300 x 300 m, 500 x 500 px high-resolution satellite images from Maxar with a spatial resolution of 60 cm/px. After filtering, we obtained a total of X school images and X non-school images across 42 countries.
+For each school and non-school location in our dataset, we downloaded 300 x 300 m, 500 x 500 px high-resolution satellite images from Maxar with a spatial resolution of 60 cm/px. 
 
 ## 💻 Code Organization 
 This repository is divided into the following files and folders:
@@ -80,32 +80,32 @@ The datasets are organized as follows:
 data
 ├── rasters
 │   ├── maxar
-│   │   ├── AIA
+│   │   ├── ISO
 │   │   │   ├── school
-│   │   │   │    ├── UNICEF-AIA-SCHOOL-00000001.tiff
+│   │   │   │    ├── UNICEF-ISO-SCHOOL-00000001.tiff
 │   │   │   │    └── ...
 │   │   │   ├── non_school
-│   │   │   │    ├── UNICEF-AIA-NON_SCHOOL-00000001.tiff
+│   │   │   │    ├── UNICEF-ISO-NON_SCHOOL-00000001.tiff
 │   │   │   │    └── ...
 │   │   │   └── ...
 │   │   └── ...
 └── vectors
     ├── school
     │   ├── unicef
-    │   │   ├──AIA_school_geolocation_coverage_master.csv
+    │   │   ├──ISO_school_geolocation_coverage_master.csv
     │   │   └── ...
     │   ├── osm
-    │   │   ├──AIA_osm.geojson
+    │   │   ├──ISO_osm.geojson
     │   │   └── ...
     │   ├── overture
-    │   │   ├──AIA_overture.geojson
+    │   │   ├──ISO_overture.geojson
     │   │   └── ...
     └── non_school
         ├── osm
-        │   ├──AIA_osm.geojson
+        │   ├──ISO_osm.geojson
         │   └── ...
         └── overture
-            ├──AIA_overture.geojson
+            ├──ISO_overture.geojson
             └── ...
     
 ```
