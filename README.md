@@ -63,6 +63,15 @@ python data_preparation.py \
 --config="configs/<DATA_CONFIG_FILE_NAME>.yaml"
 ```
 
+For example, to clean only the UNICEF datasets, run:
+```s
+python data_preparation.py \
+--config "configs/master_config.yaml" \
+--name "unicef_clean" \
+--clean_neg "false" 
+--sources "unicef"
+```
+
 ### Model Training
 To train the CNN model, run:
 ```s
