@@ -58,7 +58,7 @@ def save_results(test, target, pos_class, classes, results_dir, pred="pred", bet
     """
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
-    results = evaluate(test[target], test[pred], pos_class)
+    results = evaluate(test[target], test[pred], pos_class, beta)
     cm = get_confusion_matrix(test[target], test[pred], classes)
     _save_files(results, cm, results_dir)
     
@@ -85,13 +85,14 @@ def get_confusion_matrix(y_true, y_pred, class_names):
             recall, and F1 score per class.
     """
 
+    y_true = [str(x) for x in y_true]
+    y_pred = [str(x) for x in y_pred]
+    class_names = [str(x) for x in class_names]
+
     y_pred = pd.Series(y_pred, name="Predicted")
     y_true = pd.Series(y_true, name="Actual")
-
-    labels = class_names
-    if isinstance(list(y_true)[0], int):
-        labels = list(range(len(class_names)))
-    cm = confusion_matrix(y_true, y_pred, labels=labels)
+    
+    cm = confusion_matrix(y_true, y_pred, labels=class_names)
     cm = pd.DataFrame(cm, index=class_names, columns=class_names)
 
     cm_metrics = _get_metrics(cm, list(cm.columns))
