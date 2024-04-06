@@ -168,7 +168,7 @@ def main(c):
             pred="y_preds", 
             pos_class=1, 
             classes=[1, 0], 
-            subresults_dir=subresults_dir, 
+            results_dir=subresults_dir, 
             rurban=rurban
         )
 
