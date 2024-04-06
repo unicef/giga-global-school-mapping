@@ -148,7 +148,12 @@ def main(c):
         subresults_dir = os.path.join(exp_dir, rurban)
         subtest_preds = test_preds[test_preds.rurban == rurban]
         results = eval_utils.save_results(
-            test_preds, target="y_pred", pos_class=1, classes=[1, 0], subresults_dir, rurban
+            test_preds, 
+            target="y_pred", 
+            pos_class=1, 
+            classes=[1, 0], 
+            subresults_dir=subresults_dir, 
+            rurban=rurban
         )
 
 
