@@ -155,7 +155,8 @@ def main(c):
             pred="y_preds", 
             pos_class=1, 
             classes=[1, 0], 
-            results_dir=os.path.join(exp_dir, phase)
+            results_dir=os.path.join(exp_dir, phase),
+            prefix=phase
         )
 
         for rurban in ["urban", "rural"]:
@@ -167,7 +168,7 @@ def main(c):
                 pos_class=1, 
                 classes=[1, 0], 
                 results_dir=os.path.join(exp_dir, phase, rurban), 
-                prefix=rurban
+                prefix=f"{phase}_{rurban}"
             )
 
 
