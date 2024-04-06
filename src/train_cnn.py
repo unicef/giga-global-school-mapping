@@ -82,6 +82,7 @@ def main(c):
             optimizer,
             device,
             pos_label=1,
+            beta=beta,
             wandb=wandb,
             logging=logging
         )
@@ -93,6 +94,7 @@ def main(c):
             criterion, 
             device, 
             pos_label=1,
+            beta=beta,
             wandb=wandb, 
             logging=logging
         )
