@@ -20,22 +20,22 @@ def main():
     parser.add_argument("--config", help="Config file")
     parser.add_argument("--name", help="Folder name", default="clean")
     parser.add_argument("--sources", help="Folder name", default=[], nargs='+')
-    parser.add_argument("--clean_pos", help="Clean positive samples", default="true")
-    parser.add_argument("--clean_neg", help="Clean neg samples", default="true")
+    parser.add_argument("--clean_pos", help="Clean positive samples", default="True")
+    parser.add_argument("--clean_neg", help="Clean neg samples", default="True")
     args = parser.parse_args()
     
     cwd = os.path.dirname(os.getcwd())
     config_file = os.path.join(cwd, args.config)
     config = config_utils.load_config(config_file)
 
-    if args.clean_pos == "true":
+    if args.clean_pos == "True":
         clean_utils.clean_data(
             config, 
             name=args.name, 
             category=config["pos_class"], 
             sources=args.sources
         )
-    if args.clean_neg == "true":
+    if args.clean_neg == "True":
         clean_utils.clean_data(
             config, 
             name=args.name, 
