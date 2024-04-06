@@ -109,9 +109,7 @@ def main(c):
             model_file = os.path.join(exp_dir, f"{exp_name}.pth")
             torch.save(model.state_dict(), model_file)
             
-        logging.info(f"Best Fbeta score: {best_score}")
-        logging.info(f"Best Precision: {precision}")
-        logging.info(f"Best Recall: {recall}")
+        logging.info(f"Best Fbeta score: {best_score} Precision: {precision} Recall: {recall}")
 
         # Terminate if learning rate becomes too low
         learning_rate = optimizer.param_groups[0]["lr"]
@@ -169,7 +167,7 @@ def main(c):
             pos_class=1, 
             classes=[1, 0], 
             results_dir=subresults_dir, 
-            rurban=rurban
+            prefix=rurban
         )
 
 
