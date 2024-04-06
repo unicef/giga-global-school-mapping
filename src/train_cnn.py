@@ -21,7 +21,8 @@ logging.info(f"Device: {device}")
 def main(c):    
     # Create experiment folder
     exp_name = f"{c['iso_code']}_{c['config_name']}"
-    exp_dir = os.path.join(cwd, c["exp_dir"], exp_name)
+    exp_dir = os.path.join(cwd, c["project"], c["exp_dir"], exp_name)
+    logging.info(f"Experiment directory: {exp_dir}")
     if not os.path.exists(exp_dir):
         os.makedirs(exp_dir)
     
@@ -34,7 +35,7 @@ def main(c):
     logging.info(exp_name)
 
     # Set wandb configs
-    wandb.init(project="UNICEFv2", config=c)
+    wandb.init(project=c["project"], config=c)
     wandb.run.name = exp_name
     wandb.config = c
     
@@ -66,6 +67,7 @@ def main(c):
 
     # Commence model training
     n_epochs = c["n_epochs"]
+    beta = c["beta"]
     since = time.time()
     best_score = -1
 
@@ -94,11 +96,11 @@ def main(c):
             wandb=wandb, 
             logging=logging
         )
-        scheduler.step(val_results["f1_score"])
+        scheduler.step(val_results[f"fbeta_score_{beta}"])
 
         # Save best model so far
-        if val_results["f1_score"] > best_score:
-            best_score = val_results["f1_score"]
+        if val_results[f"fbeta_score_{beta}"] > best_score:
+            best_score = val_results[f"fbeta_score_{beta}"]
             best_weights = model.state_dict()
 
             eval_utils._save_files(val_results, val_cm, exp_dir)
