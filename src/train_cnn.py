@@ -38,9 +38,9 @@ def main(c):
     wandb.run.name = exp_name
     
     # Load dataset
-    phases = ["train", "test"]
+    phases = ["train", "val", "test"]
     data, data_loader, classes = cnn_utils.load_dataset(config=c, phases=phases)
-    logging.info(f"Train/test sizes: {len(data['train'])}/{len(data['test'])}")
+    logging.info(f"Train/val/test sizes: {len(data['train'])}/{len(data['val'])}/{len(data['test'])}")
 
     # Load model, optimizer, and scheduler
     model, criterion, optimizer, scheduler = cnn_utils.load_model(
@@ -86,7 +86,7 @@ def main(c):
         )
         # Evauate model
         val_results, val_cm, val_preds = cnn_utils.evaluate(
-            data_loader["test"],  
+            data_loader["val"],  
             model=model, 
             criterion=criterion, 
             device=device, 
@@ -130,35 +130,32 @@ def main(c):
     model = model.to(device)
 
     # Calculate test performance using best model
-    logging.info("\nTest Results")
-    test_results, test_cm, test_preds = cnn_utils.evaluate(
-        data_loader["test"], 
-        model=model, 
-        criterion=criterion, 
-        device=device, 
-        pos_label=1,
-        class_names=[1, 0],
-        beta=beta,
-        wandb=wandb, 
-        logging=logging
-    )
-    dataset = model_utils.load_data(config=c, attributes=["rurban", "iso"], verbose=False)
-    dataset = dataset[dataset.dataset == "test"]
-    test_preds = pd.merge(dataset, test_preds, on='UID', how='inner')
-    test_preds.to_csv(os.path.join(exp_dir, f"{exp_name}.csv"), index=False)
-
-    # Save results in experiment directory
-    eval_utils.save_results(
-        test_preds, 
-        target="y_true", 
-        pred="y_preds", 
-        pos_class=1, 
-        classes=[1, 0], 
-        results_dir=exp_dir
-    )
+    for phase in ['val', 'test']:    
+        logging.info(f"\n{phase} Results")
+        test_results, test_cm, test_preds = cnn_utils.evaluate(
+            data_loader[phase], 
+            model=model, 
+            criterion=criterion, 
+            device=device, 
+            pos_label=1,
+            class_names=[1, 0],
+            beta=beta,
+            wandb=wandb, 
+            logging=logging
+        )
+        test_dataset = dataset[dataset.dataset == phase]
+        test_preds = pd.merge(test_dataset, test_preds, on='UID', how='inner')
+        test_preds.to_csv(os.path.join(exp_dir, f"{exp_name}_{phase}.csv"), index=False)
+        eval_utils.save_results(
+            test_preds, 
+            target="y_true", 
+            pred="y_preds", 
+            pos_class=1, 
+            classes=[1, 0], 
+            results_dir=os.path.join(exp_dir, phase)
+        )
 
     for rurban in ["urban", "rural"]:
-        subresults_dir = os.path.join(exp_dir, rurban)
         subtest_preds = test_preds[test_preds.rurban == rurban]
         results = eval_utils.save_results(
             subtest_preds, 
@@ -166,7 +163,7 @@ def main(c):
             pred="y_preds", 
             pos_class=1, 
             classes=[1, 0], 
-            results_dir=subresults_dir, 
+            results_dir=os.path.join(exp_dir, rurban), 
             prefix=rurban
         )
 

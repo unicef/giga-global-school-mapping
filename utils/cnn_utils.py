@@ -154,7 +154,7 @@ def load_dataset(config, phases):
     
     dataset = model_utils.load_data(config, attributes=["rurban", "iso"], verbose=True)
     dataset["filepath"] = data_utils.get_image_filepaths(config, dataset)
-    classes_dict = {config["pos_class"] : 1, config["neg_class"]: 0}
+    classes_dict = {config["pos_class"] : 1, config["neg_class"] : 0}
 
     transforms = get_transforms(size=config["img_size"])
     classes = list(dataset["class"].unique())
@@ -317,6 +317,14 @@ def get_transforms(size):
                 transforms.RandomApply([transforms.RandomRotation((90, 90))], p=0.5),
                 transforms.RandomHorizontalFlip(),
                 transforms.RandomVerticalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize(imagenet_mean, imagenet_std),
+            ]
+        ),
+        "val": transforms.Compose(
+            [
+                transforms.Resize(size),
+                transforms.CenterCrop(size),
                 transforms.ToTensor(),
                 transforms.Normalize(imagenet_mean, imagenet_std),
             ]

@@ -33,7 +33,8 @@ def _save_files(results, cm, exp_dir):
     - "cm_metrics.csv": CSV file containing metrics derived from the confusion matrix.
     - "cm_report.log": Log file containing the detailed confusion matrix report.
     """
-
+    if not os.path.exists(exp_dir):
+        os.makedirs(exp_dir)
     with open(os.path.join(exp_dir, "results.json"), "w") as f:
         json.dump(results, f)
     cm[0].to_csv(os.path.join(exp_dir, "confusion_matrix.csv"))
