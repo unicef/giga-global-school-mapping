@@ -134,7 +134,15 @@ def main(c):
     # Calculate test performance using best model
     logging.info("\nTest Results")
     test_results, test_cm, test_preds = cnn_utils.evaluate(
-        data_loader["test"], classes, model, criterion, device, pos_label=1, wandb=wandb, logging=logging
+        data_loader["test"], 
+        classes, 
+        model, 
+        criterion, 
+        device, 
+        pos_label=1, 
+        beta=beta, 
+        wandb=wandb, 
+        logging=logging
     )
     dataset = model_utils.load_data(config=c, attributes=["rurban", "iso"], verbose=False)
     dataset = dataset[dataset.dataset == "test"]
