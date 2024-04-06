@@ -142,14 +142,14 @@ def main(c):
     test_preds.to_csv(os.path.join(exp_dir, f"{exp_name}.csv"), index=False)
 
     # Save results in experiment directory
-    save_results(test_preds, target="y_pred", pos_class=1, classes=[1, 0], results_dir=exp_dir)
+    save_results(test_preds, target="y_preds", pos_class=1, classes=[1, 0], results_dir=exp_dir)
 
     for rurban in ["urban", "rural"]:
         subresults_dir = os.path.join(exp_dir, rurban)
         subtest_preds = test_preds[test_preds.rurban == rurban]
         results = eval_utils.save_results(
             test_preds, 
-            target="y_pred", 
+            target="y_preds", 
             pos_class=1, 
             classes=[1, 0], 
             subresults_dir=subresults_dir, 
