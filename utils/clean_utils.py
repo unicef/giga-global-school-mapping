@@ -419,7 +419,7 @@ def _filter_pois_with_matching_names(data, proximity, threshold, priority):
     return data
 
 
-def clean_data(config, category, name="clean", source="ms", id="UID"):
+def clean_data(config, category, name="clean", id="UID", sources=[]):
     """
     Process and clean spatial data based on specified categories.
 
@@ -453,7 +453,7 @@ def clean_data(config, category, name="clean", source="ms", id="UID"):
     
     if category == config["pos_class"]:
         data_dir = os.path.join(config["vectors_dir"], category)
-        data = data_utils.read_data(data_dir, exclude=[f"{name}.geojson"])
+        data = data_utils.read_data(data_dir, exclude=[f"{name}.geojson"], sources=sources)
             
     # For negative samples, remove POIs within the positive object vicinity
     elif category == config["neg_class"]:
@@ -471,7 +471,7 @@ def clean_data(config, category, name="clean", source="ms", id="UID"):
             geoboundaries = data_utils._get_geoboundaries(config, iso_code, adm_level="ADM1")
             geoboundaries = geoboundaries[["shapeName", "geometry"]].dropna(subset=["shapeName"])
             subdata = subdata.sjoin(geoboundaries, how="left", predicate="within")
-            subdata[name], subdata[source] = 0, 0
+            subdata[name] = 0
             logging.info(f"Dimensions: {subdata.shape}")
     
             # Split the data into smaller admin boundaries for scalability
