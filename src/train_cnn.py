@@ -87,11 +87,11 @@ def main(c):
         # Evauate model
         val_results, val_cm, val_preds = cnn_utils.evaluate(
             data_loader["test"],  
-            model, 
-            criterion, 
-            device, 
+            model=model, 
+            criterior=criterion, 
+            device=device, 
             pos_label=1,
-            classes=[1, 0],
+            class_names=[1, 0],
             beta=beta,
             wandb=wandb, 
             logging=logging
