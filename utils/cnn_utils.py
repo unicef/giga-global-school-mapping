@@ -35,7 +35,6 @@ import eval_utils
 import clf_utils
 import data_utils
 import model_utils
-
 SEED = 42
 
 # Add temporary fix for hash error: https://github.com/pytorch/vision/issues/7744
@@ -48,6 +47,10 @@ def get_state_dict(self, *args, **kwargs):
     kwargs.pop("check_hash")
     return load_state_dict_from_url(self.url, *args, **kwargs)
 WeightsEnum.get_state_dict = get_state_dict
+
+torch.manual_seed(SEED)
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(SEED)
 
     
 class SchoolDataset(Dataset):

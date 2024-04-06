@@ -1,6 +1,7 @@
 import os
 import time
 import argparse
+import pandas as pd
 from collections import Counter
 import torch
 
@@ -9,6 +10,7 @@ sys.path.insert(0, "../utils/")
 import config_utils
 import cnn_utils
 import eval_utils
+import model_utils
 import wandb
 import logging
 
@@ -21,7 +23,7 @@ logging.info(f"Device: {device}")
 def main(c):    
     # Create experiment folder
     exp_name = f"{c['iso_code']}_{c['config_name']}"
-    exp_dir = os.path.join(cwd, c["project"], c["exp_dir"], exp_name)
+    exp_dir = os.path.join(cwd,  c["exp_dir"], c["project"], exp_name)
     logging.info(f"Experiment directory: {exp_dir}")
     if not os.path.exists(exp_dir):
         os.makedirs(exp_dir)
@@ -33,11 +35,7 @@ def main(c):
     handler.setLevel(logging.INFO)
     logger.addHandler(handler)
     logging.info(exp_name)
-
-    # Set wandb configs
-    wandb.init(project=c["project"], config=c)
     wandb.run.name = exp_name
-    wandb.config = c
     
     # Load dataset
     phases = ["train", "test"]
@@ -103,12 +101,17 @@ def main(c):
         # Save best model so far
         if val_results[f"fbeta_score_{beta}"] > best_score:
             best_score = val_results[f"fbeta_score_{beta}"]
+            precision = val_results[f"precision_score"]
+            recall = val_results[f"recall_score"]
             best_weights = model.state_dict()
 
             eval_utils._save_files(val_results, val_cm, exp_dir)
             model_file = os.path.join(exp_dir, f"{exp_name}.pth")
             torch.save(model.state_dict(), model_file)
-        logging.info(f"Best F1 score: {best_score}")
+            
+        logging.info(f"Best Fbeta score: {best_score}")
+        logging.info(f"Best Precision: {precision}")
+        logging.info(f"Best Recall: {recall}")
 
         # Terminate if learning rate becomes too low
         learning_rate = optimizer.param_groups[0]["lr"]
@@ -133,10 +136,20 @@ def main(c):
     test_results, test_cm, test_preds = cnn_utils.evaluate(
         data_loader["test"], classes, model, criterion, device, pos_label=1, wandb=wandb, logging=logging
     )
+    dataset = model_utils.load_data(config=c, attributes=["rurban", "iso"], verbose=False)
+    dataset = dataset[dataset.dataset == "test"]
+    test_preds = pd.merge(dataset, test_preds, on='UID', how='inner')
     test_preds.to_csv(os.path.join(exp_dir, f"{exp_name}.csv"), index=False)
 
     # Save results in experiment directory
-    eval_utils._save_files(test_results, test_cm, exp_dir)
+    save_results(test_preds, target="y_pred", pos_class=1, classes=[1, 0], results_dir=exp_dir)
+
+    for rurban in ["urban", "rural"]:
+        subresults_dir = os.path.join(exp_dir, rurban)
+        subtest_preds = test_preds[test_preds.rurban == rurban]
+        results = eval_utils.save_results(
+            test_preds, target="y_pred", pos_class=1, classes=[1, 0], subresults_dir, rurban
+        )
 
 
 if __name__ == "__main__":
@@ -160,5 +173,8 @@ if __name__ == "__main__":
         and ('file' not in key)
     }
     logging.info(log_c)
+
+    # Set wandb configs
+    wandb.init(project=c["project"], config=log_c)
 
     main(c)
