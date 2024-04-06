@@ -66,10 +66,10 @@ python data_preparation.py \
 For example, to clean only the UNICEF datasets, run:
 ```s
 python data_preparation.py \
---config "configs/master_config.yaml" \
---name "unicef_clean" \
---clean_neg "false" 
---sources "unicef"
+--config configs/master_config.yaml \
+--name unicef_clean \
+--clean_neg False 
+--sources unicef
 ```
 
 ### Model Training
@@ -83,7 +83,7 @@ python train_cnn.py \
 To run the ViT-based models:
 ```s
 python train_model.py \
---cnn_config="configs/model_configs/<MODEL_CONFIG_FILE_NAME>.yaml" \
+--model_config="configs/model_configs/<MODEL_CONFIG_FILE_NAME>.yaml" \
 --iso="<ISO_CODE>"
 ```
 
