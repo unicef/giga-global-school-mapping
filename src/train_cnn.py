@@ -135,12 +135,12 @@ def main(c):
     logging.info("\nTest Results")
     test_results, test_cm, test_preds = cnn_utils.evaluate(
         data_loader["test"], 
-        classes, 
-        model, 
-        criterion, 
-        device, 
-        pos_label=1, 
-        beta=beta, 
+        model=model, 
+        criterion=criterion, 
+        device=device, 
+        pos_label=1,
+        class_names=[1, 0],
+        beta=beta,
         wandb=wandb, 
         logging=logging
     )
