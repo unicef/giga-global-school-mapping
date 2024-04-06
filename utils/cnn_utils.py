@@ -236,7 +236,7 @@ def train(data_loader, model, criterion, optimizer, device, logging, pos_label, 
     return epoch_results
 
 
-def evaluate(data_loader, class_names, model, criterion, device, logging, pos_label, beta, wandb=None):
+def evaluate(data_loader, class_names, model, criterion, device, logging, pos_label, beta, phase, wandb=None):
     """
     Evaluate the model using the provided data.
 
@@ -286,7 +286,7 @@ def evaluate(data_loader, class_names, model, criterion, device, logging, pos_la
         y_actuals, y_preds, class_names
     )
     y_probs = [x[0] for x in y_probs]
-    logging.info(f"Val Loss: {epoch_loss} {epoch_results}")
+    logging.info(f"{phase.capitalize()} Loss: {epoch_loss} {epoch_results}")
     preds = pd.DataFrame({
         'UID': y_uids,
         'y_true': y_actuals, 
@@ -295,7 +295,7 @@ def evaluate(data_loader, class_names, model, criterion, device, logging, pos_la
     })
 
     if wandb is not None:
-        wandb.log({"val_" + k: v for k, v in epoch_results.items()})
+        wandb.log({f"{phase}_" + k: v for k, v in epoch_results.items()})
     return epoch_results, (confusion_matrix, cm_metrics, cm_report), preds
 
 

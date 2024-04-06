@@ -93,6 +93,7 @@ def main(c):
             pos_label=1,
             class_names=[1, 0],
             beta=beta,
+            phase="val",
             wandb=wandb, 
             logging=logging
         )
@@ -109,7 +110,7 @@ def main(c):
             model_file = os.path.join(exp_dir, f"{exp_name}.pth")
             torch.save(model.state_dict(), model_file)
             
-        logging.info(f"Best Fbeta score: {best_score} Precision: {precision} Recall: {recall}")
+        logging.info(f"Best Val Fbeta score: {best_score} Precision: {precision} Recall: {recall}")
 
         # Terminate if learning rate becomes too low
         learning_rate = optimizer.param_groups[0]["lr"]
@@ -131,7 +132,7 @@ def main(c):
 
     # Calculate test performance using best model
     for phase in ['val', 'test']:    
-        logging.info(f"\n{phase} Results")
+        logging.info(f"\n{phase.capitalize()} Results")
         test_results, test_cm, test_preds = cnn_utils.evaluate(
             data_loader[phase], 
             model=model, 
@@ -140,9 +141,11 @@ def main(c):
             pos_label=1,
             class_names=[1, 0],
             beta=beta,
+            phase=phase,
             wandb=wandb, 
             logging=logging
         )
+        dataset = model_utils.load_data(config=c, attributes=["rurban", "iso"], verbose=False)
         test_dataset = dataset[dataset.dataset == phase]
         test_preds = pd.merge(test_dataset, test_preds, on='UID', how='inner')
         test_preds.to_csv(os.path.join(exp_dir, f"{exp_name}_{phase}.csv"), index=False)
@@ -155,17 +158,17 @@ def main(c):
             results_dir=os.path.join(exp_dir, phase)
         )
 
-    for rurban in ["urban", "rural"]:
-        subtest_preds = test_preds[test_preds.rurban == rurban]
-        results = eval_utils.save_results(
-            subtest_preds, 
-            target="y_true",  
-            pred="y_preds", 
-            pos_class=1, 
-            classes=[1, 0], 
-            results_dir=os.path.join(exp_dir, rurban), 
-            prefix=rurban
-        )
+        for rurban in ["urban", "rural"]:
+            subtest_preds = test_preds[test_preds.rurban == rurban]
+            results = eval_utils.save_results(
+                subtest_preds, 
+                target="y_true",  
+                pred="y_preds", 
+                pos_class=1, 
+                classes=[1, 0], 
+                results_dir=os.path.join(exp_dir, phase, rurban), 
+                prefix=rurban
+            )
 
 
 if __name__ == "__main__":
