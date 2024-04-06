@@ -41,7 +41,7 @@ def _save_files(results, cm, exp_dir):
     open(os.path.join(exp_dir, "cm_report.log"), "a").write(cm[2])
 
 
-def save_results(test, target, pos_class, classes, results_dir, prefix=None, log=True):
+def save_results(test, target, pos_class, classes, results_dir, pred="pred", beta=0.5, prefix=None, log=True):
     """
     Save evaluation results and confusion matrix to the specified directory.
 
@@ -58,8 +58,8 @@ def save_results(test, target, pos_class, classes, results_dir, prefix=None, log
     """
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
-    results = evaluate(test[target], test["pred"], pos_class)
-    cm = get_confusion_matrix(test[target], test["pred"], classes)
+    results = evaluate(test[target], test[pred], pos_class)
+    cm = get_confusion_matrix(test[target], test[pred], classes)
     _save_files(results, cm, results_dir)
     
     if prefix: 
