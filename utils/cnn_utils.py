@@ -294,8 +294,9 @@ def evaluate(data_loader, class_names, model, criterion, device, logging, pos_la
         'y_probs': y_probs
     })
 
+    epoch_results = {f"{phase}_" + k: v for k, v in epoch_results.items()}
     if wandb is not None:
-        wandb.log({f"{phase}_" + k: v for k, v in epoch_results.items()})
+        wandb.log(epoch_results)
     return epoch_results, (confusion_matrix, cm_metrics, cm_report), preds
 
 

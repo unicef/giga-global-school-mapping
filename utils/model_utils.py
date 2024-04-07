@@ -265,7 +265,9 @@ def _print_stats(data, attributes, test_size):
     logging.info(f'\n{data.dataset.value_counts()}')
     logging.info(f'\n{data.dataset.value_counts(normalize=True)}')
     for attribute in attributes:
-        if attribute != "iso": logging.info(f"\n{data[attribute].value_counts(normalize=True)}") 
+        if attribute != "iso": 
+            logging.info(f"\n{data[attribute].value_counts()}") 
+            logging.info(f"\n{data[attribute].value_counts(normalize=True)}") 
 
 
 def _get_rurban_classification(config, data):
