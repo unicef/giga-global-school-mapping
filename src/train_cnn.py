@@ -97,13 +97,13 @@ def main(c):
             wandb=wandb, 
             logging=logging
         )
-        scheduler.step(val_results[f"fbeta_score_{beta}"])
+        scheduler.step(val_results[f"val_fbeta_score_{beta}"])
 
         # Save best model so far
-        if val_results[f"fbeta_score_{beta}"] > best_score:
-            best_score = val_results[f"fbeta_score_{beta}"]
-            precision = val_results[f"precision_score"]
-            recall = val_results[f"recall_score"]
+        if val_results[f"val_fbeta_score_{beta}"] > best_score:
+            best_score = val_results[f"val_fbeta_score_{beta}"]
+            precision = val_results["val_precision_score"]
+            recall = val_results["val_recall_score"]
             best_weights = model.state_dict()
 
             eval_utils._save_files(val_results, val_cm, exp_dir)
@@ -131,6 +131,7 @@ def main(c):
     model = model.to(device)
 
     # Calculate test performance using best model
+    final_results = {}
     for phase in ['val', 'test']:    
         logging.info(f"\n{phase.capitalize()} Results")
         test_results, test_cm, test_preds = cnn_utils.evaluate(
@@ -145,6 +146,8 @@ def main(c):
             wandb=wandb, 
             logging=logging
         )
+        final_results.update(test_results)
+        
         dataset = model_utils.load_data(config=c, attributes=["rurban", "iso"], verbose=False)
         test_dataset = dataset[dataset.dataset == phase]
         test_preds = pd.merge(test_dataset, test_preds, on='UID', how='inner')
@@ -170,6 +173,8 @@ def main(c):
                 results_dir=os.path.join(exp_dir, phase, rurban), 
                 prefix=f"{phase}_{rurban}"
             )
+
+    return final_results    
 
 
 if __name__ == "__main__":
