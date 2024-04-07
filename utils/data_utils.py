@@ -152,7 +152,7 @@ def _concat_data(data, out_file=None, verbose=False):
 
     data = pd.concat(data).reset_index(drop=True)
     data = gpd.GeoDataFrame(data, geometry=data["geometry"], crs="EPSG:4326")
-    data = data.drop_duplicates("geometry", keep="first")
+    data = data.drop_duplicates()
 
     if out_file:
         data.to_file(out_file, driver="GeoJSON")
@@ -199,13 +199,15 @@ def _prepare_data(config, data, iso_code, category, source, columns, out_file=No
     Returns:
     - DataFrame: Processed DataFrame with uniform columns and added information.
     """
+    if 'giga_id_school' not in data.columns:
+        data['giga_id_school'] = data.reset_index().index
+    
     for column in columns:
         if column not in data.columns:
             data[column] = None
 
-    data["source"] = source.upper()
-    data = data.drop_duplicates("geometry", keep="first")
     country, region, subregion = _get_iso_regions(config, iso_code)
+    data["source"] = source.upper()
     data["iso"] = iso_code
     data["country"] = country
     data["subregion"] = region
@@ -214,7 +216,8 @@ def _prepare_data(config, data, iso_code, category, source, columns, out_file=No
     if len(data) > 0:
         data = _generate_uid(data, category)
     data = data[columns]
-
+    data = data.drop_duplicates(columns)
+    
     if out_file:
         data.to_file(out_file, driver="GeoJSON")
     return data
@@ -242,7 +245,7 @@ def _get_geoboundaries(config, iso_code, out_dir=None, adm_level="ADM0"):
         out_dir = _makedir(out_dir)
 
     # Save the result as a GeoJSON
-    filename = f"{iso_code}_geoboundary.geojson"
+    filename = f"{iso_code}_{adm_level}_geoboundary.geojson"
     out_file = os.path.join(out_dir, filename)
 
     if not os.path.exists(out_file):
@@ -259,7 +262,7 @@ def _get_geoboundaries(config, iso_code, out_dir=None, adm_level="ADM0"):
             geojson.dump(geoboundary, file)
 
     # Read data using GeoPandas
-    geoboundary = gpd.read_file(out_file)
+    geoboundary = gpd.read_file(out_file).fillna("")
     if 'shapeName' in geoboundary.columns:
         geoboundary["shapeName"] = geoboundary["shapeName"].apply(
             lambda x: "".join([char if char.isalnum() or char == '-' else " " for char in x])
@@ -267,7 +270,7 @@ def _get_geoboundaries(config, iso_code, out_dir=None, adm_level="ADM0"):
     return geoboundary
 
 
-def read_data(data_dir, exclude=[]):
+def read_data(data_dir, sources=[], exclude=[]):
     """
     Reads and concatenates data from a directory of files.
 
@@ -280,7 +283,10 @@ def read_data(data_dir, exclude=[]):
     """
 
     data_dir = _makedir(data_dir)
-    files = next(os.walk(data_dir), (None, None, []))[2]
+    if len(sources) > 0:
+        files = [f"{source}.geojson" for source in sources]
+    else:
+        files = next(os.walk(data_dir), (None, None, []))[2]
     files = [file for file in files if file not in exclude]
 
     data = []
@@ -292,7 +298,7 @@ def read_data(data_dir, exclude=[]):
 
     # Concatenate files in data_dir
     data = gpd.GeoDataFrame(pd.concat(data).copy(), crs="EPSG:4326")
-    data = data.drop_duplicates("geometry", keep="first")
+    data = data.drop_duplicates()
     return data
 
 

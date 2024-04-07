@@ -13,6 +13,7 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
     f1_score,
+    fbeta_score,
     classification_report,
 )
 
@@ -32,7 +33,8 @@ def _save_files(results, cm, exp_dir):
     - "cm_metrics.csv": CSV file containing metrics derived from the confusion matrix.
     - "cm_report.log": Log file containing the detailed confusion matrix report.
     """
-
+    if not os.path.exists(exp_dir):
+        os.makedirs(exp_dir)
     with open(os.path.join(exp_dir, "results.json"), "w") as f:
         json.dump(results, f)
     cm[0].to_csv(os.path.join(exp_dir, "confusion_matrix.csv"))
@@ -40,7 +42,7 @@ def _save_files(results, cm, exp_dir):
     open(os.path.join(exp_dir, "cm_report.log"), "a").write(cm[2])
 
 
-def save_results(test, target, pos_class, classes, results_dir, prefix=None, log=True):
+def save_results(test, target, pos_class, classes, results_dir, pred="pred", beta=0.5, prefix=None, log=True):
     """
     Save evaluation results and confusion matrix to the specified directory.
 
@@ -57,8 +59,8 @@ def save_results(test, target, pos_class, classes, results_dir, prefix=None, log
     """
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
-    results = evaluate(test[target], test["pred"], pos_class)
-    cm = get_confusion_matrix(test[target], test["pred"], classes)
+    results = evaluate(test[target], test[pred], pos_class, beta)
+    cm = get_confusion_matrix(test[target], test[pred], classes)
     _save_files(results, cm, results_dir)
     
     if prefix: 
@@ -83,17 +85,17 @@ def get_confusion_matrix(y_true, y_pred, class_names):
     - pandas DataFrame: A dataframe containing the precision,
             recall, and F1 score per class.
     """
+    y_true = [str(x) for x in y_true]
+    y_pred = [str(x) for x in y_pred]
+    class_names = [str(x) for x in class_names]
 
     y_pred = pd.Series(y_pred, name="Predicted")
     y_true = pd.Series(y_true, name="Actual")
-
-    labels = class_names
-    if isinstance(list(y_true)[0], int):
-        labels = list(range(len(class_names)))
-    cm = confusion_matrix(y_true, y_pred, labels=labels)
+    
+    cm = confusion_matrix(y_true, y_pred, labels=class_names)
     cm = pd.DataFrame(cm, index=class_names, columns=class_names)
 
-    cm_metrics = _get_cm_metrics(cm, list(cm.columns))
+    cm_metrics = _get_metrics(cm, list(cm.columns))
     cm_report = classification_report(
         y_true, y_pred, target_names=class_names, zero_division=0
     )
@@ -101,7 +103,7 @@ def get_confusion_matrix(y_true, y_pred, class_names):
     return cm, cm_metrics, cm_report
 
 
-def _get_cm_metrics(cm, class_names):
+def _get_metrics(cm, class_names):
     """Return the precision, recall, and F1 score per class.
 
     Args:
@@ -135,7 +137,7 @@ def _get_cm_metrics(cm, class_names):
     return metrics
 
 
-def evaluate(y_true, y_pred, pos_label):
+def evaluate(y_true, y_pred, pos_label, beta=0.5):
     """Returns a dictionary of performance metrics.
 
     Args:
@@ -147,14 +149,23 @@ def evaluate(y_true, y_pred, pos_label):
     """
 
     return {
+        f"fbeta_score_{beta}": fbeta_score(
+            y_true, y_pred, beta=beta, pos_label=pos_label, average="binary", zero_division=0
+        ) * 100,
+        "f1_score": f1_score(
+            y_true, y_pred, pos_label=pos_label, average="binary", zero_division=0
+        ) * 100,
+        "precision_score": precision_score(
+            y_true, y_pred, pos_label=pos_label, average="binary", zero_division=0
+        ) * 100,
+        "recall_score": recall_score(
+            y_true, y_pred, pos_label=pos_label, average="binary", zero_division=0
+        ) * 100,
         "overall_accuracy": accuracy_score(y_true, y_pred) * 100,
         "balanced_accuracy": balanced_accuracy_score(y_true, y_pred) * 100,
-        "f1_score": f1_score(y_true, y_pred, pos_label=pos_label, average="binary", zero_division=0) * 100,
-        "precision_score": precision_score(y_true, y_pred, pos_label=pos_label, average="binary", zero_division=0) * 100,
-        "recall_score": recall_score(y_true, y_pred, pos_label=pos_label, average="binary", zero_division=0) * 100
     }
 
 
-def get_scoring(pos_label):
+def get_scoring(pos_label, beta=0.5):
     """Returns the dictionary of scorer objects."""
-    return {"f1_score": make_scorer(f1_score, pos_label=pos_label, average="binary")}
+    return {f"fbeta_score_{beta}": make_scorer(fbeta_score, beta=beta, pos_label=pos_label, average="binary")}

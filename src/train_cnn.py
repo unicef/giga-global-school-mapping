@@ -1,6 +1,7 @@
 import os
 import time
 import argparse
+import pandas as pd
 from collections import Counter
 import torch
 
@@ -9,6 +10,7 @@ sys.path.insert(0, "../utils/")
 import config_utils
 import cnn_utils
 import eval_utils
+import model_utils
 import wandb
 import logging
 
@@ -21,7 +23,8 @@ logging.info(f"Device: {device}")
 def main(c):    
     # Create experiment folder
     exp_name = f"{c['iso_code']}_{c['config_name']}"
-    exp_dir = os.path.join(cwd, c["exp_dir"], exp_name)
+    exp_dir = os.path.join(cwd,  c["exp_dir"], c["project"], exp_name)
+    logging.info(f"Experiment directory: {exp_dir}")
     if not os.path.exists(exp_dir):
         os.makedirs(exp_dir)
     
@@ -32,16 +35,12 @@ def main(c):
     handler.setLevel(logging.INFO)
     logger.addHandler(handler)
     logging.info(exp_name)
-
-    # Set wandb configs
-    wandb.init(project="UNICEFv2", config=c)
     wandb.run.name = exp_name
-    wandb.config = c
     
     # Load dataset
-    phases = ["train", "test"]
+    phases = ["train", "val", "test"]
     data, data_loader, classes = cnn_utils.load_dataset(config=c, phases=phases)
-    logging.info(f"Train/test sizes: {len(data['train'])}/{len(data['test'])}")
+    logging.info(f"Train/val/test sizes: {len(data['train'])}/{len(data['val'])}/{len(data['test'])}")
 
     # Load model, optimizer, and scheduler
     model, criterion, optimizer, scheduler = cnn_utils.load_model(
@@ -66,6 +65,7 @@ def main(c):
 
     # Commence model training
     n_epochs = c["n_epochs"]
+    beta = c["beta"]
     since = time.time()
     best_score = -1
 
@@ -80,31 +80,37 @@ def main(c):
             optimizer,
             device,
             pos_label=1,
+            beta=beta,
             wandb=wandb,
             logging=logging
         )
         # Evauate model
         val_results, val_cm, val_preds = cnn_utils.evaluate(
-            data_loader["test"], 
-            classes, 
-            model, 
-            criterion, 
-            device, 
+            data_loader["val"],  
+            model=model, 
+            criterion=criterion, 
+            device=device, 
             pos_label=1,
+            class_names=[1, 0],
+            beta=beta,
+            phase="val",
             wandb=wandb, 
             logging=logging
         )
-        scheduler.step(val_results["f1_score"])
+        scheduler.step(val_results[f"fbeta_score_{beta}"])
 
         # Save best model so far
-        if val_results["f1_score"] > best_score:
-            best_score = val_results["f1_score"]
+        if val_results[f"fbeta_score_{beta}"] > best_score:
+            best_score = val_results[f"fbeta_score_{beta}"]
+            precision = val_results[f"precision_score"]
+            recall = val_results[f"recall_score"]
             best_weights = model.state_dict()
 
             eval_utils._save_files(val_results, val_cm, exp_dir)
             model_file = os.path.join(exp_dir, f"{exp_name}.pth")
             torch.save(model.state_dict(), model_file)
-        logging.info(f"Best F1 score: {best_score}")
+            
+        logging.info(f"Best Val Fbeta score: {best_score} Precision: {precision} Recall: {recall}")
 
         # Terminate if learning rate becomes too low
         learning_rate = optimizer.param_groups[0]["lr"]
@@ -125,14 +131,45 @@ def main(c):
     model = model.to(device)
 
     # Calculate test performance using best model
-    logging.info("\nTest Results")
-    test_results, test_cm, test_preds = cnn_utils.evaluate(
-        data_loader["test"], classes, model, criterion, device, pos_label=1, wandb=wandb, logging=logging
-    )
-    test_preds.to_csv(os.path.join(exp_dir, f"{exp_name}.csv"), index=False)
+    for phase in ['val', 'test']:    
+        logging.info(f"\n{phase.capitalize()} Results")
+        test_results, test_cm, test_preds = cnn_utils.evaluate(
+            data_loader[phase], 
+            model=model, 
+            criterion=criterion, 
+            device=device, 
+            pos_label=1,
+            class_names=[1, 0],
+            beta=beta,
+            phase=phase,
+            wandb=wandb, 
+            logging=logging
+        )
+        dataset = model_utils.load_data(config=c, attributes=["rurban", "iso"], verbose=False)
+        test_dataset = dataset[dataset.dataset == phase]
+        test_preds = pd.merge(test_dataset, test_preds, on='UID', how='inner')
+        test_preds.to_csv(os.path.join(exp_dir, f"{exp_name}_{phase}.csv"), index=False)
+        eval_utils.save_results(
+            test_preds, 
+            target="y_true", 
+            pred="y_preds", 
+            pos_class=1, 
+            classes=[1, 0], 
+            results_dir=os.path.join(exp_dir, phase),
+            prefix=phase
+        )
 
-    # Save results in experiment directory
-    eval_utils._save_files(test_results, test_cm, exp_dir)
+        for rurban in ["urban", "rural"]:
+            subtest_preds = test_preds[test_preds.rurban == rurban]
+            results = eval_utils.save_results(
+                subtest_preds, 
+                target="y_true",  
+                pred="y_preds", 
+                pos_class=1, 
+                classes=[1, 0], 
+                results_dir=os.path.join(exp_dir, phase, rurban), 
+                prefix=f"{phase}_{rurban}"
+            )
 
 
 if __name__ == "__main__":
@@ -156,5 +193,8 @@ if __name__ == "__main__":
         and ('file' not in key)
     }
     logging.info(log_c)
+
+    # Set wandb configs
+    wandb.init(project=c["project"], config=log_c)
 
     main(c)

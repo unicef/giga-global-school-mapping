@@ -35,7 +35,6 @@ import eval_utils
 import clf_utils
 import data_utils
 import model_utils
-
 SEED = 42
 
 # Add temporary fix for hash error: https://github.com/pytorch/vision/issues/7744
@@ -48,6 +47,10 @@ def get_state_dict(self, *args, **kwargs):
     kwargs.pop("check_hash")
     return load_state_dict_from_url(self.url, *args, **kwargs)
 WeightsEnum.get_state_dict = get_state_dict
+
+torch.manual_seed(SEED)
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(SEED)
 
     
 class SchoolDataset(Dataset):
@@ -151,7 +154,7 @@ def load_dataset(config, phases):
     
     dataset = model_utils.load_data(config, attributes=["rurban", "iso"], verbose=True)
     dataset["filepath"] = data_utils.get_image_filepaths(config, dataset)
-    classes_dict = {config["pos_class"] : 1, config["neg_class"]: 0}
+    classes_dict = {config["pos_class"] : 1, config["neg_class"] : 0}
 
     transforms = get_transforms(size=config["img_size"])
     classes = list(dataset["class"].unique())
@@ -182,7 +185,7 @@ def load_dataset(config, phases):
     return data, data_loader, classes
 
 
-def train(data_loader, model, criterion, optimizer, device, logging, pos_label, wandb=None):
+def train(data_loader, model, criterion, optimizer, device, logging, pos_label, beta, wandb=None):
     """
     Train the model on the provided data.
 
@@ -222,7 +225,7 @@ def train(data_loader, model, criterion, optimizer, device, logging, pos_label, 
             y_preds.extend(preds.data.cpu().numpy().tolist())
 
     epoch_loss = running_loss / len(data_loader)
-    epoch_results = eval_utils.evaluate(y_actuals, y_preds, pos_label)
+    epoch_results = eval_utils.evaluate(y_actuals, y_preds, pos_label, beta)
     epoch_results["loss"] = epoch_loss
 
     learning_rate = optimizer.param_groups[0]["lr"]
@@ -233,7 +236,7 @@ def train(data_loader, model, criterion, optimizer, device, logging, pos_label, 
     return epoch_results
 
 
-def evaluate(data_loader, class_names, model, criterion, device, logging, pos_label, wandb=None):
+def evaluate(data_loader, class_names, model, criterion, device, logging, pos_label, beta, phase, wandb=None):
     """
     Evaluate the model using the provided data.
 
@@ -276,14 +279,14 @@ def evaluate(data_loader, class_names, model, criterion, device, logging, pos_la
         y_uids.extend(uids)
 
     epoch_loss = running_loss / len(data_loader)
-    epoch_results = eval_utils.evaluate(y_actuals, y_preds, pos_label)
+    epoch_results = eval_utils.evaluate(y_actuals, y_preds, pos_label, beta)
     epoch_results["loss"] = epoch_loss
 
     confusion_matrix, cm_metrics, cm_report = eval_utils.get_confusion_matrix(
         y_actuals, y_preds, class_names
     )
     y_probs = [x[0] for x in y_probs]
-    logging.info(f"Val Loss: {epoch_loss} {epoch_results}")
+    logging.info(f"{phase.capitalize()} Loss: {epoch_loss} {epoch_results}")
     preds = pd.DataFrame({
         'UID': y_uids,
         'y_true': y_actuals, 
@@ -292,7 +295,7 @@ def evaluate(data_loader, class_names, model, criterion, device, logging, pos_la
     })
 
     if wandb is not None:
-        wandb.log({"val_" + k: v for k, v in epoch_results.items()})
+        wandb.log({f"{phase}_" + k: v for k, v in epoch_results.items()})
     return epoch_results, (confusion_matrix, cm_metrics, cm_report), preds
 
 
@@ -314,6 +317,14 @@ def get_transforms(size):
                 transforms.RandomApply([transforms.RandomRotation((90, 90))], p=0.5),
                 transforms.RandomHorizontalFlip(),
                 transforms.RandomVerticalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize(imagenet_mean, imagenet_std),
+            ]
+        ),
+        "val": transforms.Compose(
+            [
+                transforms.Resize(size),
+                transforms.CenterCrop(size),
                 transforms.ToTensor(),
                 transforms.Normalize(imagenet_mean, imagenet_std),
             ]

@@ -420,6 +420,7 @@ def generate_pred_tiles(config, iso_code, spacing, buffer_size, adm_level="ADM2"
         adm_level=adm_level, 
         shapename=shapename
     )
+    logging.info(shapename)
     points["points"] = points["geometry"]
     points["geometry"] = points.buffer(buffer_size, cap_style=3)
     points["UID"] = list(points.index)

@@ -220,7 +220,7 @@ def load_data(
 
 def _print_stats(data, attributes, test_size):
     total_size = len(data)
-    test_size = int(total_size * test_size)
+    test_size = int((total_size * test_size)/2)
     attributes = attributes + ["class"]
     value_counts = data.groupby(attributes)[attributes[-1]].value_counts()
     value_counts = pd.DataFrame(value_counts).reset_index()
@@ -232,7 +232,7 @@ def _print_stats(data, attributes, test_size):
     )
     subcounts.columns = attributes + ["dataset", "count"]
     subcounts["percentage"] = (
-        subcounts[subcounts.dataset == "test"]["count"] / test_size
+        subcounts[subcounts.dataset != "train"]["count"] / test_size
     )
     subcounts = subcounts.set_index(attributes + ["dataset"])
     logging.info(f'\n{subcounts.to_string()}')
@@ -256,12 +256,16 @@ def _print_stats(data, attributes, test_size):
         data.groupby(["dataset", "class"]).size().reset_index()
     )
     subcounts.columns = ["dataset", "class", "count"]
+    subcounts["percentage"] = (
+        subcounts["count"] / total_size
+    )
     subcounts = subcounts.set_index(["dataset", "class"])
     
     logging.info(f'\n{subcounts.to_string()}')
     logging.info(f'\n{data.dataset.value_counts()}')
+    logging.info(f'\n{data.dataset.value_counts(normalize=True)}')
     for attribute in attributes:
-        logging.info(f"\n{data[attribute].value_counts()}") 
+        if attribute != "iso": logging.info(f"\n{data[attribute].value_counts(normalize=True)}") 
 
 
 def _get_rurban_classification(config, data):
@@ -292,7 +296,7 @@ def _get_rurban_classification(config, data):
     return data
 
 
-def _train_test_split(data, test_size=0.8, attributes=["rurban"], verbose=True):
+def _train_test_split(data, test_size=0.2, attributes=["rurban"], verbose=True):
     """
     Splits the input data into training and test sets based on specified attributes.
 
@@ -311,7 +315,7 @@ def _train_test_split(data, test_size=0.8, attributes=["rurban"], verbose=True):
         
     data["dataset"] = None
     total_size = len(data)
-    test_size = int(total_size * test_size)
+    test_size = int((total_size * test_size)/2)
     logging.info(f"Data dimensions: {total_size}")
 
     test = data.copy()
@@ -330,6 +334,13 @@ def _train_test_split(data, test_size=0.8, attributes=["rurban"], verbose=True):
         ).UID.values
         in_test = data["UID"].isin(subtest_files)
         data.loc[in_test, "dataset"] = "test"
+        
+        subval_files = data[data.dataset != "test"].sample(
+            subtest_size, random_state=SEED
+        ).UID.values
+        in_val = data["UID"].isin(subval_files)
+        data.loc[in_val, "dataset"] = "val"
+        
     data.dataset = data.dataset.fillna("train")
 
     return data

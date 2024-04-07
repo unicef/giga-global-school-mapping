@@ -1,9 +1,11 @@
+project: "GIGAv1"
+beta: 0.5
 test_size: 0.2
 batch_size: 32
 n_workers: 4
 n_epochs: 60
 
-model: "convnext_small"
+model: "vgg16"
 pretrained: True
 scheduler: "ReduceLROnPlateau"
 optimizer: "Adam"
@@ -14,4 +16,4 @@ momentum:
 gamma: 
 step_size: 
 patience: 7
-dropout: 
+dropout:
