@@ -1,4 +1,6 @@
-embed_model: "esa_foundation_v1"
+embed_model: "esa_foundation_v2"
+project: "GIGAv1"
+beta: 0.5
 
 input_dim: 3
 depths: [2, 2, 3, 3, 4, 4]
@@ -18,6 +20,6 @@ scalers: ['MinMaxScaler', 'StandardScaler', 'RobustScaler']
 cv: "GridSearchCV"
 cv_params:
    cv: 5
-   refit: 'f1_score'
+   refit: 'fbeta_score_0.5'
    verbose: 1
    n_jobs: -1

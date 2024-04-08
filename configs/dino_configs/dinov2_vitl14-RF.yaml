@@ -1,0 +1,21 @@
+project: "GIGAv1"
+beta: 0.5
+embed_model: "dinov2_vitl14"
+test_size: 0.2
+image_size: 560
+model: 'RandomForestClassifier'
+model_params:
+    n_estimators: ['range', 100, 1000, 50]
+    criterion: ['gini', 'entropy']
+    max_depth: ['range', 3, 10]
+    bootstrap: [True, False]
+selector: 
+selector_params:
+scalers: ['MinMaxScaler', 'StandardScaler', 'RobustScaler']
+cv: "RandomizedSearchCV"
+cv_params:
+   cv: 5
+   n_iter: 50
+   refit: 'fbeta_score_0.5'
+   verbose: 1
+   n_jobs: -1
