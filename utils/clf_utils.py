@@ -24,8 +24,8 @@ from xgboost import XGBClassifier
 from sklearn.svm import LinearSVC, SVC, NuSVC
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.neural_network import MLPClassifier
-from sklearnex import patch_sklearn
-patch_sklearn()
+#from sklearnex import patch_sklearn
+#patch_sklearn()
 
 SEED = 42
 SCALERS = {
@@ -49,7 +49,7 @@ MODELS = {
     ),
     "SGDClassifier": SGDClassifier(random_state=SEED),
     "RidgeClassifier": RidgeClassifier(random_state=SEED),
-    "LinearSVC": LinearSVC(max_iter=1000, verbose=1, random_state=SEED),
+    "LinearSVC": LinearSVC(random_state=SEED, dual="auto"),
     "SVC": SVC(random_state=SEED),
     "NuSVC": NuSVC(random_state=SEED),
     "MLPClassifier": MLPClassifier(random_state=SEED),
