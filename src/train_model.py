@@ -31,6 +31,7 @@ def main(iso, config):
     embeddings = embed_utils.get_image_embeddings(config, data, model, out_dir, in_dir=None, columns=columns)
     embeddings.columns = [str(x) for x in embeddings.columns]
     embeddings = embeddings[[x for x in embeddings.columns if x not in columns[1:]]]
+    embeddings = embeddings.reset_index()
 
     # Temporary fix
     embeddings = pd.merge(embeddings, data[columns], on="UID", how="inner")
@@ -38,7 +39,7 @@ def main(iso, config):
     filename = os.path.join(out_dir, f"{iso}_{model.name}_embeds.csv")
     embeddings.to_csv(filename, index=False)
     
-    test = embeddings [embeddings.dataset == "test"]
+    test = embeddings[embeddings.dataset == "test"]
     train = embeddings[(embeddings.dataset == "train") | (embeddings.dataset == "val")]
     logging.info(train.columns)
 
