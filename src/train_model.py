@@ -30,14 +30,14 @@ def main(iso, config):
     out_dir = os.path.join(config["vectors_dir"], "embeddings")
     embeddings = embed_utils.get_image_embeddings(config, data, model, out_dir, in_dir=None, columns=columns)
     embeddings.columns = [str(x) for x in embeddings.columns]
-    embeddings = embeddings[[x for x in embeddings.columns if x not in columns[1:]]]
-    embeddings = embeddings.reset_index()
+    embeddings = embeddings.reset_index(drop=True)
 
     # Temporary fix
-    embeddings = pd.merge(embeddings, data[columns], on="UID", how="inner")
-    out_dir = data_utils._makedir(out_dir)
-    filename = os.path.join(out_dir, f"{iso}_{model.name}_embeds.csv")
-    embeddings.to_csv(filename, index=False)
+    #embeddings = embeddings[[x for x in embeddings.columns if x not in columns[1:]]]
+    #embeddings = pd.merge(embeddings, data[columns], on="UID", how="inner")
+    #out_dir = data_utils._makedir(out_dir)
+    #filename = os.path.join(out_dir, f"{iso}_{model.name}_embeds.csv")
+    #embeddings.to_csv(filename, index=False)
     
     test = embeddings[embeddings.dataset == "test"]
     train = embeddings[(embeddings.dataset == "train") | (embeddings.dataset == "val")]
@@ -47,7 +47,7 @@ def main(iso, config):
     logging.info(f"Train size: {train.shape}")
     
     target = "class"
-    features = [str(x) for x in embeddings.columns if x not in columns]
+    features = [str(x) for x in embeddings.columns if (x not in columns) and ('UID' not in x) ]
     classes = list(embeddings[target].unique())
     logging.info(f"No. of features: {len(features)}")
     logging.info(f"Classes: {classes}")
