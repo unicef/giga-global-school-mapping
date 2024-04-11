@@ -340,7 +340,7 @@ def vit_pred(data, config, iso_code, shapename, sat_dir, id_col="UID"):
 
     # Load shallow model
     exp_dir = os.path.join(cwd, config["exp_dir"], f"{iso_code}-{config['config_name']}")
-    model_file = os.path.join(exp_dir, f"{iso_code}-{config['config_name']}.pkl")
+    model_file = os.path.join(exp_dir, config["project"], f"{iso_code}-{config['config_name']}.pkl")
     model = joblib.load(model_file)
     logging.info(f"Loaded {model_file}")
 
