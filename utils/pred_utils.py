@@ -45,7 +45,7 @@ def cam_predict(iso_code, config, data, geotiff_dir, out_file):
     if os.path.exists(out_file):
         return gpd.read_file(out_file)
     
-    exp_dir = os.path.join(cwd, config["exp_dir"], f"{iso_code}_{config['config_name']}")
+    exp_dir = os.path.join(cwd, config["exp_dir"], config["project"], f"{iso_code}_{config['config_name']}")
     model_file = os.path.join(exp_dir, f"{iso_code}_{config['config_name']}.pth")
     model = load_cnn(config, classes, model_file, verbose=False).eval()
     
@@ -280,7 +280,7 @@ def cnn_predict(data, iso_code, shapename, config, in_dir=None, out_dir=None, n_
         return gpd.read_file(out_file)
     
     classes = {1: config["pos_class"], 0: config["neg_class"]}
-    exp_dir = os.path.join(cwd, config["exp_dir"], f"{iso_code}_{config['config_name']}")
+    exp_dir = os.path.join(cwd, config["exp_dir"], config["project"], f"{iso_code}_{config['config_name']}")
     model_file = os.path.join(exp_dir, f"{iso_code}_{config['config_name']}.pth")
     model = load_cnn(config, classes, model_file)
 
@@ -339,8 +339,8 @@ def vit_pred(data, config, iso_code, shapename, sat_dir, id_col="UID"):
     )
 
     # Load shallow model
-    exp_dir = os.path.join(cwd, config["exp_dir"], f"{iso_code}-{config['config_name']}")
-    model_file = os.path.join(exp_dir, f"{iso_code}-{config['config_name']}.pkl")
+    exp_dir = os.path.join(cwd, config["exp_dir"], config["project"], f"{iso_code}-{config['config_name']}")
+    model_file = os.path.join(exp_dir, config["project"], f"{iso_code}-{config['config_name']}.pkl")
     model = joblib.load(model_file)
     logging.info(f"Loaded {model_file}")
 
