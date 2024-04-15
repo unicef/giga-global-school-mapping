@@ -41,10 +41,7 @@ def main(c):
     phases = ["train", "val", "test"]
     data, data_loader, classes = cnn_utils.load_dataset(config=c, phases=phases)
     logging.info(f"Train/val/test sizes: {len(data['train'])}/{len(data['val'])}/{len(data['test'])}")
-    wandb.log({
-        f"{phase}_size": len(data['phase'])
-        for phase in ["train", "val", "test"]
-    })
+    wandb.log({f"{phase}_size": len(data[phase]) for phase in phases})
 
     # Load model, optimizer, and scheduler
     model, criterion, optimizer, scheduler = cnn_utils.load_model(
