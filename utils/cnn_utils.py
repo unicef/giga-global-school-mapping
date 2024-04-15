@@ -297,10 +297,7 @@ def evaluate(data_loader, class_names, model, criterion, device, logging, pos_la
         y_true, y_preds, class_names
     )
     logging.info(f"{phase.capitalize()} Loss: {epoch_loss} {epoch_results}")
-    print(y_uids)
-    print(y_true)
-    print(y_preds)
-    print(y_probs)
+    y_probs = [x[0] for x in y_probs]
     preds = pd.DataFrame({
         'UID': y_uids,
         'y_true': y_true, 
