@@ -241,7 +241,7 @@ def train(data_loader, model, criterion, optimizer, device, logging, pos_label, 
 
     learning_rate = optimizer.param_groups[0]["lr"]
     epoch_results = {"train_" + key: val for key, val in epoch_results.items()}
-    log_results = {key: val for key, val in epoch_results.items() if key[-1] != 's']
+    log_results = {key: val for key, val in epoch_results.items() if key[-1] != 's'}
     logging.info(f"Train: {log_results} LR: {learning_rate}")
 
     if wandb is not None:
@@ -307,7 +307,7 @@ def evaluate(data_loader, class_names, model, criterion, device, logging, pos_la
     preds = pd.DataFrame({'UID': y_uids, 'y_true': y_true, 'y_preds': y_preds, 'y_probs': y_probs})
 
     epoch_results = {f"{phase}_" + key: val for key, val in epoch_results.items()}
-    log_results = {key: val for key, val in epoch_results.items() if key[-1] != 's']
+    log_results = {key: val for key, val in epoch_results.items() if key[-1] != 's'}
     
     logging.info(f"{phase.capitalize()} {log_results}")
     if wandb is not None:
