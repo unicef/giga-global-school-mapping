@@ -220,7 +220,7 @@ def load_data(
 
 def _print_stats(data, attributes, test_size):
     total_size = len(data)
-    test_size = int((total_size * test_size)/2)
+    test_size = int((total_size * test_size))
     attributes = attributes + ["class"]
     value_counts = data.groupby(attributes)[attributes[-1]].value_counts()
     value_counts = pd.DataFrame(value_counts).reset_index()
@@ -317,7 +317,7 @@ def _train_test_split(data, test_size=0.2, attributes=["rurban"], verbose=True):
         
     data["dataset"] = None
     total_size = len(data)
-    test_size = int((total_size * test_size)/2)
+    test_size = int((total_size * test_size))
     logging.info(f"Data dimensions: {total_size}")
 
     test = data.copy()
