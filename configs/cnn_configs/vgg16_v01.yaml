@@ -16,5 +16,5 @@ img_size: 224
 momentum: 
 gamma: 
 step_size: 
-patience: 7
+patience: 5
 dropout:
