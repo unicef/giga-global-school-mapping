@@ -45,7 +45,7 @@ def main(c):
 
     # Load model, optimizer, and scheduler
     model, criterion, optimizer, scheduler = cnn_utils.load_model(
-        n_classes=len(classes),
+        n_classes=1,
         model_type=c["model"],
         pretrained=c["pretrained"],
         scheduler_type=c["scheduler"],
