@@ -88,8 +88,8 @@ def get_confusion_matrix(y_true, y_pred, class_names):
     - pandas DataFrame: A dataframe containing the precision,
             recall, and F1 score per class.
     """
-    y_true = [str(x) for x in y_true]
-    y_pred = [str(x) for x in y_pred]
+    y_true = [str(int(x)) for x in y_true]
+    y_pred = [str(int(x)) for x in y_pred]
     class_names = [str(x) for x in class_names]
 
     y_pred = pd.Series(y_pred, name="Predicted")
