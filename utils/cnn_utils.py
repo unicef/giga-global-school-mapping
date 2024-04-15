@@ -475,7 +475,7 @@ def load_model(
     
     model = get_model(model_type, n_classes, dropout)
     model = model.to(device)
-    criterion = nn.BCEWithLogitsLoss(label_smoothing=label_smoothing)
+    criterion = BCEWithLogitsLoss(label_smoothing=label_smoothing)
     #criterion = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
 
     if optimizer_type == "SGD":
