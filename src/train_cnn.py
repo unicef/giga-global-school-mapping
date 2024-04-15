@@ -113,7 +113,8 @@ def main(c):
             torch.save(model.state_dict(), model_file)
             
         logging.info(f"Best val {scorer}: {best_score}")
-        logging.info(f"Best scores: {best_results}")
+        log_results = {key: val for key, val in best_results.items() if key[-1] != 's'}
+        logging.info(f"Best scores: {log_results}")
 
         # Terminate if learning rate becomes too low
         learning_rate = optimizer.param_groups[0]["lr"]
@@ -132,6 +133,7 @@ def main(c):
     model_file = os.path.join(exp_dir, f"{exp_name}.pth")
     model.load_state_dict(torch.load(model_file, map_location=device))
     model = model.to(device)
+    threshold = best_results["optimal_threshold"]
 
     # Calculate test performance using best model
     final_results = {}
@@ -147,7 +149,7 @@ def main(c):
             beta=beta,
             phase=phase,
             wandb=wandb, 
-            threshold=best_results["best_threshold"],
+            threshold=threshold,
             logging=logging
         )
         final_results.update(test_results)
