@@ -225,6 +225,7 @@ def train(data_loader, model, criterion, optimizer, device, logging, pos_label, 
             y_probs.extend(probs.data.cpu().numpy().tolist())
 
     epoch_loss = running_loss / len(data_loader)
+    y_probs = [x[0] for x in y_probs]
     epoch_results = eval_utils.get_pr_auc(y_true, y_probs, pos_label)
     epoch_results = epoch_results | eval_utils.get_optimal_threshold(
         epoch_results["precision"], epoch_results["recall"], epoch_results["thresholds"], beta=beta
@@ -281,14 +282,14 @@ def evaluate(data_loader, class_names, model, criterion, device, logging, pos_la
         y_uids.extend(uids)
 
     epoch_loss = running_loss / len(data_loader)
+    y_probs = [x[0] for x in y_probs]
     epoch_results = eval_utils.get_pr_auc(y_true, y_probs, pos_label)
-
     if not threshold:
         epoch_results = epoch_results | eval_utils.get_optimal_threshold(
             epoch_results["precision"], epoch_results["recall"], epoch_results["thresholds"], beta=beta
         )
         threshold = epoch_results["best_threshold"]
-        
+
     y_preds = y_probs > threshold 
     epoch_results = epoch_results | eval_utils.evaluate(y_true, y_preds, pos_label, beta)
     epoch_results["loss"] = epoch_loss
@@ -297,11 +298,6 @@ def evaluate(data_loader, class_names, model, criterion, device, logging, pos_la
         y_true, y_preds, class_names
     )
     logging.info(f"{phase.capitalize()} Loss: {epoch_loss} {epoch_results}")
-    y_probs = [x[0] for x in y_probs]
-    print(y_uids[:5])
-    print(y_true[:5])
-    print(y_preds[:5])
-    print(y_probs[:5])
     preds = pd.DataFrame({
         'UID': y_uids,
         'y_true': y_true, 
