@@ -113,7 +113,7 @@ def main(c):
             torch.save(model.state_dict(), model_file)
             
         logging.info(f"Best val {scorer}: {best_score}")
-        log_results = {key: val for key, val in best_results.items() if key[-1] != 's'}
+        log_results = {key: val for key, val in best_results.items() if key[-1] != '_'}
         logging.info(f"Best scores: {log_results}")
 
         # Terminate if learning rate becomes too low

@@ -228,9 +228,9 @@ def train(data_loader, model, criterion, optimizer, device, logging, pos_label, 
     y_probs = [x[0] for x in y_probs]
     epoch_results = eval_utils.get_pr_auc(y_true, y_probs, pos_label)
     threshold = eval_utils.get_optimal_threshold(
-        epoch_results["precision_scores"], 
-        epoch_results["recall_scores"], 
-        epoch_results["thresholds"]
+        epoch_results["precision_scores_"], 
+        epoch_results["recall_scores_"], 
+        epoch_results["thresholds_"]
     )
     epoch_results["optimal_threshold"] = threshold
     
@@ -241,7 +241,7 @@ def train(data_loader, model, criterion, optimizer, device, logging, pos_label, 
 
     learning_rate = optimizer.param_groups[0]["lr"]
     epoch_results = {"train_" + key: val for key, val in epoch_results.items()}
-    log_results = {key: val for key, val in epoch_results.items() if key[-1] != 's'}
+    log_results = {key: val for key, val in epoch_results.items() if key[-1] != '_'}
     logging.info(f"Train: {log_results} LR: {learning_rate}")
 
     if wandb is not None:
@@ -292,9 +292,9 @@ def evaluate(data_loader, class_names, model, criterion, device, logging, pos_la
     epoch_results = eval_utils.get_pr_auc(y_true, y_probs, pos_label)
     if not threshold:
         threshold = eval_utils.get_optimal_threshold(
-            epoch_results["precision_scores"], 
-            epoch_results["recall_scores"], 
-            epoch_results["thresholds"]
+            epoch_results["precision_scores_"], 
+            epoch_results["recall_scores_"], 
+            epoch_results["thresholds_"]
         )
         epoch_results["optimal_threshold"] = threshold
 
@@ -307,7 +307,7 @@ def evaluate(data_loader, class_names, model, criterion, device, logging, pos_la
     preds = pd.DataFrame({'UID': y_uids, 'y_true': y_true, 'y_preds': y_preds, 'y_probs': y_probs})
 
     epoch_results = {f"{phase}_" + key: val for key, val in epoch_results.items()}
-    log_results = {key: val for key, val in epoch_results.items() if key[-1] != 's'}
+    log_results = {key: val for key, val in epoch_results.items() if key[-1] != '_'}
     
     logging.info(f"{phase.capitalize()} {log_results}")
     if wandb is not None:

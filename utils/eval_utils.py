@@ -148,9 +148,9 @@ def get_pr_auc(y_true, y_probs, pos_label):
     return {
         "pr_auc": pr_auc,
         "average_precision": ap,
-        "precision_scores": precisions,
-        "recall_scores": recalls,
-        "thresholds": thresholds,
+        "precision_scores_": precisions,
+        "recall_scores_": recalls,
+        "thresholds_": thresholds,
     }
 
 
