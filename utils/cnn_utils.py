@@ -204,7 +204,7 @@ def train(data_loader, model, criterion, optimizer, device, logging, pos_label, 
     
     model.train()
 
-    y_actuals, y_preds = [], []
+    y_actuals, y_probs = [], []
     running_loss = 0.0
     for inputs, labels, _ in tqdm(data_loader, total=len(data_loader)):
         inputs = inputs.to(device)
@@ -214,7 +214,7 @@ def train(data_loader, model, criterion, optimizer, device, logging, pos_label, 
 
         with torch.set_grad_enabled(True):
             outputs = model(inputs)
-            _, preds = torch.max(outputs, 1)
+            probs = torch.sigmoid(outputs)
             loss = criterion(outputs, labels)
 
             loss.backward()
@@ -222,10 +222,15 @@ def train(data_loader, model, criterion, optimizer, device, logging, pos_label, 
 
             running_loss += loss.item() * inputs.size(0)
             y_actuals.extend(labels.cpu().numpy().tolist())
-            y_preds.extend(preds.data.cpu().numpy().tolist())
+            y_probs.extend(probs.data.cpu().numpy().tolist())
 
     epoch_loss = running_loss / len(data_loader)
-    epoch_results = eval_utils.evaluate(y_actuals, y_preds, pos_label, beta)
+    epoch_results = eval_utils.auc(y_true, y_probs, pos_label)
+    epoch_results = epoch_results | eval_utils.get_optimal_threshold(
+        epoch_results["precision"], epoch_results["recall"], epoch_results["thresholds"]
+    )
+    y_preds = y_probs > epoch_results["best_threshold"]
+    epoch_results = epoch_results | eval_utils.evaluate(y_actuals, y_preds, pos_label, beta)
     epoch_results["loss"] = epoch_loss
 
     learning_rate = optimizer.param_groups[0]["lr"]
@@ -236,7 +241,7 @@ def train(data_loader, model, criterion, optimizer, device, logging, pos_label, 
     return epoch_results
 
 
-def evaluate(data_loader, class_names, model, criterion, device, logging, pos_label, beta, phase, wandb=None):
+def evaluate(data_loader, class_names, model, criterion, device, logging, pos_label, beta, phase, threshold=None, wandb=None):
     """
     Evaluate the model using the provided data.
 
@@ -257,7 +262,7 @@ def evaluate(data_loader, class_names, model, criterion, device, logging, pos_la
     
     model.eval()
 
-    y_uids, y_actuals, y_preds, y_probs = [], [], [], []
+    y_uids, y_actuals, y_probs = [], [], []
     running_loss = 0.0
     confusion_matrix = torch.zeros(len(class_names), len(class_names))
 
@@ -268,24 +273,29 @@ def evaluate(data_loader, class_names, model, criterion, device, logging, pos_la
         with torch.set_grad_enabled(False):
             outputs = model(inputs)
             _, preds = torch.max(outputs, 1)
-            soft_outputs = nnf.softmax(outputs, dim=1)
-            probs, _ = soft_outputs.topk(1, dim=1)
             loss = criterion(outputs, labels)
 
         running_loss += loss.item() * inputs.size(0)
         y_actuals.extend(labels.cpu().numpy().tolist())
-        y_preds.extend(preds.data.cpu().numpy().tolist())
         y_probs.extend(probs.data.cpu().numpy().tolist())
         y_uids.extend(uids)
 
     epoch_loss = running_loss / len(data_loader)
-    epoch_results = eval_utils.evaluate(y_actuals, y_preds, pos_label, beta)
+    epoch_results = eval_utils.auc(y_true, y_probs, pos_label)
+
+    if not threshold:
+        epoch_results = epoch_results | eval_utils.get_optimal_threshold(
+            epoch_results["precision"], epoch_results["recall"], epoch_results["thresholds"]
+        )
+        threshold = epoch_results["best_threshold"]
+        
+    y_preds = y_probs > threshold 
+    epoch_results = epoch_results | eval_utils.evaluate(y_actuals, y_preds, pos_label, beta)
     epoch_results["loss"] = epoch_loss
 
     confusion_matrix, cm_metrics, cm_report = eval_utils.get_confusion_matrix(
         y_actuals, y_preds, class_names
     )
-    y_probs = [x[0] for x in y_probs]
     logging.info(f"{phase.capitalize()} Loss: {epoch_loss} {epoch_results}")
     preds = pd.DataFrame({
         'UID': y_uids,
@@ -440,7 +450,8 @@ def load_model(
     
     model = get_model(model_type, n_classes, dropout)
     model = model.to(device)
-    criterion = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
+    criterion = nn.BCEWithLogitsLoss()
+    #criterion = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
 
     if optimizer_type == "SGD":
         optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum)

@@ -41,6 +41,10 @@ def main(c):
     phases = ["train", "val", "test"]
     data, data_loader, classes = cnn_utils.load_dataset(config=c, phases=phases)
     logging.info(f"Train/val/test sizes: {len(data['train'])}/{len(data['val'])}/{len(data['test'])}")
+    wandb.log({
+        f"{phase}_size": len(data['phase'])
+        for phase in ["train", "val", "test"]
+    })
 
     # Load model, optimizer, and scheduler
     model, criterion, optimizer, scheduler = cnn_utils.load_model(
@@ -66,14 +70,16 @@ def main(c):
     # Commence model training
     n_epochs = c["n_epochs"]
     beta = c["beta"]
+    scorer = c["scorer"]
     since = time.time()
     best_score = -1
+    best_results = None
 
     for epoch in range(1, n_epochs + 1):
         logging.info("\nEpoch {}/{}".format(epoch, n_epochs))
 
         # Train model
-        cnn_utils.train(
+        train_results = cnn_utils.train(
             data_loader["train"],
             model,
             criterion,
@@ -97,20 +103,20 @@ def main(c):
             wandb=wandb, 
             logging=logging
         )
-        scheduler.step(val_results[f"val_fbeta_score_{beta}"])
+        scheduler.step(val_results[f"val_{scorer}"])
 
         # Save best model so far
-        if val_results[f"val_fbeta_score_{beta}"] > best_score:
-            best_score = val_results[f"val_fbeta_score_{beta}"]
-            precision = val_results["val_precision_score"]
-            recall = val_results["val_recall_score"]
+        if val_results[f"val_{scorer}"] > best_score:
+            best_score = val_results[f"val_{scorer}"]
+            best_results = val_results
             best_weights = model.state_dict()
 
             eval_utils._save_files(val_results, val_cm, exp_dir)
             model_file = os.path.join(exp_dir, f"{exp_name}.pth")
             torch.save(model.state_dict(), model_file)
             
-        logging.info(f"Best Val Fbeta score: {best_score} Precision: {precision} Recall: {recall}")
+        logging.info(f"Best val {scorer}: {best_score}")
+        logging.info(f"Best scores: {best_results}")
 
         # Terminate if learning rate becomes too low
         learning_rate = optimizer.param_groups[0]["lr"]
@@ -144,6 +150,7 @@ def main(c):
             beta=beta,
             phase=phase,
             wandb=wandb, 
+            threshold=best_results["best_threshold"],
             logging=logging
         )
         final_results.update(test_results)

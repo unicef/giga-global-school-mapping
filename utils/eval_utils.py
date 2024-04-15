@@ -15,6 +15,9 @@ from sklearn.metrics import (
     f1_score,
     fbeta_score,
     classification_report,
+    precision_recall_curve, 
+    average_precision_score,
+    auc
 )
 
 json.fallback_table[np.ndarray] = lambda array: array.tolist()
@@ -135,6 +138,30 @@ def _get_metrics(cm, class_names):
     metrics = pd.DataFrame(metrics).T
 
     return metrics
+
+
+def auc(y_true, y_probs, pos_label):
+    precisions, recalls, thresholds = precision_recall_curve(y_true, y_probs, pos_label=pos_label)
+    pr_auc = auc(recalls, precisions)
+    ap = average_precision_score(y_true, y_probs)
+    
+    return {
+        "pr_auc": pr_auc,
+        "average_precision": ap,
+        "precision": precisions,
+        "recall": recalls,
+        "thresholds": thresholds,
+    }
+
+
+def get_optimal_threshold(precisions, recalls, thresholds):
+    f1_scores = 2 * recalls * precisions / (recalls + precisions)
+    best_threshold = thresholds[np.argmax(f1_scores)]
+    best_f1_score = np.max(f1_scores)
+    return {
+        "best_threshold": best_threshold,
+        "best_f1_score": best_f1_score
+    }
 
 
 def evaluate(y_true, y_pred, pos_label, beta=0.5):
