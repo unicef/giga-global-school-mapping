@@ -209,6 +209,7 @@ def train(data_loader, model, criterion, optimizer, device, logging, pos_label, 
     for inputs, labels, _ in tqdm(data_loader, total=len(data_loader)):
         inputs = inputs.to(device)
         labels = labels.float().to(device)
+        print(labels.shape)
 
         optimizer.zero_grad()
 
@@ -269,7 +270,6 @@ def evaluate(data_loader, class_names, model, criterion, device, logging, pos_la
     for inputs, labels, uids in tqdm(data_loader, total=len(data_loader)):
         inputs = inputs.to(device)
         labels = labels.float().to(device)
-        print(labels.shape)
 
         with torch.set_grad_enabled(False):
             outputs = model(inputs)
