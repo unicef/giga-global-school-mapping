@@ -103,7 +103,13 @@ def main(c):
         scheduler.step(val_results[f"val_loss"])
 
         # Save best model so far
-        if val_results[f"val_{scorer}"] > best_score:
+        if (
+            val_results[f"val_{scorer}"] > best_score 
+            or (
+                val_results[f"val_{scorer}"] == best_score 
+                and val_results["val_loss"] < best_results["val_loss"]
+            )
+        ):
             best_score = val_results[f"val_{scorer}"]
             best_results = val_results
             best_weights = model.state_dict()
