@@ -204,7 +204,7 @@ def train(data_loader, model, criterion, optimizer, device, logging, pos_label, 
     
     model.train()
 
-    y_actuals, y_probs = [], []
+    y_true, y_probs = [], []
     running_loss = 0.0
     for inputs, labels, _ in tqdm(data_loader, total=len(data_loader)):
         inputs = inputs.to(device)
@@ -221,7 +221,7 @@ def train(data_loader, model, criterion, optimizer, device, logging, pos_label, 
             optimizer.step()
 
             running_loss += loss.item() * inputs.size(0)
-            y_actuals.extend(labels.cpu().numpy().tolist())
+            y_true.extend(labels.cpu().numpy().tolist())
             y_probs.extend(probs.data.cpu().numpy().tolist())
 
     epoch_loss = running_loss / len(data_loader)
@@ -230,7 +230,7 @@ def train(data_loader, model, criterion, optimizer, device, logging, pos_label, 
         epoch_results["precision"], epoch_results["recall"], epoch_results["thresholds"]
     )
     y_preds = y_probs > epoch_results["best_threshold"]
-    epoch_results = epoch_results | eval_utils.evaluate(y_actuals, y_preds, pos_label, beta)
+    epoch_results = epoch_results | eval_utils.evaluate(y_true, y_preds, pos_label, beta)
     epoch_results["loss"] = epoch_loss
 
     learning_rate = optimizer.param_groups[0]["lr"]
@@ -262,7 +262,7 @@ def evaluate(data_loader, class_names, model, criterion, device, logging, pos_la
     
     model.eval()
 
-    y_uids, y_actuals, y_probs = [], [], []
+    y_uids, y_true, y_probs = [], [], []
     running_loss = 0.0
     confusion_matrix = torch.zeros(len(class_names), len(class_names))
 
@@ -276,7 +276,7 @@ def evaluate(data_loader, class_names, model, criterion, device, logging, pos_la
             loss = criterion(outputs, labels.unsqueeze(1))
 
         running_loss += loss.item() * inputs.size(0)
-        y_actuals.extend(labels.cpu().numpy().tolist())
+        y_true.extend(labels.cpu().numpy().tolist())
         y_probs.extend(probs.data.cpu().numpy().tolist())
         y_uids.extend(uids)
 
@@ -290,16 +290,16 @@ def evaluate(data_loader, class_names, model, criterion, device, logging, pos_la
         threshold = epoch_results["best_threshold"]
         
     y_preds = y_probs > threshold 
-    epoch_results = epoch_results | eval_utils.evaluate(y_actuals, y_preds, pos_label, beta)
+    epoch_results = epoch_results | eval_utils.evaluate(y_true, y_preds, pos_label, beta)
     epoch_results["loss"] = epoch_loss
 
     confusion_matrix, cm_metrics, cm_report = eval_utils.get_confusion_matrix(
-        y_actuals, y_preds, class_names
+        y_true, y_preds, class_names
     )
     logging.info(f"{phase.capitalize()} Loss: {epoch_loss} {epoch_results}")
     preds = pd.DataFrame({
         'UID': y_uids,
-        'y_true': y_actuals, 
+        'y_true': y_true, 
         'y_preds': y_preds, 
         'y_probs': y_probs
     })
