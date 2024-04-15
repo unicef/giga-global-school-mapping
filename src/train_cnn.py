@@ -100,7 +100,7 @@ def main(c):
             wandb=wandb, 
             logging=logging
         )
-        scheduler.step(val_results[f"val_{scorer}"])
+        scheduler.step(val_results[f"val_loss"])
 
         # Save best model so far
         if val_results[f"val_{scorer}"] > best_score:
@@ -118,7 +118,7 @@ def main(c):
 
         # Terminate if learning rate becomes too low
         learning_rate = optimizer.param_groups[0]["lr"]
-        if learning_rate < 1e-10:
+        if learning_rate < 1e-8:
             break
 
     # Terminate trackers
