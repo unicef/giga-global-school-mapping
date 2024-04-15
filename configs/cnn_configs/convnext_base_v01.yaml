@@ -1,9 +1,9 @@
-project: "GIGAv1"
-beta: 0.5
-test_size: 0.2
+project: "GIGAv2"
+test_size: 0.10
 batch_size: 32
 n_workers: 4
 n_epochs: 60
+beta: 0.5
 
 model: "convnext_base"
 pretrained: True
