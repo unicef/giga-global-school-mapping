@@ -156,11 +156,11 @@ def get_pr_auc(y_true, y_probs, pos_label):
 
 def get_optimal_threshold(precisions, recalls, thresholds, beta=0.5):
     fscores = ((1 + beta**2) * recalls * precisions) / (((beta**2) * precisions) + (recalls))
-    best_threshold = thresholds[np.argmax(f1_scores)]
-    best_f1_score = np.max(f1_scores)
+    best_threshold = thresholds[np.argmax(fscores)]
+    best_fscore = np.max(fscores)
     return {
         "best_threshold": best_threshold,
-        "best_fscore": best_f1_score * 100
+        "best_fscore": best_fscore * 100
     }
 
 
