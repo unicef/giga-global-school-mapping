@@ -224,21 +224,28 @@ def train(data_loader, model, criterion, optimizer, device, logging, pos_label, 
             y_true.extend(labels.cpu().numpy().tolist())
             y_probs.extend(probs.data.cpu().numpy().tolist())
 
-    epoch_loss = running_loss / len(data_loader)
+    
     y_probs = [x[0] for x in y_probs]
     epoch_results = eval_utils.get_pr_auc(y_true, y_probs, pos_label)
-    epoch_results = epoch_results | eval_utils.get_optimal_threshold(
-        epoch_results["precision"], epoch_results["recall"], epoch_results["thresholds"], beta=beta
+    threshold = eval_utils.get_optimal_threshold(
+        epoch_results["precision_scores"], 
+        epoch_results["recall_scores"], 
+        epoch_results["thresholds"]
     )
-    y_preds = y_probs > epoch_results["best_threshold"]
+    epoch_results["optimal_threshold"] = threshold
+    
+    y_preds = y_probs > threshold
     epoch_results = epoch_results | eval_utils.evaluate(y_true, y_preds, pos_label, beta)
+    epoch_loss = running_loss / len(data_loader)
     epoch_results["loss"] = epoch_loss
 
     learning_rate = optimizer.param_groups[0]["lr"]
-    logging.info(f"Train Loss: {epoch_loss} {epoch_results} LR: {learning_rate}")
+    epoch_results = {"train_" + key: val for key, val in epoch_results.items()}
+    log_results = {key: val for key, val in epoch_results.items() if key[-1] != 's']
+    logging.info(f"Train: {log_results} LR: {learning_rate}")
 
     if wandb is not None:
-        wandb.log({"train_" + k: v for k, v in epoch_results.items()})
+        wandb.log(log_results)
     return epoch_results
 
 
@@ -280,34 +287,32 @@ def evaluate(data_loader, class_names, model, criterion, device, logging, pos_la
         y_true.extend(labels.cpu().numpy().tolist())
         y_probs.extend(probs.data.cpu().numpy().tolist())
         y_uids.extend(uids)
-
-    epoch_loss = running_loss / len(data_loader)
+    
     y_probs = [x[0] for x in y_probs]
     epoch_results = eval_utils.get_pr_auc(y_true, y_probs, pos_label)
     if not threshold:
-        epoch_results = epoch_results | eval_utils.get_optimal_threshold(
-            epoch_results["precision"], epoch_results["recall"], epoch_results["thresholds"], beta=beta
+        threshold = eval_utils.get_optimal_threshold(
+            epoch_results["precision_scores"], 
+            epoch_results["recall_scores"], 
+            epoch_results["thresholds"]
         )
-        threshold = epoch_results["best_threshold"]
+        epoch_results["optimal_threshold"] = threshold
 
     y_preds = y_probs > threshold 
     epoch_results = epoch_results | eval_utils.evaluate(y_true, y_preds, pos_label, beta)
+    epoch_loss = running_loss / len(data_loader)
     epoch_results["loss"] = epoch_loss
 
-    confusion_matrix, cm_metrics, cm_report = eval_utils.get_confusion_matrix(
-        y_true, y_preds, class_names
-    )
-    logging.info(f"{phase.capitalize()} Loss: {epoch_loss} {epoch_results}")
-    preds = pd.DataFrame({
-        'UID': y_uids,
-        'y_true': y_true, 
-        'y_preds': y_preds, 
-        'y_probs': y_probs
-    })
+    confusion_matrix, cm_metrics, cm_report = eval_utils.get_confusion_matrix(y_true, y_preds, class_names)
+    preds = pd.DataFrame({'UID': y_uids, 'y_true': y_true, 'y_preds': y_preds, 'y_probs': y_probs})
 
-    epoch_results = {f"{phase}_" + k: v for k, v in epoch_results.items()}
+    epoch_results = {f"{phase}_" + key: val for key, val in epoch_results.items()}
+    log_results = {key: val for key, val in epoch_results.items() if key[-1] != 's']
+    
+    logging.info(f"{phase.capitalize()} {log_results}")
     if wandb is not None:
-        wandb.log(epoch_results)
+        wandb.log(log_results)
+        
     return epoch_results, (confusion_matrix, cm_metrics, cm_report), preds
 
 
