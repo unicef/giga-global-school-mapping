@@ -227,7 +227,7 @@ def train(data_loader, model, criterion, optimizer, device, logging, pos_label, 
     epoch_loss = running_loss / len(data_loader)
     epoch_results = eval_utils.get_pr_auc(y_true, y_probs, pos_label)
     epoch_results = epoch_results | eval_utils.get_optimal_threshold(
-        epoch_results["precision"], epoch_results["recall"], epoch_results["thresholds"]
+        epoch_results["precision"], epoch_results["recall"], epoch_results["thresholds"], beta=beta
     )
     y_preds = y_probs > epoch_results["best_threshold"]
     epoch_results = epoch_results | eval_utils.evaluate(y_true, y_preds, pos_label, beta)
@@ -285,7 +285,7 @@ def evaluate(data_loader, class_names, model, criterion, device, logging, pos_la
 
     if not threshold:
         epoch_results = epoch_results | eval_utils.get_optimal_threshold(
-            epoch_results["precision"], epoch_results["recall"], epoch_results["thresholds"]
+            epoch_results["precision"], epoch_results["recall"], epoch_results["thresholds"], beta=beta
         )
         threshold = epoch_results["best_threshold"]
         
