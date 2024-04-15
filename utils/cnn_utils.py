@@ -417,6 +417,25 @@ def get_model(model_type, n_classes, dropout=0):
     return model
 
 
+class BCEWithLogitsLoss(nn.Module):
+    def __init__(self, label_smoothing=0.0, reduction='mean'):
+        super(BCEWithLogitsLoss, self).__init__()
+        assert 0 <= label_smoothing < 1, "label_smoothing value must be between 0 and 1."
+        self.label_smoothing = label_smoothing
+        self.reduction = reduction
+        self.bce_with_logits = nn.BCEWithLogitsLoss(reduction=reduction)
+
+    def forward(self, input, target):
+        if self.label_smoothing > 0:
+            positive_smoothed_labels = 1.0 - self.label_smoothing
+            negative_smoothed_labels = self.label_smoothing
+            target = target * positive_smoothed_labels + \
+                (1 - target) * negative_smoothed_labels
+
+        loss = self.bce_with_logits(input, target)
+        return loss
+
+
 def load_model(
     model_type,
     n_classes,
@@ -456,7 +475,7 @@ def load_model(
     
     model = get_model(model_type, n_classes, dropout)
     model = model.to(device)
-    criterion = nn.BCEWithLogitsLoss()
+    criterion = nn.BCEWithLogitsLoss(label_smoothing=label_smoothing)
     #criterion = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
 
     if optimizer_type == "SGD":
