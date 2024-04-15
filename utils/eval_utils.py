@@ -140,7 +140,7 @@ def _get_metrics(cm, class_names):
     return metrics
 
 
-def auc(y_true, y_probs, pos_label):
+def get_pr_auc(y_true, y_probs, pos_label):
     precisions, recalls, thresholds = precision_recall_curve(y_true, y_probs, pos_label=pos_label)
     pr_auc = auc(recalls, precisions)
     ap = average_precision_score(y_true, y_probs)
