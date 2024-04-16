@@ -139,53 +139,57 @@ def main(c):
     model_file = os.path.join(exp_dir, f"{exp_name}.pth")
     model.load_state_dict(torch.load(model_file, map_location=device))
     model = model.to(device)
-    threshold = best_results["val_threshold"]
+    thresholds = [0.5, best_results["val_threshold"]]
+    suffixes = ["default", "optim"]
 
     # Calculate test performance using best model
     final_results = {}
-    for phase in ['val', 'test']:    
-        logging.info(f"\n{phase.capitalize()} Results")
-        test_results, test_cm, test_preds = cnn_utils.evaluate(
-            data_loader[phase], 
-            model=model, 
-            criterion=criterion, 
-            device=device, 
-            pos_label=1,
-            class_names=[1, 0],
-            beta=beta,
-            phase=phase,
-            wandb=wandb, 
-            threshold=threshold,
-            logging=logging
-        )
-        final_results.update(test_results)
-        
-        dataset = model_utils.load_data(config=c, attributes=["rurban", "iso"], verbose=False)
-        test_dataset = dataset[dataset.dataset == phase]
-        test_preds = pd.merge(test_dataset, test_preds, on='UID', how='inner')
-        test_preds.to_csv(os.path.join(exp_dir, f"{exp_name}_{phase}.csv"), index=False)
-        eval_utils.save_results(
-            test_preds, 
-            target="y_true", 
-            prob="y_probs",
-            pred="y_preds", 
-            pos_class=1, 
-            classes=[1, 0], 
-            results_dir=os.path.join(exp_dir, phase),
-            prefix=phase
-        )
-
-        for rurban in ["urban", "rural"]:
-            subtest_preds = test_preds[test_preds.rurban == rurban]
-            results = eval_utils.save_results(
-                subtest_preds, 
-                target="y_true",  
+    for threshold, suffix in zip(thresholds, suffixes):
+        for phase in ['val', 'test']:    
+            logging.info(f"\n{phase.capitalize()} Results")
+            test_results, test_cm, test_preds = cnn_utils.evaluate(
+                data_loader[phase], 
+                model=model, 
+                criterion=criterion, 
+                device=device, 
+                pos_label=1,
+                class_names=[1, 0],
+                beta=beta,
+                phase=phase,
+                wandb=wandb, 
+                threshold=threshold,
+                logging=logging
+            )
+            final_results.update(test_results)
+            
+            dataset = model_utils.load_data(config=c, attributes=["rurban", "iso"], verbose=False)
+            test_dataset = dataset[dataset.dataset == phase]
+            test_preds = pd.merge(test_dataset, test_preds, on='UID', how='inner')
+            test_preds.to_csv(os.path.join(exp_dir, f"{exp_name}_{phase}.csv"), index=False)
+            eval_utils.save_results(
+                test_preds, 
+                target="y_true", 
                 prob="y_probs",
                 pred="y_preds", 
                 pos_class=1, 
                 classes=[1, 0], 
-                results_dir=os.path.join(exp_dir, phase, rurban), 
-                prefix=f"{phase}_{rurban}"
+                results_dir=os.path.join(exp_dir, phase),
+                prefix=phase,
+                suffix=suffix
+            )
+    
+            for rurban in ["urban", "rural"]:
+                subtest_preds = test_preds[test_preds.rurban == rurban]
+                results = eval_utils.save_results(
+                    subtest_preds, 
+                    target="y_true",  
+                    prob="y_probs",
+                    pred="y_preds", 
+                    pos_class=1, 
+                    classes=[1, 0], 
+                    results_dir=os.path.join(exp_dir, phase, rurban), 
+                    prefix=f"{phase}_{rurban}"
+                    suffix=suffix
             )
 
     return final_results    

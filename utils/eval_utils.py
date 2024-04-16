@@ -55,6 +55,7 @@ def save_results(
     pred="pred", 
     beta=0.5, 
     prefix=None, 
+    suffix=None,
     log=True
 ):
     """
@@ -80,6 +81,8 @@ def save_results(
     
     if prefix: 
         log_results = {f"{prefix}_{key}": val for key, val in log_results.items()}
+    if suffix: 
+        log_results = {f"{key}_{suffix}": val for key, val in log_results.items()}
     if log: 
         logging.info(log_results)
         wandb.log(log_results)
@@ -186,7 +189,7 @@ def evaluate(y_true, y_pred, pos_label, beta=0.5):
     """
 
     return {
-        f"fbeta_score_{beta}": fbeta_score(
+        "fbeta_score": fbeta_score(
             y_true, y_pred, beta=beta, pos_label=pos_label, average="binary", zero_division=0
         ) * 100,
         "f1_score": f1_score(
@@ -205,4 +208,4 @@ def evaluate(y_true, y_pred, pos_label, beta=0.5):
 
 def get_scoring(pos_label, beta=0.5):
     """Returns the dictionary of scorer objects."""
-    return {f"fbeta_score_{beta}": make_scorer(fbeta_score, beta=beta, pos_label=pos_label, average="binary")}
+    return {"fbeta_score": make_scorer(fbeta_score, beta=beta, pos_label=pos_label, average="binary")}
