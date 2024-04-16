@@ -79,7 +79,7 @@ def save_results(
     _save_files(results, cm, results_dir)
     
     if prefix: 
-        results = {f"{prefix}_{key}": val for key, val in results.items()}
+        log_results = {f"{prefix}_{key}": val for key, val in log_results.items()}
     if log: 
         logging.info(log_results)
         wandb.log(log_results)
