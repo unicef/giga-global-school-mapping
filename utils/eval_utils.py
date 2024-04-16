@@ -140,22 +140,24 @@ def _get_metrics(cm, class_names):
     return metrics
 
 
-def get_pr_auc(y_true, y_probs, pos_label):
-    precisions, recalls, thresholds = precision_recall_curve(y_true, y_probs, pos_label=pos_label)
-    pr_auc = auc(recalls, precisions)
+def get_auprc(y_true, y_probs, pos_label):
+    precision, recall, thresholds = precision_recall_curve(y_true, y_probs, pos_label=pos_label)
+    auprc = auc(recall, precision)
     ap = average_precision_score(y_true, y_probs)
     
     return {
-        "pr_auc": pr_auc,
-        "average_precision": ap,
-        "precision_scores_": precisions,
-        "recall_scores_": recalls,
+        "auprc": auprc,
+        "ap": ap,
+        "precision_scores_": precision,
+        "recall_scores_": recall,
         "thresholds_": thresholds,
     }
 
 
-def get_optimal_threshold(precisions, recalls, thresholds):
-    fscores = 2*recalls*precisions/(recalls+precisions)
+def get_optimal_threshold(precision, recall, thresholds):
+    numerator = 2 * recall * precision
+    denom = recall + precision
+    fscores = np.divide(numerator, denom, out=np.zeros_like(denom), where=(denom!=0))
     threshold = thresholds[np.argmax(fscores)]
     return threshold
 
