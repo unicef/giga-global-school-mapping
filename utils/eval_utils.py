@@ -74,14 +74,15 @@ def save_results(
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
     results = get_auprc(test[target], test[prob], pos_class) | evaluate(test[target], test[pred], pos_class, beta)
+    log_results = {key: val for key, val in results.items() if key[-1] != '_'}
     cm = get_confusion_matrix(test[target], test[pred], classes)
     _save_files(results, cm, results_dir)
     
     if prefix: 
         results = {f"{prefix}_{key}": val for key, val in results.items()}
     if log: 
-        logging.info(results)
-        wandb.log(results)
+        logging.info(log_results)
+        wandb.log(log_results)
     return results
 
 
