@@ -230,7 +230,8 @@ def train(data_loader, model, criterion, optimizer, device, logging, pos_label, 
     threshold = eval_utils.get_optimal_threshold(
         epoch_results["precision_scores_"], 
         epoch_results["recall_scores_"], 
-        epoch_results["thresholds_"]
+        epoch_results["thresholds_"],
+        beta
     )
     epoch_results["threshold"] = threshold
     
@@ -294,7 +295,8 @@ def evaluate(data_loader, class_names, model, criterion, device, logging, pos_la
         threshold = eval_utils.get_optimal_threshold(
             epoch_results["precision_scores_"], 
             epoch_results["recall_scores_"], 
-            epoch_results["thresholds_"]
+            epoch_results["thresholds_"],
+            beta
         )
         epoch_results["threshold"] = threshold
 
