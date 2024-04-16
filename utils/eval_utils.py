@@ -73,7 +73,7 @@ def save_results(
     """
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
-    results = get_auprc(test[target], test[prob], pos_label) | evaluate(test[target], test[pred], pos_class, beta)
+    results = get_auprc(test[target], test[prob], pos_class) | evaluate(test[target], test[pred], pos_class, beta)
     cm = get_confusion_matrix(test[target], test[pred], classes)
     _save_files(results, cm, results_dir)
     
