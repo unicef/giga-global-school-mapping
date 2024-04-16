@@ -188,7 +188,7 @@ def main(c):
                     pos_class=1, 
                     classes=[1, 0], 
                     results_dir=os.path.join(exp_dir, phase, rurban), 
-                    prefix=f"{phase}_{rurban}"
+                    prefix=f"{phase}_{rurban}",
                     suffix=suffix
             )
 
