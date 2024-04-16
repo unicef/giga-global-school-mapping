@@ -143,8 +143,8 @@ def main(c):
     suffixes = ["default", "optim"]
 
     # Calculate test performance using best model
-    final_results = {}
     for threshold, suffix in zip(thresholds, suffixes):
+        final_results = {}
         for phase in ['val', 'test']:    
             logging.info(f"\n{phase.capitalize()} Results")
             test_results, test_cm, test_preds = cnn_utils.evaluate(

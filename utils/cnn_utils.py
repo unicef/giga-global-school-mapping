@@ -300,7 +300,7 @@ def evaluate(data_loader, class_names, model, criterion, device, logging, pos_la
         )
         epoch_results["threshold"] = threshold
 
-    y_preds = y_probs > threshold 
+    y_preds = np.array(y_probs) > threshold 
     epoch_results = epoch_results | eval_utils.evaluate(y_true, y_preds, pos_label, beta)
     epoch_loss = running_loss / len(data_loader)
     epoch_results["loss"] = epoch_loss
