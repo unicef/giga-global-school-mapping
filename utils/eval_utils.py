@@ -168,7 +168,7 @@ def get_auprc(y_true, y_probs, pos_label):
 
 def get_optimal_threshold(precision, recall, thresholds, beta=0.5):
     numerator = (1 + beta**2) * precision * recall
-    denom = (beta**2 + precision) + recall
+    denom = ((beta**2) * precision) + recall
     fscores = np.divide(numerator, denom, out=np.zeros_like(denom), where=(denom!=0))
     threshold = thresholds[np.argmax(fscores)]
     return threshold
