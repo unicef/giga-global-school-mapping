@@ -309,7 +309,7 @@ def evaluate(data_loader, class_names, model, criterion, device, logging, pos_la
     epoch_results = {f"{phase}_" + key: val for key, val in epoch_results.items()}
     log_results = {key: val for key, val in epoch_results.items() if key[-1] != '_'}
     
-    logging.info(f"{phase.capitalize()} {log_results}")
+    logging.info(f"{phase.capitalize()}: {log_results}")
     if wandb is not None:
         wandb.log(log_results)
         

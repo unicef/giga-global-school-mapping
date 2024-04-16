@@ -167,6 +167,7 @@ def main(c):
         eval_utils.save_results(
             test_preds, 
             target="y_true", 
+            prob="y_probs",
             pred="y_preds", 
             pos_class=1, 
             classes=[1, 0], 
@@ -179,6 +180,7 @@ def main(c):
             results = eval_utils.save_results(
                 subtest_preds, 
                 target="y_true",  
+                prob="y_probs",
                 pred="y_preds", 
                 pos_class=1, 
                 classes=[1, 0], 

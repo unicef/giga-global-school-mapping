@@ -45,7 +45,18 @@ def _save_files(results, cm, exp_dir):
     open(os.path.join(exp_dir, "cm_report.log"), "a").write(cm[2])
 
 
-def save_results(test, target, pos_class, classes, results_dir, pred="pred", beta=0.5, prefix=None, log=True):
+def save_results(
+    test, 
+    target, 
+    pos_class, 
+    classes, 
+    results_dir, 
+    prob="prob", 
+    pred="pred", 
+    beta=0.5, 
+    prefix=None, 
+    log=True
+):
     """
     Save evaluation results and confusion matrix to the specified directory.
 
@@ -62,7 +73,7 @@ def save_results(test, target, pos_class, classes, results_dir, pred="pred", bet
     """
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
-    results = evaluate(test[target], test[pred], pos_class, beta)
+    results = get_auprc(test[target], test[prob], pos_label) | evaluate(test[target], test[pred], pos_class, beta)
     cm = get_confusion_matrix(test[target], test[pred], classes)
     _save_files(results, cm, results_dir)
     
@@ -146,8 +157,8 @@ def get_auprc(y_true, y_probs, pos_label):
     ap = average_precision_score(y_true, y_probs)
     
     return {
-        "auprc": auprc,
         "ap": ap,
+        "auprc": auprc,
         "precision_scores_": precision,
         "recall_scores_": recall,
         "thresholds_": thresholds,
