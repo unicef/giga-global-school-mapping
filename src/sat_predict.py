@@ -20,7 +20,7 @@ from torchcam.methods import LayerCAM
 
 logging.basicConfig(level=logging.INFO)
 
-os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:256"
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:1024"
 
 
 def main(args):
