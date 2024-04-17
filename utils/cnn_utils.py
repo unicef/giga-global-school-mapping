@@ -331,7 +331,7 @@ def evaluate(
 
     epoch_loss = running_loss / len(data_loader)
     epoch_results["loss"] = epoch_loss
-    epoch_results = {f"{phase}_{key}": val for key, val in results.items()}
+    epoch_results = {f"{phase}_{key}": val for key, val in epoch_results.items()}
 
     thresholds = [default_threshold, threshold]
     suffixes = ["default", "optim"]
@@ -339,9 +339,7 @@ def evaluate(
     for threshold, suffix in zip(thresholds, suffixes):
         y_preds = np.array(y_probs) > threshold 
         results = eval_utils.evaluate(y_true, y_preds, pos_label, beta)
-        cm = eval_utils.get_confusion_matrix(
-            y_true, y_preds, class_names
-        )
+        cm = eval_utils.get_confusion_matrix(y_true, y_preds, class_names)
         results = {f"{phase}_{key}_{suffix}": val for key, val in results.items()}
         preds[f"y_preds_{suffix}"] = y_preds
         cms[{suffix}] = cm
