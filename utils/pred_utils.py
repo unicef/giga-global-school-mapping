@@ -40,7 +40,7 @@ def cam_predict(iso_code, config, data, geotiff_dir, out_file, n_classes=1):
     cwd = os.path.dirname(os.getcwd())
     classes = {1: config["pos_class"], 0: config["neg_class"]}
 
-    out_dir = os.path.join(cwd, "output", iso_code, "results")
+    out_dir = os.path.join(cwd, "output", iso_code, "results", config["project"])
     out_file = os.path.join(out_dir, out_file)
     if os.path.exists(out_file):
         return gpd.read_file(out_file)
