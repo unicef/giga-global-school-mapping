@@ -36,7 +36,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 logging.basicConfig(level=logging.INFO)
 
 
-def cam_predict(iso_code, config, data, geotiff_dir, out_file):
+def cam_predict(iso_code, config, data, geotiff_dir, out_file, n_classes=1):
     cwd = os.path.dirname(os.getcwd())
     classes = {1: config["pos_class"], 0: config["neg_class"]}
 
@@ -47,7 +47,7 @@ def cam_predict(iso_code, config, data, geotiff_dir, out_file):
     
     exp_dir = os.path.join(cwd, config["exp_dir"], config["project"], f"{iso_code}_{config['config_name']}")
     model_file = os.path.join(exp_dir, f"{iso_code}_{config['config_name']}.pth")
-    model = load_cnn(config, classes, model_file, verbose=False).eval()
+    model = load_cnn(config, n_classes, model_file, verbose=False).eval()
     
     cam_extractor = LayerCAM(model)
     results = generate_cam_bboxes(

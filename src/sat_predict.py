@@ -73,7 +73,7 @@ def main(args):
 
             print(f"Generating CAMs for {shapename}...")
             out_file = f"{iso_code}_{shapename}_{model_config['config_name']}_cam.gpkg"
-            pred_utils.cam_predict(iso_code, model_config, subdata, geotiff_dir, out_file)
+            pred_utils.cam_predict(iso_code, model_config, subdata, geotiff_dir, out_file, n_classes=1)
         else:
             results = pred_utils.vit_pred(
                 tiles, model_config, iso_code, shapename, sat_dir
