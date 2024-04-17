@@ -251,9 +251,8 @@ def train(
 
     thresholds = [default_threshold, threshold]
     suffixes = ["default", "optim"]
-
     for threshold, suffix in zip(thresholds, suffixes):
-        y_preds = y_probs > threshold
+        y_preds = np.array(y_probs) > threshold 
         results = eval_utils.evaluate(y_true, y_preds, pos_label, beta)
         results = {f"train_{key}_{suffix}": val for key, val in results.items()}
         epoch_results = epoch_results | results
