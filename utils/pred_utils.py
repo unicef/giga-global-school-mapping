@@ -360,7 +360,7 @@ def vit_pred(data, config, iso_code, shapename, sat_dir, id_col="UID"):
     return results
 
 
-def filter_by_buildings(iso_code, config, data, miniters=1000):
+def filter_by_buildings(iso_code, config, data, n_seconds=10):
     cwd = os.path.dirname(os.getcwd())
     raster_dir = os.path.join(cwd, config["rasters_dir"])
     ms_path = os.path.join(raster_dir, "ms_buildings", f"{iso_code}_ms.tif")
@@ -372,7 +372,7 @@ def filter_by_buildings(iso_code, config, data, miniters=1000):
     pbar = tqdm(
         range(len(data)), 
         total=len(data), 
-        miniters=int(len(data)/miniters),
+        mininterval=n_seconds,
         bar_format=bar_format
     )
     for index in pbar:

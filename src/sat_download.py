@@ -75,6 +75,15 @@ def download_sat_images(
         out_dir = os.path.join(cwd, config["rasters_dir"], config["maxar_dir"], iso, category)
     out_dir = data_utils._makedir(out_dir)
 
+    all_exists = True
+    for index in range(len(data)):
+        image_file = os.path.join(out_dir, f"{data[id_col][index]}.tiff")
+        if not os.path.exists(image_file):
+            all_exists = False
+            break
+    if all_exists:
+        return
+
     url = f"{config['digitalglobe_url']}connectid={creds['connect_id']}"
     wms = WebMapService(url, username=creds["username"], password=creds["password"])
 
