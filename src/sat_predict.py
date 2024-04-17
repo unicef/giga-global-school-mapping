@@ -62,7 +62,7 @@ def main(args):
         if "cnn" in model_config_file:
             print(f"Generating predictions for {shapename}...")
             results = pred_utils.cnn_predict(
-                tiles, iso_code, shapename, model_config, sat_dir, n_classes=2
+                tiles, iso_code, shapename, model_config, sat_dir, n_classes=1
             )
             subdata = results[results["pred"] == model_config["pos_class"]]
             
