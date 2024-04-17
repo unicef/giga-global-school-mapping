@@ -1,4 +1,4 @@
-project: "GIGAv2"
+project: "GIGAv3"
 scorer: "ap"
 test_size: 0.10
 batch_size: 32
