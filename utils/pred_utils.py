@@ -240,7 +240,7 @@ def cnn_predict_images(data, model, config, in_dir, classes, threshold=0.5):
         image = Image.open(file).convert("RGB")
         transforms = cnn_utils.get_transforms(config["img_size"])
         output = model(transforms["test"](image).to(device).unsqueeze(0))
-        prob = torch.sigmoid(outputs)
+        prob = torch.sigmoid(output)
         probs.append(prob)
 
     preds = np.array(probs) > threshold
