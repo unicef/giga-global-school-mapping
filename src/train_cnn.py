@@ -136,10 +136,11 @@ def main(c):
     )
 
     # Load best model
+    default_threshold = 0.5
     model_file = os.path.join(exp_dir, f"{exp_name}.pth")
     model.load_state_dict(torch.load(model_file, map_location=device))
     model = model.to(device)
-    thresholds = [0.5, best_results["val_threshold"]]
+    thresholds = [default_threshold, best_results["val_threshold"]]
     suffixes = ["default", "optim"]
 
     # Calculate test performance using best model

@@ -246,14 +246,19 @@ def train(
         beta
     )
     epoch_results["threshold"] = threshold
-    
-    y_preds = y_probs > threshold
-    epoch_results = epoch_results | eval_utils.evaluate(y_true, y_preds, pos_label, beta)
     epoch_loss = running_loss / len(data_loader)
     epoch_results["loss"] = epoch_loss
 
+    thresholds = [default_threshold, threshold]
+    suffixes = ["default", "optim"]
+
+    for threshold, suffix in zip(thresholds, suffixes):
+        y_preds = y_probs > threshold
+        results = eval_utils.evaluate(y_true, y_preds, pos_label, beta)
+        results = {f"train_{key}_{suffix}": val for key, val in results.items()}
+        epoch_results = epoch_results | results
+
     learning_rate = optimizer.param_groups[0]["lr"]
-    epoch_results = {"train_" + key: val for key, val in epoch_results.items()}
     log_results = {key: val for key, val in epoch_results.items() if key[-1] != '_'}
     logging.info(f"Train: {log_results} LR: {learning_rate}")
 
@@ -325,17 +330,23 @@ def evaluate(
         )
         epoch_results["threshold"] = threshold
 
-    y_preds = np.array(y_probs) > threshold 
-    epoch_results = epoch_results | eval_utils.evaluate(y_true, y_preds, pos_label, beta)
     epoch_loss = running_loss / len(data_loader)
     epoch_results["loss"] = epoch_loss
 
-    confusion_matrix, cm_metrics, cm_report = eval_utils.get_confusion_matrix(y_true, y_preds, class_names)
-    preds = pd.DataFrame({'UID': y_uids, 'y_true': y_true, 'y_preds': y_preds, 'y_probs': y_probs})
+    thresholds = [default_threshold, threshold]
+    suffixes = ["default", "optim"]
+    y_preds = dict()
+    for threshold, suffix in zip(thresholds, suffixes):
+        y_preds[suffix] = np.array(y_probs) > threshold 
+        results = eval_utils.evaluate(y_true, y_preds, pos_label, beta)
+        confusion_matrix, cm_metrics, cm_report = eval_utils.get_confusion_matrix(
+            y_true, y_preds, class_names
+        )
+        results = {f"{phase}_{key}_{suffix}": val for key, val in results.items()}
+        epoch_results = epoch_results | results
 
-    epoch_results = {f"{phase}_" + key: val for key, val in epoch_results.items()}
-    log_results = {key: val for key, val in epoch_results.items() if key[-1] != '_'}
-    
+    preds = pd.DataFrame({'UID': y_uids, 'y_true': y_true, 'y_probs': y_probs} | y_preds)
+    log_results = {key: val for key, val in epoch_results.items() if key[-1] != '_'}    
     logging.info(f"{phase.capitalize()}: {log_results}")
     if wandb is not None:
         wandb.log(log_results)
