@@ -342,7 +342,7 @@ def evaluate(
         cm = eval_utils.get_confusion_matrix(y_true, y_preds, class_names)
         results = {f"{phase}_{key}_{suffix}": val for key, val in results.items()}
         preds[f"y_preds_{suffix}"] = y_preds
-        cms[{suffix}] = cm
+        cms[suffix] = cm
         epoch_results = epoch_results | results
 
     preds = pd.DataFrame({'UID': y_uids, 'y_true': y_true, 'y_probs': y_probs} | preds)
