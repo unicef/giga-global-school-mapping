@@ -39,6 +39,7 @@ def main(c):
     
     # Load dataset
     phases = ["train", "val", "test"]
+    suffixes = ["default", "optim"]
     data, data_loader, classes = cnn_utils.load_dataset(config=c, phases=phases)
     logging.info(f"Train/val/test sizes: {len(data['train'])}/{len(data['val'])}/{len(data['test'])}")
     wandb.log({f"{phase}_size": len(data[phase]) for phase in phases})
@@ -103,18 +104,13 @@ def main(c):
         scheduler.step(val_results[f"val_{scorer}"])
 
         # Save best model so far
-        if (
-            val_results[f"val_{scorer}"] > best_score 
-            or (
-                val_results[f"val_{scorer}"] == best_score 
-                and val_results["val_loss"] < best_results["val_loss"]
-            )
-        ):
+        if (val_results[f"val_{scorer}"] > best_score ):
             best_score = val_results[f"val_{scorer}"]
             best_results = val_results
             best_weights = model.state_dict()
 
-            eval_utils._save_files(val_results, val_cm, exp_dir)
+            for suffix in suffixes:
+                eval_utils._save_files(val_results, val_cm[suffix], exp_dir, suffix=suffix)
             model_file = os.path.join(exp_dir, f"{exp_name}.pth")
             torch.save(model.state_dict(), model_file)
             
@@ -141,7 +137,6 @@ def main(c):
     model.load_state_dict(torch.load(model_file, map_location=device))
     model = model.to(device)
     thresholds = [default_threshold, best_results["val_threshold"]]
-    suffixes = ["default", "optim"]
 
     # Calculate test performance using best model
     for threshold, suffix in zip(thresholds, suffixes):
@@ -171,7 +166,7 @@ def main(c):
                 test_preds, 
                 target="y_true", 
                 prob="y_probs",
-                pred="y_preds", 
+                pred=f"y_preds_{suffix}", 
                 pos_class=1, 
                 classes=[1, 0], 
                 results_dir=os.path.join(exp_dir, phase),
@@ -185,7 +180,7 @@ def main(c):
                     subtest_preds, 
                     target="y_true",  
                     prob="y_probs",
-                    pred="y_preds", 
+                    pred=f"y_preds_{suffix}", 
                     pos_class=1, 
                     classes=[1, 0], 
                     results_dir=os.path.join(exp_dir, phase, rurban), 

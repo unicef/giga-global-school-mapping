@@ -331,26 +331,29 @@ def evaluate(
 
     epoch_loss = running_loss / len(data_loader)
     epoch_results["loss"] = epoch_loss
+    epoch_results = {f"{phase}_{key}": val for key, val in results.items()}
 
     thresholds = [default_threshold, threshold]
     suffixes = ["default", "optim"]
-    y_preds = dict()
+    cms, preds = dict(), dict()
     for threshold, suffix in zip(thresholds, suffixes):
-        y_preds[suffix] = np.array(y_probs) > threshold 
-        results = eval_utils.evaluate(y_true, y_preds[suffix], pos_label, beta)
-        confusion_matrix, cm_metrics, cm_report = eval_utils.get_confusion_matrix(
-            y_true, y_preds[suffix], class_names
+        y_preds = np.array(y_probs) > threshold 
+        results = eval_utils.evaluate(y_true, y_preds, pos_label, beta)
+        cm = eval_utils.get_confusion_matrix(
+            y_true, y_preds, class_names
         )
         results = {f"{phase}_{key}_{suffix}": val for key, val in results.items()}
+        preds[f"y_preds_{suffix}"] = y_preds
+        cms[{suffix}] = cm
         epoch_results = epoch_results | results
 
-    preds = pd.DataFrame({'UID': y_uids, 'y_true': y_true, 'y_probs': y_probs} | y_preds)
+    preds = pd.DataFrame({'UID': y_uids, 'y_true': y_true, 'y_probs': y_probs} | preds)
     log_results = {key: val for key, val in epoch_results.items() if key[-1] != '_'}    
     logging.info(f"{phase.capitalize()}: {log_results}")
     if wandb is not None:
         wandb.log(log_results)
         
-    return epoch_results, (confusion_matrix, cm_metrics, cm_report), preds
+    return epoch_results, cms, preds
 
 
 def get_transforms(size):

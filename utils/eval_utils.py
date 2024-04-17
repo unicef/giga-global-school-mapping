@@ -23,7 +23,7 @@ from sklearn.metrics import (
 json.fallback_table[np.ndarray] = lambda array: array.tolist()
 
 
-def _save_files(results, cm, exp_dir):
+def _save_files(results, cm, exp_dir, suffix=""):
     """
     Save evaluation results and confusion matrix to the specified directory.
     Args:
@@ -38,11 +38,11 @@ def _save_files(results, cm, exp_dir):
     """
     if not os.path.exists(exp_dir):
         os.makedirs(exp_dir)
-    with open(os.path.join(exp_dir, "results.json"), "w") as f:
+    with open(os.path.join(exp_dir, f"results_{suffix}.json"), "w") as f:
         json.dump(results, f)
-    cm[0].to_csv(os.path.join(exp_dir, "confusion_matrix.csv"))
-    cm[1].to_csv(os.path.join(exp_dir, "cm_metrics.csv"))
-    open(os.path.join(exp_dir, "cm_report.log"), "a").write(cm[2])
+    cm[0].to_csv(os.path.join(exp_dir, f"confusion_matrix_{suffix}.csv"))
+    cm[1].to_csv(os.path.join(exp_dir, f"cm_metrics_{suffix}.csv"))
+    open(os.path.join(exp_dir, f"cm_report_{suffix}.log"), "a").write(cm[2])
 
 
 def save_results(
@@ -77,7 +77,7 @@ def save_results(
     results = get_auprc(test[target], test[prob], pos_class) | evaluate(test[target], test[pred], pos_class, beta)
     log_results = {key: val for key, val in results.items() if key[-1] != '_'}
     cm = get_confusion_matrix(test[target], test[pred], classes)
-    _save_files(results, cm, results_dir)
+    _save_files(results, cm, results_dir, suffix=suffix)
     
     if prefix: 
         log_results = {f"{prefix}_{key}": val for key, val in log_results.items()}
