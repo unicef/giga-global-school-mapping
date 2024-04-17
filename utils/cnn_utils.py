@@ -92,6 +92,7 @@ class SchoolDataset(Dataset):
             x = self.transform(image)
 
         y = self.classes[item["class"]]
+        #y = torch.tensor([y]).float()
         image.close()
         return x, y, uid
 
@@ -185,7 +186,18 @@ def load_dataset(config, phases):
     return data, data_loader, classes
 
 
-def train(data_loader, model, criterion, optimizer, device, logging, pos_label, beta, wandb=None):
+def train(
+    data_loader, 
+    model, 
+    criterion, 
+    optimizer, 
+    device, 
+    logging, 
+    pos_label, 
+    beta, 
+    default_threshold=0.5, 
+    wandb=None
+):
     """
     Train the model on the provided data.
 
@@ -225,7 +237,7 @@ def train(data_loader, model, criterion, optimizer, device, logging, pos_label, 
             y_probs.extend(probs.data.cpu().numpy().tolist())
 
     
-    y_probs = [x[0] for x in y_probs]
+    y_probs = [x[0] if x[0] > default_threshold else 0 for x in y_probs]
     epoch_results = eval_utils.get_auprc(y_true, y_probs, pos_label)
     threshold = eval_utils.get_optimal_threshold(
         epoch_results["precision_scores_"], 
@@ -250,7 +262,20 @@ def train(data_loader, model, criterion, optimizer, device, logging, pos_label, 
     return epoch_results
 
 
-def evaluate(data_loader, class_names, model, criterion, device, logging, pos_label, beta, phase, threshold=None, wandb=None):
+def evaluate(
+    data_loader, 
+    class_names, 
+    model, 
+    criterion, 
+    device, 
+    logging, 
+    pos_label, 
+    beta, 
+    phase, 
+    threshold=None, 
+    default_threshold=0.5, 
+    wandb=None
+):
     """
     Evaluate the model using the provided data.
 
@@ -289,7 +314,7 @@ def evaluate(data_loader, class_names, model, criterion, device, logging, pos_la
         y_probs.extend(probs.data.cpu().numpy().tolist())
         y_uids.extend(uids)
     
-    y_probs = [x[0] for x in y_probs]
+    y_probs = [x[0] if x[0] > default_threshold else 0 for x in y_probs]
     epoch_results = eval_utils.get_auprc(y_true, y_probs, pos_label)
     if not threshold:
         threshold = eval_utils.get_optimal_threshold(
