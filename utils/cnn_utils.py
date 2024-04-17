@@ -337,9 +337,9 @@ def evaluate(
     y_preds = dict()
     for threshold, suffix in zip(thresholds, suffixes):
         y_preds[suffix] = np.array(y_probs) > threshold 
-        results = eval_utils.evaluate(y_true, y_preds, pos_label, beta)
+        results = eval_utils.evaluate(y_true, y_preds[suffix], pos_label, beta)
         confusion_matrix, cm_metrics, cm_report = eval_utils.get_confusion_matrix(
-            y_true, y_preds, class_names
+            y_true, y_preds[suffix], class_names
         )
         results = {f"{phase}_{key}_{suffix}": val for key, val in results.items()}
         epoch_results = epoch_results | results
