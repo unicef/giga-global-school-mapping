@@ -35,6 +35,9 @@ import rasterio.plot
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 logging.basicConfig(level=logging.INFO)
 
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:1024"
+torch.cuda.empty_cache() 
+
 
 def cam_predict(iso_code, config, data, geotiff_dir, out_file):
     cwd = os.path.dirname(os.getcwd())
