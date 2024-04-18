@@ -19,8 +19,6 @@ import embed_utils
 from torchcam.methods import LayerCAM
 
 logging.basicConfig(level=logging.INFO)
-os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:1024"
-torch.cuda.empty_cache() 
 
 
 def main(args):
@@ -64,7 +62,7 @@ def main(args):
         if "cnn" in model_config_file:
             print(f"Generating predictions for {shapename}...")
             results = pred_utils.cnn_predict(
-                tiles, iso_code, shapename, model_config, sat_dir, n_classes=1
+                tiles, iso_code, shapename, model_config, sat_dir, n_classes=2
             )
             subdata = results[results["pred"] == model_config["pos_class"]]
             
@@ -73,7 +71,7 @@ def main(args):
 
             print(f"Generating CAMs for {shapename}...")
             out_file = f"{iso_code}_{shapename}_{model_config['config_name']}_cam.gpkg"
-            pred_utils.cam_predict(iso_code, model_config, subdata, geotiff_dir, out_file, n_classes=1)
+            pred_utils.cam_predict(iso_code, model_config, subdata, geotiff_dir, out_file)
         else:
             results = pred_utils.vit_pred(
                 tiles, model_config, iso_code, shapename, sat_dir

@@ -1,10 +1,9 @@
-project: "GIGAv3"
-scorer: "ap"
-test_size: 0.10
+project: "GIGAv1"
+beta: 0.5
+test_size: 0.1
 batch_size: 32
 n_workers: 4
 n_epochs: 60
-beta: 0.5
 
 model: "vgg16"
 pretrained: True
@@ -16,5 +15,5 @@ img_size: 224
 momentum: 
 gamma: 
 step_size: 
-patience: 5
+patience: 7
 dropout:

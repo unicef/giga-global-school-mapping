@@ -36,7 +36,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 logging.basicConfig(level=logging.INFO)
 
 
-def cam_predict(iso_code, config, data, geotiff_dir, out_file, n_classes=1):
+def cam_predict(iso_code, config, data, geotiff_dir, out_file):
     cwd = os.path.dirname(os.getcwd())
     classes = {1: config["pos_class"], 0: config["neg_class"]}
 
@@ -47,7 +47,7 @@ def cam_predict(iso_code, config, data, geotiff_dir, out_file, n_classes=1):
     
     exp_dir = os.path.join(cwd, config["exp_dir"], config["project"], f"{iso_code}_{config['config_name']}")
     model_file = os.path.join(exp_dir, f"{iso_code}_{config['config_name']}.pth")
-    model = load_cnn(config, n_classes, model_file, verbose=False).eval()
+    model = load_cnn(config, classes, model_file, verbose=False).eval()
     
     cam_extractor = LayerCAM(model)
     results = generate_cam_bboxes(
@@ -216,7 +216,7 @@ def generate_cam(config, filepath, model, cam_extractor, show=True, title="", fi
     return cam_map, bbox
         
 
-def cnn_predict_images(data, model, config, in_dir, classes, threshold=0.5):
+def cnn_predict_images(data, model, config, in_dir, classes):
     """
     Predicts labels and probabilities for the given dataset using the provided model.
 
@@ -239,16 +239,17 @@ def cnn_predict_images(data, model, config, in_dir, classes, threshold=0.5):
     for file in pbar:
         image = Image.open(file).convert("RGB")
         transforms = cnn_utils.get_transforms(config["img_size"])
-        with torch.set_grad_enabled(False):
-            output = model(transforms["test"](image).to(device).unsqueeze(0))
-            prob = torch.sigmoid(output)
-            probs.extend(prob.data.cpu().numpy().tolist())
+        output = model(transforms["test"](image).to(device).unsqueeze(0))
+        prob = nn.softmax(output, dim=1).detach().cpu().numpy()[0]
+        probs.append(prob)
+        _, pred = torch.max(output, 1)
+        label = str(classes[int(pred[0])])
+        preds.append(label)
 
-    probs = [prob[0] for prob in probs]
-    preds = np.array(probs) > threshold
-    preds = [str(classes[int(pred)]) for pred in preds]
+    probs_col = [f"{classes[index]}_prob" for index in range(len(classes))]
+    probs = pd.DataFrame(probs, columns=probs_col)
     data["pred"] = preds
-    data["prob"] = probs
+    data["prob"] = probs.max(axis=1)
 
     return data
 
@@ -269,7 +270,7 @@ def cnn_predict(data, iso_code, shapename, config, in_dir=None, out_dir=None, n_
     """
     cwd = os.path.dirname(os.getcwd())
     if not out_dir:
-        out_dir = os.path.join("output", iso_code, "results", config['project'])
+        out_dir = os.path.join("output", iso_code, "results", config["project"])
         out_dir = data_utils._makedir(out_dir)
     
     name = f"{iso_code}_{shapename}"
@@ -281,7 +282,7 @@ def cnn_predict(data, iso_code, shapename, config, in_dir=None, out_dir=None, n_
     classes = {1: config["pos_class"], 0: config["neg_class"]}
     exp_dir = os.path.join(cwd, config["exp_dir"], config["project"], f"{iso_code}_{config['config_name']}")
     model_file = os.path.join(exp_dir, f"{iso_code}_{config['config_name']}.pth")
-    model = load_cnn(config, n_classes, model_file)
+    model = load_cnn(config, classes, model_file)
 
     results = cnn_predict_images(data, model, config, in_dir, classes)
     results = results[["UID", "geometry", "pred", "prob"]]
@@ -290,7 +291,7 @@ def cnn_predict(data, iso_code, shapename, config, in_dir=None, out_dir=None, n_
     return results
 
 
-def load_cnn(c, n_classes, model_file=None, verbose=True):
+def load_cnn(c, classes, model_file=None, verbose=True):
     """
     Loads a pre-trained model based on the provided configuration.
 
@@ -303,6 +304,7 @@ def load_cnn(c, n_classes, model_file=None, verbose=True):
     - Loaded pre-trained model based on the provided configuration.
     """
     
+    n_classes = len(classes)
     model = cnn_utils.get_model(c["model"], n_classes, c["dropout"])
     model.load_state_dict(torch.load(model_file, map_location=device))
     model = model.to(device)

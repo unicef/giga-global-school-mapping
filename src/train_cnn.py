@@ -39,14 +39,12 @@ def main(c):
     
     # Load dataset
     phases = ["train", "val", "test"]
-    suffixes = ["default", "optim"]
     data, data_loader, classes = cnn_utils.load_dataset(config=c, phases=phases)
     logging.info(f"Train/val/test sizes: {len(data['train'])}/{len(data['val'])}/{len(data['test'])}")
-    wandb.log({f"{phase}_size": len(data[phase]) for phase in phases})
 
     # Load model, optimizer, and scheduler
     model, criterion, optimizer, scheduler = cnn_utils.load_model(
-        n_classes=1,
+        n_classes=len(classes),
         model_type=c["model"],
         pretrained=c["pretrained"],
         scheduler_type=c["scheduler"],
@@ -68,16 +66,14 @@ def main(c):
     # Commence model training
     n_epochs = c["n_epochs"]
     beta = c["beta"]
-    scorer = c["scorer"]
     since = time.time()
     best_score = -1
-    best_results = None
 
     for epoch in range(1, n_epochs + 1):
         logging.info("\nEpoch {}/{}".format(epoch, n_epochs))
 
         # Train model
-        train_results = cnn_utils.train(
+        cnn_utils.train(
             data_loader["train"],
             model,
             criterion,
@@ -101,26 +97,24 @@ def main(c):
             wandb=wandb, 
             logging=logging
         )
-        scheduler.step(val_results[f"val_{scorer}"])
+        scheduler.step(val_results[f"val_fbeta_score_{beta}"])
 
         # Save best model so far
-        if (val_results[f"val_{scorer}"] > best_score ):
-            best_score = val_results[f"val_{scorer}"]
-            best_results = val_results
+        if val_results[f"val_fbeta_score_{beta}"] > best_score:
+            best_score = val_results[f"val_fbeta_score_{beta}"]
+            precision = val_results["val_precision_score"]
+            recall = val_results["val_recall_score"]
             best_weights = model.state_dict()
 
-            for suffix in suffixes:
-                eval_utils._save_files(val_results, val_cm[suffix], exp_dir, suffix=suffix)
+            eval_utils._save_files(val_results, val_cm, exp_dir)
             model_file = os.path.join(exp_dir, f"{exp_name}.pth")
             torch.save(model.state_dict(), model_file)
             
-        logging.info(f"Best val {scorer}: {best_score}")
-        log_results = {key: val for key, val in best_results.items() if key[-1] != '_'}
-        logging.info(f"Best scores: {log_results}")
+        logging.info(f"Best Val Fbeta score: {best_score} Precision: {precision} Recall: {recall}")
 
         # Terminate if learning rate becomes too low
         learning_rate = optimizer.param_groups[0]["lr"]
-        if learning_rate < 1e-7:
+        if learning_rate < 1e-10:
             break
 
     # Terminate trackers
@@ -132,60 +126,52 @@ def main(c):
     )
 
     # Load best model
-    default_threshold = 0.5
     model_file = os.path.join(exp_dir, f"{exp_name}.pth")
     model.load_state_dict(torch.load(model_file, map_location=device))
     model = model.to(device)
-    thresholds = [default_threshold, best_results["val_threshold"]]
 
     # Calculate test performance using best model
-    for threshold, suffix in zip(thresholds, suffixes):
-        final_results = {}
-        for phase in ['val', 'test']:    
-            logging.info(f"\n{phase.capitalize()} Results")
-            test_results, test_cm, test_preds = cnn_utils.evaluate(
-                data_loader[phase], 
-                model=model, 
-                criterion=criterion, 
-                device=device, 
-                pos_label=1,
-                class_names=[1, 0],
-                beta=beta,
-                phase=phase,
-                wandb=wandb, 
-                threshold=threshold,
-                logging=logging
-            )
-            final_results.update(test_results)
-            
-            dataset = model_utils.load_data(config=c, attributes=["rurban", "iso"], verbose=False)
-            test_dataset = dataset[dataset.dataset == phase]
-            test_preds = pd.merge(test_dataset, test_preds, on='UID', how='inner')
-            test_preds.to_csv(os.path.join(exp_dir, f"{exp_name}_{phase}.csv"), index=False)
-            eval_utils.save_results(
-                test_preds, 
-                target="y_true", 
-                prob="y_probs",
-                pred=f"y_preds_{suffix}", 
+    final_results = {}
+    for phase in ['val', 'test']:    
+        logging.info(f"\n{phase.capitalize()} Results")
+        test_results, test_cm, test_preds = cnn_utils.evaluate(
+            data_loader[phase], 
+            model=model, 
+            criterion=criterion, 
+            device=device, 
+            pos_label=1,
+            class_names=[1, 0],
+            beta=beta,
+            phase=phase,
+            wandb=wandb, 
+            logging=logging
+        )
+        final_results.update(test_results)
+        
+        dataset = model_utils.load_data(config=c, attributes=["rurban", "iso"], verbose=False)
+        test_dataset = dataset[dataset.dataset == phase]
+        test_preds = pd.merge(test_dataset, test_preds, on='UID', how='inner')
+        test_preds.to_csv(os.path.join(exp_dir, f"{exp_name}_{phase}.csv"), index=False)
+        eval_utils.save_results(
+            test_preds, 
+            target="y_true", 
+            pred="y_preds", 
+            pos_class=1, 
+            classes=[1, 0], 
+            results_dir=os.path.join(exp_dir, phase),
+            prefix=phase
+        )
+
+        for rurban in ["urban", "rural"]:
+            subtest_preds = test_preds[test_preds.rurban == rurban]
+            results = eval_utils.save_results(
+                subtest_preds, 
+                target="y_true",  
+                pred="y_preds", 
                 pos_class=1, 
                 classes=[1, 0], 
-                results_dir=os.path.join(exp_dir, phase),
-                prefix=phase,
-                suffix=suffix
-            )
-    
-            for rurban in ["urban", "rural"]:
-                subtest_preds = test_preds[test_preds.rurban == rurban]
-                results = eval_utils.save_results(
-                    subtest_preds, 
-                    target="y_true",  
-                    prob="y_probs",
-                    pred=f"y_preds_{suffix}", 
-                    pos_class=1, 
-                    classes=[1, 0], 
-                    results_dir=os.path.join(exp_dir, phase, rurban), 
-                    prefix=f"{phase}_{rurban}",
-                    suffix=suffix
+                results_dir=os.path.join(exp_dir, phase, rurban), 
+                prefix=f"{phase}_{rurban}"
             )
 
     return final_results    

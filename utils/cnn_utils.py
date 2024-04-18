@@ -92,7 +92,6 @@ class SchoolDataset(Dataset):
             x = self.transform(image)
 
         y = self.classes[item["class"]]
-        #y = torch.tensor([y]).float()
         image.close()
         return x, y, uid
 
@@ -186,18 +185,7 @@ def load_dataset(config, phases):
     return data, data_loader, classes
 
 
-def train(
-    data_loader, 
-    model, 
-    criterion, 
-    optimizer, 
-    device, 
-    logging, 
-    pos_label, 
-    beta, 
-    default_threshold=0.5, 
-    wandb=None
-):
+def train(data_loader, model, criterion, optimizer, device, logging, pos_label, beta, wandb=None):
     """
     Train the model on the provided data.
 
@@ -216,70 +204,39 @@ def train(
     
     model.train()
 
-    y_true, y_probs = [], []
+    y_actuals, y_preds = [], []
     running_loss = 0.0
     for inputs, labels, _ in tqdm(data_loader, total=len(data_loader)):
         inputs = inputs.to(device)
-        labels = labels.float().to(device)
+        labels = labels.to(device)
 
         optimizer.zero_grad()
 
         with torch.set_grad_enabled(True):
             outputs = model(inputs)
-            probs = torch.sigmoid(outputs)
-            loss = criterion(outputs, labels.unsqueeze(1))
+            _, preds = torch.max(outputs, 1)
+            loss = criterion(outputs, labels)
 
             loss.backward()
             optimizer.step()
 
             running_loss += loss.item() * inputs.size(0)
-            y_true.extend(labels.cpu().numpy().tolist())
-            y_probs.extend(probs.data.cpu().numpy().tolist())
+            y_actuals.extend(labels.cpu().numpy().tolist())
+            y_preds.extend(preds.data.cpu().numpy().tolist())
 
-    
-    y_probs = [x[0] if x[0] > default_threshold else 0 for x in y_probs]
-    epoch_results = eval_utils.get_auprc(y_true, y_probs, pos_label)
-    threshold = eval_utils.get_optimal_threshold(
-        epoch_results["precision_scores_"], 
-        epoch_results["recall_scores_"], 
-        epoch_results["thresholds_"],
-        beta
-    )
-    epoch_results["threshold"] = threshold
     epoch_loss = running_loss / len(data_loader)
+    epoch_results = eval_utils.evaluate(y_actuals, y_preds, pos_label, beta)
     epoch_results["loss"] = epoch_loss
 
-    thresholds = [default_threshold, threshold]
-    suffixes = ["default", "optim"]
-    for threshold, suffix in zip(thresholds, suffixes):
-        y_preds = np.array(y_probs) > threshold 
-        results = eval_utils.evaluate(y_true, y_preds, pos_label, beta)
-        results = {f"train_{key}_{suffix}": val for key, val in results.items()}
-        epoch_results = epoch_results | results
-
     learning_rate = optimizer.param_groups[0]["lr"]
-    log_results = {key: val for key, val in epoch_results.items() if key[-1] != '_'}
-    logging.info(f"Train: {log_results} LR: {learning_rate}")
+    logging.info(f"Train Loss: {epoch_loss} {epoch_results} LR: {learning_rate}")
 
     if wandb is not None:
-        wandb.log(log_results)
+        wandb.log({"train_" + k: v for k, v in epoch_results.items()})
     return epoch_results
 
 
-def evaluate(
-    data_loader, 
-    class_names, 
-    model, 
-    criterion, 
-    device, 
-    logging, 
-    pos_label, 
-    beta, 
-    phase, 
-    threshold=None, 
-    default_threshold=0.5, 
-    wandb=None
-):
+def evaluate(data_loader, class_names, model, criterion, device, logging, pos_label, beta, phase, wandb=None):
     """
     Evaluate the model using the provided data.
 
@@ -300,58 +257,47 @@ def evaluate(
     
     model.eval()
 
-    y_uids, y_true, y_probs = [], [], []
+    y_uids, y_actuals, y_preds, y_probs = [], [], [], []
     running_loss = 0.0
     confusion_matrix = torch.zeros(len(class_names), len(class_names))
 
     for inputs, labels, uids in tqdm(data_loader, total=len(data_loader)):
         inputs = inputs.to(device)
-        labels = labels.float().to(device)
+        labels = labels.to(device)
 
         with torch.set_grad_enabled(False):
             outputs = model(inputs)
-            probs = torch.sigmoid(outputs)
-            loss = criterion(outputs, labels.unsqueeze(1))
+            _, preds = torch.max(outputs, 1)
+            soft_outputs = nnf.softmax(outputs, dim=1)
+            probs, _ = soft_outputs.topk(1, dim=1)
+            loss = criterion(outputs, labels)
 
         running_loss += loss.item() * inputs.size(0)
-        y_true.extend(labels.cpu().numpy().tolist())
+        y_actuals.extend(labels.cpu().numpy().tolist())
+        y_preds.extend(preds.data.cpu().numpy().tolist())
         y_probs.extend(probs.data.cpu().numpy().tolist())
         y_uids.extend(uids)
-    
-    y_probs = [x[0] if x[0] > default_threshold else 0 for x in y_probs]
-    epoch_results = eval_utils.get_auprc(y_true, y_probs, pos_label)
-    if not threshold:
-        threshold = eval_utils.get_optimal_threshold(
-            epoch_results["precision_scores_"], 
-            epoch_results["recall_scores_"], 
-            epoch_results["thresholds_"],
-            beta
-        )
-        epoch_results["threshold"] = threshold
 
     epoch_loss = running_loss / len(data_loader)
+    epoch_results = eval_utils.evaluate(y_actuals, y_preds, pos_label, beta)
     epoch_results["loss"] = epoch_loss
-    epoch_results = {f"{phase}_{key}": val for key, val in epoch_results.items()}
 
-    thresholds = [default_threshold, threshold]
-    suffixes = ["default", "optim"]
-    cms, preds = dict(), dict()
-    for threshold, suffix in zip(thresholds, suffixes):
-        y_preds = np.array(y_probs) > threshold 
-        results = eval_utils.evaluate(y_true, y_preds, pos_label, beta)
-        cm = eval_utils.get_confusion_matrix(y_true, y_preds, class_names)
-        results = {f"{phase}_{key}_{suffix}": val for key, val in results.items()}
-        preds[f"y_preds_{suffix}"] = y_preds
-        cms[suffix] = cm
-        epoch_results = epoch_results | results
+    confusion_matrix, cm_metrics, cm_report = eval_utils.get_confusion_matrix(
+        y_actuals, y_preds, class_names
+    )
+    y_probs = [x[0] for x in y_probs]
+    logging.info(f"{phase.capitalize()} Loss: {epoch_loss} {epoch_results}")
+    preds = pd.DataFrame({
+        'UID': y_uids,
+        'y_true': y_actuals, 
+        'y_preds': y_preds, 
+        'y_probs': y_probs
+    })
 
-    preds = pd.DataFrame({'UID': y_uids, 'y_true': y_true, 'y_probs': y_probs} | preds)
-    log_results = {key: val for key, val in epoch_results.items() if key[-1] != '_'}    
-    logging.info(f"{phase.capitalize()}: {log_results}")
+    epoch_results = {f"{phase}_" + k: v for k, v in epoch_results.items()}
     if wandb is not None:
-        wandb.log(log_results)
-        
-    return epoch_results, cms, preds
+        wandb.log(epoch_results)
+    return epoch_results, (confusion_matrix, cm_metrics, cm_report), preds
 
 
 def get_transforms(size):
@@ -455,25 +401,6 @@ def get_model(model_type, n_classes, dropout=0):
     return model
 
 
-class BCEWithLogitsLoss(nn.Module):
-    def __init__(self, label_smoothing=0.0, reduction='mean'):
-        super(BCEWithLogitsLoss, self).__init__()
-        assert 0 <= label_smoothing < 1, "label_smoothing value must be between 0 and 1."
-        self.label_smoothing = label_smoothing
-        self.reduction = reduction
-        self.bce_with_logits = nn.BCEWithLogitsLoss(reduction=reduction)
-
-    def forward(self, input, target):
-        if self.label_smoothing > 0:
-            positive_smoothed_labels = 1.0 - self.label_smoothing
-            negative_smoothed_labels = self.label_smoothing
-            target = target * positive_smoothed_labels + \
-                (1 - target) * negative_smoothed_labels
-
-        loss = self.bce_with_logits(input, target)
-        return loss
-
-
 def load_model(
     model_type,
     n_classes,
@@ -513,8 +440,7 @@ def load_model(
     
     model = get_model(model_type, n_classes, dropout)
     model = model.to(device)
-    criterion = BCEWithLogitsLoss(label_smoothing=label_smoothing)
-    #criterion = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
+    criterion = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
 
     if optimizer_type == "SGD":
         optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum)
