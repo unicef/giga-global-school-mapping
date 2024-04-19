@@ -40,7 +40,7 @@ def cam_predict(iso_code, config, data, geotiff_dir, out_file):
     cwd = os.path.dirname(os.getcwd())
     classes = {1: config["pos_class"], 0: config["neg_class"]}
 
-    out_dir = os.path.join(cwd, "output", iso_code, "results")
+    out_dir = os.path.join(cwd, "output", iso_code, "results", config["project"])
     out_file = os.path.join(out_dir, out_file)
     if os.path.exists(out_file):
         return gpd.read_file(out_file)
@@ -270,7 +270,7 @@ def cnn_predict(data, iso_code, shapename, config, in_dir=None, out_dir=None, n_
     """
     cwd = os.path.dirname(os.getcwd())
     if not out_dir:
-        out_dir = os.path.join("output", iso_code, "results")
+        out_dir = os.path.join("output", iso_code, "results", config["project"])
         out_dir = data_utils._makedir(out_dir)
     
     name = f"{iso_code}_{shapename}"

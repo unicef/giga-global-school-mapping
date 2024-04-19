@@ -15,9 +15,6 @@ from sklearn.metrics import (
     f1_score,
     fbeta_score,
     classification_report,
-    precision_recall_curve, 
-    average_precision_score,
-    auc
 )
 
 json.fallback_table[np.ndarray] = lambda array: array.tolist()
@@ -45,19 +42,7 @@ def _save_files(results, cm, exp_dir):
     open(os.path.join(exp_dir, "cm_report.log"), "a").write(cm[2])
 
 
-def save_results(
-    test, 
-    target, 
-    pos_class, 
-    classes, 
-    results_dir, 
-    prob="prob", 
-    pred="pred", 
-    beta=0.5, 
-    prefix=None, 
-    suffix=None,
-    log=True
-):
+def save_results(test, target, pos_class, classes, results_dir, pred="pred", beta=0.5, prefix=None, log=True):
     """
     Save evaluation results and confusion matrix to the specified directory.
 
@@ -74,18 +59,15 @@ def save_results(
     """
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
-    results = get_auprc(test[target], test[prob], pos_class) | evaluate(test[target], test[pred], pos_class, beta)
-    log_results = {key: val for key, val in results.items() if key[-1] != '_'}
+    results = evaluate(test[target], test[pred], pos_class, beta)
     cm = get_confusion_matrix(test[target], test[pred], classes)
     _save_files(results, cm, results_dir)
     
     if prefix: 
-        log_results = {f"{prefix}_{key}": val for key, val in log_results.items()}
-    if suffix: 
-        log_results = {f"{key}_{suffix}": val for key, val in log_results.items()}
+        results = {f"{prefix}_{key}": val for key, val in results.items()}
     if log: 
-        logging.info(log_results)
-        wandb.log(log_results)
+        logging.info(results)
+        wandb.log(results)
     return results
 
 
@@ -103,8 +85,8 @@ def get_confusion_matrix(y_true, y_pred, class_names):
     - pandas DataFrame: A dataframe containing the precision,
             recall, and F1 score per class.
     """
-    y_true = [str(int(x)) for x in y_true]
-    y_pred = [str(int(x)) for x in y_pred]
+    y_true = [str(x) for x in y_true]
+    y_pred = [str(x) for x in y_pred]
     class_names = [str(x) for x in class_names]
 
     y_pred = pd.Series(y_pred, name="Predicted")
@@ -155,28 +137,6 @@ def _get_metrics(cm, class_names):
     return metrics
 
 
-def get_auprc(y_true, y_probs, pos_label):
-    precision, recall, thresholds = precision_recall_curve(y_true, y_probs, pos_label=pos_label)
-    auprc = auc(recall, precision)
-    ap = average_precision_score(y_true, y_probs)
-    
-    return {
-        "ap": ap,
-        "auprc": auprc,
-        "precision_scores_": precision,
-        "recall_scores_": recall,
-        "thresholds_": thresholds,
-    }
-
-
-def get_optimal_threshold(precision, recall, thresholds, beta=0.5):
-    numerator = (1 + beta**2) * precision * recall
-    denom = ((beta**2) * precision) + recall
-    fscores = np.divide(numerator, denom, out=np.zeros_like(denom), where=(denom!=0))
-    threshold = thresholds[np.argmax(fscores)]
-    return threshold
-
-
 def evaluate(y_true, y_pred, pos_label, beta=0.5):
     """Returns a dictionary of performance metrics.
 
@@ -189,7 +149,7 @@ def evaluate(y_true, y_pred, pos_label, beta=0.5):
     """
 
     return {
-        "fbeta_score": fbeta_score(
+        f"fbeta_score_{beta}": fbeta_score(
             y_true, y_pred, beta=beta, pos_label=pos_label, average="binary", zero_division=0
         ) * 100,
         "f1_score": f1_score(
@@ -208,4 +168,4 @@ def evaluate(y_true, y_pred, pos_label, beta=0.5):
 
 def get_scoring(pos_label, beta=0.5):
     """Returns the dictionary of scorer objects."""
-    return {"fbeta_score": make_scorer(fbeta_score, beta=beta, pos_label=pos_label, average="binary")}
+    return {f"fbeta_score_{beta}": make_scorer(fbeta_score, beta=beta, pos_label=pos_label, average="binary")}
