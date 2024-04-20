@@ -171,7 +171,7 @@ def load_data(
     verbose=True
 ):
     cwd = os.path.dirname(os.getcwd())
-    vector_dir = os.path.join(cwd, config["vectors_dir"])
+    vector_dir = os.path.join(cwd, config["vectors_dir"], config["project"])
     iso_codes = config["iso_codes"]
     name = iso_codes[0] 
     if "name" in config:

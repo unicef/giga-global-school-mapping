@@ -51,12 +51,13 @@ def download_sat_images(
     - None
     """
     cwd = os.path.dirname(os.getcwd())
+    project = config["project"]
     
     if data is None:
         if not filename:
             vectors_dir = config["vectors_dir"]
             filename = f"{iso}_{name}.geojson"
-            filename = os.path.join(cwd, vectors_dir, category, name, filename)
+            filename = os.path.join(cwd, vectors_dir, project, category, name, filename)
         data = gpd.read_file(filename).reset_index(drop=True)
     
     if "clean" in data.columns:
@@ -72,8 +73,9 @@ def download_sat_images(
     logging.info(f"Data dimensions: {data.shape}, CRS: {data.crs}")
 
     if not out_dir:
-        out_dir = os.path.join(cwd, config["rasters_dir"], config["maxar_dir"], iso, category)
+        out_dir = os.path.join(cwd, config["rasters_dir"], config["maxar_dir"], project, iso, category)
     out_dir = data_utils._makedir(out_dir)
+    logging.info(f"Image file directory: {out_dir}")
 
     all_exists = True
     for index in range(len(data)):

@@ -15,7 +15,7 @@ import translators as ts
 logging.basicConfig(level=logging.INFO)
 
 
-def _get_filename(cwd, iso, vector_dir, category, name):
+def _get_filename(cwd, iso, vector_dir, project, category, name):
     """
     Generate a file path based on provided parameters.
 
@@ -33,7 +33,9 @@ def _get_filename(cwd, iso, vector_dir, category, name):
     filename = os.path.join(
         cwd, 
         vector_dir, 
-        category, name, 
+        project, 
+        category, 
+        name, 
         f"{iso}_{name}.geojson"
     )
     return filename
@@ -70,8 +72,9 @@ def map_coordinates(
     
     cwd = os.path.dirname(os.getcwd())
     vector_dir = config["vectors_dir"]
+    project = config["project"]
     
-    filename = _get_filename(cwd, iso, vector_dir, category, "clean")
+    filename = _get_filename(cwd, iso, vector_dir, project, category, "clean")
     data = gpd.read_file(filename)
 
     name = data[data.index == index].iloc[0][name_col]
@@ -127,9 +130,10 @@ def validate_data(
     image_dir = config["rasters_dir"]
     vector_dir = config["vectors_dir"]
     maxar_dir = config["maxar_dir"]
+    project = config["project"]
 
     if not filename:
-        filename = _get_filename(cwd, iso, vector_dir, category, name)
+        filename = _get_filename(cwd, iso, vector_dir, project, category, name)
     data = gpd.read_file(filename)
     
     if 'validated' not in data.columns:
@@ -154,7 +158,7 @@ def validate_data(
         - Image: A widget displaying the image.
         """
         
-        class_dir = os.path.join(cwd, image_dir, maxar_dir, iso, category.lower())
+        class_dir = os.path.join(cwd, image_dir, maxar_dir, project, iso, category.lower())
         filepath = os.path.join(class_dir, f"{item[id_col]}.tiff")
         img = open(filepath, "rb").read()
         
@@ -264,9 +268,10 @@ def inspect_images(
     image_dir = config["rasters_dir"]
     vector_dir = config["vectors_dir"]
     maxar_dir = config["maxar_dir"]
+    project = config["project"]
 
     if not filename:
-        filename = _get_filename(cwd, iso, vector_dir, category, "clean")
+        filename = _get_filename(cwd, iso, vector_dir, project, category, "clean")
 
     # Load geographic data from the file
     data = gpd.read_file(filename)
@@ -285,7 +290,7 @@ def inspect_images(
 
     # Iterate over the samples to display associated images
     for idx, item in samples.iterrows():
-        class_dir = os.path.join(cwd, image_dir, maxar_dir, iso, category.lower())
+        class_dir = os.path.join(cwd, image_dir, maxar_dir, project, iso, category.lower())
         filepath = os.path.join(class_dir, f"{item[id_col]}.tiff")
 
         # Open and display the image on the subplot
