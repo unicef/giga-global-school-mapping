@@ -216,7 +216,8 @@ def train(data_loader, model, criterion, optimizer, device, logging, pos_label, 
             outputs = model(inputs)
             _, preds = torch.max(outputs, 1)
             soft_outputs = nnf.softmax(outputs, dim=1)
-            probs, _ = soft_outputs.topk(1, dim=1)
+            probs = soft_outputs[:, 1]
+            #probs, _ = soft_outputs.topk(1, dim=1)
             loss = criterion(outputs, labels)
 
             loss.backward()
@@ -275,7 +276,8 @@ def evaluate(data_loader, class_names, model, criterion, device, logging, pos_la
             outputs = model(inputs)
             _, preds = torch.max(outputs, 1)
             soft_outputs = nnf.softmax(outputs, dim=1)
-            probs, _ = soft_outputs.topk(1, dim=1)
+            probs = soft_outputs[:, 1]
+            #probs, _ = soft_outputs.topk(1, dim=1)
             loss = criterion(outputs, labels)
 
         running_loss += loss.item() * inputs.size(0)
