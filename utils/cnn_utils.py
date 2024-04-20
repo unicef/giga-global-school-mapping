@@ -204,7 +204,7 @@ def train(data_loader, model, criterion, optimizer, device, logging, pos_label, 
     
     model.train()
 
-    y_actuals, y_preds = [], []
+    y_actuals, y_preds, y_probs = [], [], []
     running_loss = 0.0
     for inputs, labels, _ in tqdm(data_loader, total=len(data_loader)):
         inputs = inputs.to(device)
@@ -215,6 +215,8 @@ def train(data_loader, model, criterion, optimizer, device, logging, pos_label, 
         with torch.set_grad_enabled(True):
             outputs = model(inputs)
             _, preds = torch.max(outputs, 1)
+            soft_outputs = nnf.softmax(outputs, dim=1)
+            probs, _ = soft_outputs.topk(1, dim=1)
             loss = criterion(outputs, labels)
 
             loss.backward()
@@ -223,16 +225,19 @@ def train(data_loader, model, criterion, optimizer, device, logging, pos_label, 
             running_loss += loss.item() * inputs.size(0)
             y_actuals.extend(labels.cpu().numpy().tolist())
             y_preds.extend(preds.data.cpu().numpy().tolist())
+            y_probs.extend(probs.data.cpu().numpy().tolist())
 
     epoch_loss = running_loss / len(data_loader)
-    epoch_results = eval_utils.evaluate(y_actuals, y_preds, pos_label, beta)
+    epoch_results = eval_utils.evaluate(y_actuals, y_preds, y_probs, pos_label, beta)
     epoch_results["loss"] = epoch_loss
 
     learning_rate = optimizer.param_groups[0]["lr"]
-    logging.info(f"Train Loss: {epoch_loss} {epoch_results} LR: {learning_rate}")
+    log_results = {key: val for key, val in epoch_results.items() if key[-1] != '_'}
+    logging.info(f"Train: {log_results} LR: {learning_rate}")
 
     if wandb is not None:
-        wandb.log({"train_" + k: v for k, v in epoch_results.items()})
+        wandb.log(log_results)
+        
     return epoch_results
 
 
@@ -279,7 +284,7 @@ def evaluate(data_loader, class_names, model, criterion, device, logging, pos_la
         y_uids.extend(uids)
 
     epoch_loss = running_loss / len(data_loader)
-    epoch_results = eval_utils.evaluate(y_actuals, y_preds, pos_label, beta)
+    epoch_results = eval_utils.evaluate(y_actuals, y_preds, y_probs, pos_label, beta)
     epoch_results["loss"] = epoch_loss
 
     confusion_matrix, cm_metrics, cm_report = eval_utils.get_confusion_matrix(
@@ -294,9 +299,11 @@ def evaluate(data_loader, class_names, model, criterion, device, logging, pos_la
         'y_probs': y_probs
     })
 
-    epoch_results = {f"{phase}_" + k: v for k, v in epoch_results.items()}
+    log_results = {key: val for key, val in epoch_results.items() if key[-1] != '_'}    
+    logging.info(f"{phase.capitalize()}: {log_results}")
     if wandb is not None:
-        wandb.log(epoch_results)
+        wandb.log(log_results)
+        
     return epoch_results, (confusion_matrix, cm_metrics, cm_report), preds
 
 

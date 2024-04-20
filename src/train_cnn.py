@@ -1,4 +1,5 @@
 import os
+import shutil
 import time
 import argparse
 import pandas as pd
@@ -25,8 +26,9 @@ def main(c):
     exp_name = f"{c['iso_code']}_{c['config_name']}"
     exp_dir = os.path.join(cwd,  c["exp_dir"], c["project"], exp_name)
     logging.info(f"Experiment directory: {exp_dir}")
-    if not os.path.exists(exp_dir):
-        os.makedirs(exp_dir)
+    if os.path.exists(exp_dir):
+        shutil.rmtree(exp_dir)
+    os.makedirs(exp_dir)
     
     logname = os.path.join(exp_dir, f"{exp_name}.log")
     logging.basicConfig(level=logging.INFO)
@@ -41,6 +43,7 @@ def main(c):
     phases = ["train", "val", "test"]
     data, data_loader, classes = cnn_utils.load_dataset(config=c, phases=phases)
     logging.info(f"Train/val/test sizes: {len(data['train'])}/{len(data['val'])}/{len(data['test'])}")
+    wandb.log({f"{phase}_size": len(data[phase]) for phase in phases})
 
     # Load model, optimizer, and scheduler
     model, criterion, optimizer, scheduler = cnn_utils.load_model(
@@ -68,6 +71,7 @@ def main(c):
     beta = c["beta"]
     since = time.time()
     best_score = -1
+    best_results = None
 
     for epoch in range(1, n_epochs + 1):
         logging.info("\nEpoch {}/{}".format(epoch, n_epochs))
@@ -97,20 +101,21 @@ def main(c):
             wandb=wandb, 
             logging=logging
         )
-        scheduler.step(val_results[f"val_fbeta_score_{beta}"])
+        scheduler.step(val_results["val_fbeta_score"])
 
         # Save best model so far
         if val_results[f"val_fbeta_score_{beta}"] > best_score:
-            best_score = val_results[f"val_fbeta_score_{beta}"]
-            precision = val_results["val_precision_score"]
-            recall = val_results["val_recall_score"]
+            best_score = val_results["val_fbeta_score"]
+            best_results = val_results
             best_weights = model.state_dict()
 
             eval_utils._save_files(val_results, val_cm, exp_dir)
             model_file = os.path.join(exp_dir, f"{exp_name}.pth")
             torch.save(model.state_dict(), model_file)
             
-        logging.info(f"Best Val Fbeta score: {best_score} Precision: {precision} Recall: {recall}")
+        logging.info(f"Best val {scorer}: {best_score}")
+        log_results = {key: val for key, val in best_results.items() if key[-1] != '_'}
+        logging.info(f"Best scores: {log_results}")
 
         # Terminate if learning rate becomes too low
         learning_rate = optimizer.param_groups[0]["lr"]
@@ -156,6 +161,7 @@ def main(c):
             test_preds, 
             target="y_true", 
             pred="y_preds", 
+            prob="y_probs", 
             pos_class=1, 
             classes=[1, 0], 
             results_dir=os.path.join(exp_dir, phase),
@@ -168,6 +174,7 @@ def main(c):
                 subtest_preds, 
                 target="y_true",  
                 pred="y_preds", 
+                prob="y_probs", 
                 pos_class=1, 
                 classes=[1, 0], 
                 results_dir=os.path.join(exp_dir, phase, rurban), 
