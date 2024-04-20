@@ -27,6 +27,7 @@ def get_image_filepaths(config, data, in_dir=None, ext=".tiff"):
                 cwd, 
                 config["rasters_dir"], 
                 config["maxar_dir"], 
+                config["project"], 
                 row["iso"], 
                 row["class"],
                 file 
