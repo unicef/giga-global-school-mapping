@@ -104,7 +104,7 @@ def main(c):
         scheduler.step(val_results["val_fbeta_score"])
 
         # Save best model so far
-        if val_results[f"val_fbeta_score_{beta}"] > best_score:
+        if val_results["val_fbeta_score"] > best_score:
             best_score = val_results["val_fbeta_score"]
             best_results = val_results
             best_weights = model.state_dict()

@@ -293,7 +293,6 @@ def evaluate(data_loader, class_names, model, criterion, device, logging, pos_la
         y_actuals, y_preds, class_names
     )
     y_probs = [x[0] for x in y_probs]
-    logging.info(f"{phase.capitalize()} Loss: {epoch_loss} {epoch_results}")
     preds = pd.DataFrame({
         'UID': y_uids,
         'y_true': y_actuals, 
@@ -302,7 +301,7 @@ def evaluate(data_loader, class_names, model, criterion, device, logging, pos_la
     })
 
     log_results = {key: val for key, val in epoch_results.items() if key[-1] != '_'}    
-    logging.info(f"{phase.capitalize()}: {log_results}")
+    logging.info(f"{phase.capitalize()} Loss: {epoch_loss} {log_results}")
     if wandb is not None:
         wandb.log(log_results)
         
