@@ -113,7 +113,7 @@ def main(c):
             model_file = os.path.join(exp_dir, f"{exp_name}.pth")
             torch.save(model.state_dict(), model_file)
             
-        logging.info(f"Best val {scorer}: {best_score}")
+        logging.info(f"Best val_fbeta_score: {best_score}")
         log_results = {key: val for key, val in best_results.items() if key[-1] != '_'}
         logging.info(f"Best scores: {log_results}")
 
