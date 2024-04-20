@@ -230,7 +230,7 @@ def train(data_loader, model, criterion, optimizer, device, logging, pos_label, 
     epoch_loss = running_loss / len(data_loader)
     epoch_results = eval_utils.evaluate(y_actuals, y_preds, y_probs, pos_label, beta)
     epoch_results["loss"] = epoch_loss
-    epoch_results = {f"{phase}_{key}": val for key, val in epoch_results.items()}
+    epoch_results = {f"train_{key}": val for key, val in epoch_results.items()}
 
     learning_rate = optimizer.param_groups[0]["lr"]
     log_results = {key: val for key, val in epoch_results.items() if key[-1] != '_'}
