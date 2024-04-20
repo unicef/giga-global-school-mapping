@@ -1,12 +1,7 @@
 vectors_dir: 'data/vectors/'
 rasters_dir: 'data/rasters/'
 columns: ['UID', 'source', 'iso', 'country', 'region', 'subregion', 'name', 'geometry', 'giga_id_school']
-
-iso_codes: [
-    'MOZ', 'SEN', 'GHA', 'ATG', 'AIA', 'BWA', 'MDG', 'BEN', 'BIH', 'BLZ', 'BRB', 'CRI', 'DMA', 'GIN', 'GRD', 
-    'HND', 'HUN', 'KAZ', 'KEN', 'KIR', 'KNA', 'LCA', 'MNG', 'MSR', 'MWI', 'NAM', 'NER', 'NGA', 'PAN', 'RWA', 
-    'SLE', 'SLV', 'SSD', 'THA', 'TTO', 'UKR', 'UZB', 'VCT', 'VGB', 'ZAF', 'ZWE', 'BRA'
-]
+iso_codes: ['SEN', 'RWA', 'BWA', 'NAM', 'GHA', 'SSD']
 
 proximity: 50
 filter_buffer_size: 150

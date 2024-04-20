@@ -1,7 +1,6 @@
-project: "GIGAv1"
 beta: 0.5
 embed_model: "dinov2_vitl14"
-test_size: 0.2
+test_size: 0.1
 image_size: 560
 model: 'LogisticRegression'
 model_params:
