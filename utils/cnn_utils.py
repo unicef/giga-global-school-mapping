@@ -217,7 +217,6 @@ def train(data_loader, model, criterion, optimizer, device, logging, pos_label, 
             _, preds = torch.max(outputs, 1)
             soft_outputs = nnf.softmax(outputs, dim=1)
             probs = soft_outputs[:, 1]
-            #probs, _ = soft_outputs.topk(1, dim=1)
             loss = criterion(outputs, labels)
 
             loss.backward()
@@ -277,7 +276,6 @@ def evaluate(data_loader, class_names, model, criterion, device, logging, pos_la
             _, preds = torch.max(outputs, 1)
             soft_outputs = nnf.softmax(outputs, dim=1)
             probs = soft_outputs[:, 1]
-            #probs, _ = soft_outputs.topk(1, dim=1)
             loss = criterion(outputs, labels)
 
         running_loss += loss.item() * inputs.size(0)
@@ -294,7 +292,6 @@ def evaluate(data_loader, class_names, model, criterion, device, logging, pos_la
     confusion_matrix, cm_metrics, cm_report = eval_utils.get_confusion_matrix(
         y_actuals, y_preds, class_names
     )
-    y_probs = [x[0] for x in y_probs]
     preds = pd.DataFrame({
         'UID': y_uids,
         'y_true': y_actuals, 
