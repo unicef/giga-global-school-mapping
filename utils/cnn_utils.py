@@ -230,6 +230,7 @@ def train(data_loader, model, criterion, optimizer, device, logging, pos_label, 
     epoch_loss = running_loss / len(data_loader)
     epoch_results = eval_utils.evaluate(y_actuals, y_preds, y_probs, pos_label, beta)
     epoch_results["loss"] = epoch_loss
+    epoch_results = {f"{phase}_{key}": val for key, val in epoch_results.items()}
 
     learning_rate = optimizer.param_groups[0]["lr"]
     log_results = {key: val for key, val in epoch_results.items() if key[-1] != '_'}
@@ -286,6 +287,7 @@ def evaluate(data_loader, class_names, model, criterion, device, logging, pos_la
     epoch_loss = running_loss / len(data_loader)
     epoch_results = eval_utils.evaluate(y_actuals, y_preds, y_probs, pos_label, beta)
     epoch_results["loss"] = epoch_loss
+    epoch_results = {f"{phase}_{key}": val for key, val in epoch_results.items()}
 
     confusion_matrix, cm_metrics, cm_report = eval_utils.get_confusion_matrix(
         y_actuals, y_preds, class_names
