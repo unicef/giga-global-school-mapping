@@ -446,6 +446,7 @@ def load_model(
     """
     
     model = get_model(model_type, n_classes, dropout)
+    model= nn.DataParallel(model)
     model = model.to(device)
     criterion = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
 
