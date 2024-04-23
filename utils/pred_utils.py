@@ -306,7 +306,7 @@ def load_cnn(c, classes, model_file=None, verbose=True):
     
     n_classes = len(classes)
     model = cnn_utils.get_model(c["model"], n_classes, c["dropout"])
-    model= nn.DataParallel(model)
+    model= torch.nn..DataParallel(model)
     model.load_state_dict(torch.load(model_file, map_location=device))
     model = model.to(device)
     model.eval()
