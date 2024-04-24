@@ -15,6 +15,6 @@ cv: "RandomizedSearchCV"
 cv_params:
    cv: 5
    n_iter: 50
-   refit: 'fbeta_score_0.5'
+   refit: 'fbeta_score'
    verbose: 1
    n_jobs: -1
