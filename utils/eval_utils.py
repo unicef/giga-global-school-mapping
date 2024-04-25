@@ -199,6 +199,7 @@ def evaluate(y_true, y_pred, y_prob, pos_label, beta=0.5):
         "precision_scores_50_": precision,
         "recall_scores_50_": recall,
         "thresholds_50_": thresholds,
+        "optim_threshold": optim_threshold,
         "fbeta_score_optim": fbeta_score(
             y_true, y_pred_optim, beta=beta, pos_label=pos_label, average="binary", zero_division=0
         ) * 100,
