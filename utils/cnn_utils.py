@@ -185,7 +185,18 @@ def load_dataset(config, phases):
     return data, data_loader, classes
 
 
-def train(data_loader, model, criterion, optimizer, device, logging, pos_label, beta, wandb=None):
+def train(
+    data_loader, 
+    model, 
+    criterion, 
+    optimizer, 
+    device, 
+    logging, 
+    pos_label, 
+    beta, 
+    optim_threshold=None, 
+    wandb=None
+):
     """
     Train the model on the provided data.
 
@@ -228,7 +239,7 @@ def train(data_loader, model, criterion, optimizer, device, logging, pos_label, 
             y_probs.extend(probs.data.cpu().numpy().tolist())
 
     epoch_loss = running_loss / len(data_loader)
-    epoch_results = eval_utils.evaluate(y_actuals, y_preds, y_probs, pos_label, beta)
+    epoch_results = eval_utils.evaluate(y_actuals, y_preds, y_probs, pos_label, beta, optim_threshold)
     epoch_results["loss"] = epoch_loss
     epoch_results = {f"train_{key}": val for key, val in epoch_results.items()}
 
@@ -242,7 +253,19 @@ def train(data_loader, model, criterion, optimizer, device, logging, pos_label, 
     return epoch_results
 
 
-def evaluate(data_loader, class_names, model, criterion, device, logging, pos_label, beta, phase, wandb=None):
+def evaluate(
+    data_loader, 
+    class_names, 
+    model, 
+    criterion, 
+    device, 
+    logging, 
+    pos_label, 
+    beta, 
+    phase, 
+    optim_threshold=None, 
+    wandb=None
+):
     """
     Evaluate the model using the provided data.
 
@@ -285,7 +308,7 @@ def evaluate(data_loader, class_names, model, criterion, device, logging, pos_la
         y_uids.extend(uids)
 
     epoch_loss = running_loss / len(data_loader)
-    epoch_results = eval_utils.evaluate(y_actuals, y_preds, y_probs, pos_label, beta)
+    epoch_results = eval_utils.evaluate(y_actuals, y_preds, y_probs, pos_label, beta, optim_threshold)
     epoch_results["loss"] = epoch_loss
     epoch_results = {f"{phase}_{key}": val for key, val in epoch_results.items()}
 

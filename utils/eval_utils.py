@@ -47,7 +47,19 @@ def _save_files(results, cm, exp_dir):
     open(os.path.join(exp_dir, "cm_report.log"), "a").write(cm[2])
 
 
-def save_results(test, target, pos_class, classes, results_dir, pred, prob, beta=0.5, prefix=None, log=True):
+def save_results(
+    test, 
+    target, 
+    pos_class, 
+    classes, 
+    results_dir, 
+    pred, 
+    prob, 
+    beta=0.5, 
+    optim_threshold=None, 
+    prefix=None, 
+    log=True
+):
     """
     Save evaluation results and confusion matrix to the specified directory.
 
@@ -64,7 +76,7 @@ def save_results(test, target, pos_class, classes, results_dir, pred, prob, beta
     """
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
-    results = evaluate(test[target], test[pred], test[prob], pos_class, beta)
+    results = evaluate(test[target], test[pred], test[prob], pos_class, beta, optim_threshold)
     log_results = {key: val for key, val in results.items() if key[-1] != '_'}
     cm = get_confusion_matrix(test[target], test[pred], classes)
     _save_files(results, cm, results_dir)
@@ -150,7 +162,7 @@ def get_optimal_threshold(precision, recall, thresholds, beta=0.5):
     return threshold
 
 
-def evaluate(y_true, y_pred, y_prob, pos_label, beta=0.5):
+def evaluate(y_true, y_pred, y_prob, pos_label, beta=0.5, optim_threshold=None):
     """Returns a dictionary of performance metrics.
 
     Args:
@@ -163,7 +175,8 @@ def evaluate(y_true, y_pred, y_prob, pos_label, beta=0.5):
     y_prob_50 = [val if val > 0.50 else 0 for val in y_prob]
     precision, recall, thresholds = precision_recall_curve(y_true, y_prob, pos_label=pos_label)
     precision_50, recall_50, thresholds_50 = precision_recall_curve(y_true, y_prob_50, pos_label=pos_label)
-    optim_threshold = get_optimal_threshold(precision_50, recall_50, thresholds_50, beta=beta)
+    if not optim_threshold:
+        optim_threshold = get_optimal_threshold(precision_50, recall_50, thresholds_50, beta=beta)
     y_pred_optim = [1 if val > optim_threshold else 0 for val in y_prob]
 
     return {

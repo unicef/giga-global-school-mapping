@@ -135,6 +135,7 @@ def main(c):
     model_file = os.path.join(exp_dir, f"{exp_name}.pth")
     model.load_state_dict(torch.load(model_file, map_location=device))
     model = model.to(device)
+    optim_threshold = best_results["val_optim_threshold"]
 
     # Calculate test performance using best model
     final_results = {}
@@ -150,6 +151,7 @@ def main(c):
             beta=beta,
             phase=phase,
             wandb=wandb, 
+            optim_threshold=optim_threshold,
             logging=logging
         )
         final_results.update(test_results)
@@ -165,6 +167,7 @@ def main(c):
             prob="y_probs", 
             pos_class=1, 
             classes=[1, 0], 
+            optim_threshold=optim_threshold,
             results_dir=os.path.join(exp_dir, phase),
             prefix=phase
         )
@@ -178,6 +181,7 @@ def main(c):
                 prob="y_probs", 
                 pos_class=1, 
                 classes=[1, 0], 
+                optim_threshold=optim_threshold,
                 results_dir=os.path.join(exp_dir, phase, rurban), 
                 prefix=f"{phase}_{rurban}"
             )
