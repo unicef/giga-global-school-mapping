@@ -142,6 +142,13 @@ def _get_metrics(cm, class_names):
 
     return metrics
 
+def get_optimal_threshold(precision, recall, thresholds, beta=0.5):
+    numerator = (1 + beta**2) * precision * recall
+    denom = ((beta**2) * precision) + recall
+    fscores = np.divide(numerator, denom, out=np.zeros_like(denom), where=(denom!=0))
+    threshold = thresholds[np.argmax(fscores)]
+    return threshold
+
 
 def evaluate(y_true, y_pred, y_prob, pos_label, beta=0.5):
     """Returns a dictionary of performance metrics.
@@ -156,18 +163,20 @@ def evaluate(y_true, y_pred, y_prob, pos_label, beta=0.5):
     y_prob_50 = [val if val > 0.50 else 0 for val in y_prob]
     precision, recall, thresholds = precision_recall_curve(y_true, y_prob, pos_label=pos_label)
     precision_50, recall_50, thresholds_50 = precision_recall_curve(y_true, y_prob_50, pos_label=pos_label)
+    optim_threshold = get_optimal_threshold(precision_50, recall_50, thresholds_50, beta=beta)
+    y_pred_optim = [1 if val > optim_threshold else 0 for val in y_prob]
 
     return {
         "fbeta_score": fbeta_score(
             y_true, y_pred, beta=beta, pos_label=pos_label, average="binary", zero_division=0
         ) * 100,
-        "f1_score": f1_score(
-            y_true, y_pred, pos_label=pos_label, average="binary", zero_division=0
-        ) * 100,
         "precision_score": precision_score(
             y_true, y_pred, pos_label=pos_label, average="binary", zero_division=0
         ) * 100,
         "recall_score": recall_score(
+            y_true, y_pred, pos_label=pos_label, average="binary", zero_division=0
+        ) * 100,
+        "f1_score": f1_score(
             y_true, y_pred, pos_label=pos_label, average="binary", zero_division=0
         ) * 100,
         "overall_accuracy": accuracy_score(
@@ -189,7 +198,25 @@ def evaluate(y_true, y_pred, y_prob, pos_label, beta=0.5):
         "brier_score_50": brier_score_loss(y_true, y_prob_50, pos_label=pos_label),
         "precision_scores_50_": precision,
         "recall_scores_50_": recall,
-        "thresholds_50_": thresholds
+        "thresholds_50_": thresholds,
+        "fbeta_score_optim": fbeta_score(
+            y_true, y_pred_optim, beta=beta, pos_label=pos_label, average="binary", zero_division=0
+        ) * 100,
+        "precision_score_optim": precision_score(
+            y_true, y_pred_optim, pos_label=pos_label, average="binary", zero_division=0
+        ) * 100,
+        "recall_score_optim": recall_score(
+            y_true, y_pred_optim, pos_label=pos_label, average="binary", zero_division=0
+        ) * 100,
+        "f1_score_optim": f1_score(
+            y_true, y_pred_optim, pos_label=pos_label, average="binary", zero_division=0
+        ) * 100,
+        "overall_accuracy_optim": accuracy_score(
+            y_true, y_pred_optim
+        ) * 100,
+        "balanced_accuracy_optim": balanced_accuracy_score(
+            y_true, y_pred_optim
+        ) * 100,
     }
 
 
