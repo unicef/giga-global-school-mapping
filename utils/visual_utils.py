@@ -6,7 +6,7 @@ import data_utils
 import clean_utils
 import logging
 
-from ipywidgets import Layout, GridspecLayout, Button, Image
+from ipywidgets import Layout, GridspecLayout, Button, Image, Tab
 from rasterio.plot import show
 import matplotlib.pyplot as plt
 from IPython.display import display
@@ -161,14 +161,16 @@ def validate_data(
         class_dir = os.path.join(cwd, image_dir, maxar_dir, project, iso, category.lower())
         filepath = os.path.join(class_dir, f"{item[id_col]}.tiff")
         img = open(filepath, "rb").read()
-        
-        return Image(
+        image = Tab([Image(
             value=img,
             format="png",
             layout=Layout(
                 justify_content="center", border="solid", width="auto", height="auto"
             ),
-        )
+        )])
+        image.set_title(0, item["name"][:20])
+        
+        return image
 
     def _on_button_click(button):
         """

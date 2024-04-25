@@ -69,6 +69,7 @@ def main(c):
     # Commence model training
     n_epochs = c["n_epochs"]
     beta = c["beta"]
+    scorer = c["scorer"]
     since = time.time()
     best_score = -1
     best_results = None
@@ -101,11 +102,11 @@ def main(c):
             wandb=wandb, 
             logging=logging
         )
-        scheduler.step(val_results["val_fbeta_score"])
+        scheduler.step(val_results[f"val_loss"])
 
         # Save best model so far
-        if val_results["val_fbeta_score"] > best_score:
-            best_score = val_results["val_fbeta_score"]
+        if val_results[f"val_{scorer}"] > best_score:
+            best_score = val_results[f"val_{scorer}"]
             best_results = val_results
             best_weights = model.state_dict()
 
@@ -113,13 +114,13 @@ def main(c):
             model_file = os.path.join(exp_dir, f"{exp_name}.pth")
             torch.save(model.state_dict(), model_file)
             
-        logging.info(f"Best val_fbeta_score: {best_score}")
+        logging.info(f"Best val_{scorer}: {best_score}")
         log_results = {key: val for key, val in best_results.items() if key[-1] != '_'}
         logging.info(f"Best scores: {log_results}")
 
         # Terminate if learning rate becomes too low
         learning_rate = optimizer.param_groups[0]["lr"]
-        if learning_rate < 1e-10:
+        if learning_rate < c['lr_min']:
             break
 
     # Terminate trackers

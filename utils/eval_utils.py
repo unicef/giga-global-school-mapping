@@ -18,7 +18,8 @@ from sklearn.metrics import (
     precision_recall_curve, 
     average_precision_score,
     auc,
-    roc_auc_score
+    roc_auc_score,
+    brier_score_loss
 )
 
 json.fallback_table[np.ndarray] = lambda array: array.tolist()
@@ -152,8 +153,9 @@ def evaluate(y_true, y_pred, y_prob, pos_label, beta=0.5):
     Returns:
     - dict: A dictionary of performance metrics.
     """
-
+    y_prob_05 = [val if val > 0.5 else 0 for val in y_prob]
     precision, recall, thresholds = precision_recall_curve(y_true, y_prob, pos_label=pos_label)
+    precision_05, recall_05, thresholds_05 = precision_recall_curve(y_true, y_prob_05, pos_label=pos_label)
 
     return {
         "fbeta_score": fbeta_score(
@@ -174,12 +176,20 @@ def evaluate(y_true, y_pred, y_prob, pos_label, beta=0.5):
         "balanced_accuracy": balanced_accuracy_score(
             y_true, y_pred
         ) * 100,
-        "ap": average_precision_score(y_true, y_prob),
+        "ap": average_precision_score(y_true, y_prob, pos_label=pos_label),
         "auprc": auc(recall, precision),
         "roc_auc": roc_auc_score(y_true, y_prob),
+        "brier_score": brier_score_loss(y_true, y_prob, pos_label=pos_label),
         "precision_scores_": precision,
         "recall_scores_": recall,
-        "thresholds_": thresholds
+        "thresholds_": thresholds,
+        "ap_05": average_precision_score(y_true, y_prob_05, pos_label=pos_label),
+        "auprc_05": auc(recall_05, precision_05),
+        "roc_auc_05": roc_auc_score(y_true, y_prob_05),
+        "brier_score_05": brier_score_loss(y_true, y_prob_05, pos_label=pos_label),
+        "precision_scores_05_": precision,
+        "recall_scores_05_": recall,
+        "thresholds_05_": thresholds
     }
 
 

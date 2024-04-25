@@ -459,7 +459,7 @@ def load_model(
         scheduler = lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=gamma)
     elif scheduler_type == "ReduceLROnPlateau":
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, factor=0.1, patience=patience, mode='max'
+            optimizer, factor=0.1, patience=patience, mode='min'
         )
 
     return model, criterion, optimizer, scheduler

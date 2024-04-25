@@ -27,17 +27,10 @@ def main(iso, config):
     data = model_utils.load_data(config, attributes=["rurban", "iso"], verbose=True)
     columns = ["UID", "iso", "rurban", "dataset", "class"]
 
-    out_dir = os.path.join(config["vectors_dir"], "embeddings")
+    out_dir = os.path.join(config["vectors_dir"], c["project"], "embeddings")
     embeddings = embed_utils.get_image_embeddings(config, data, model, out_dir, in_dir=None, columns=columns)
     embeddings.columns = [str(x) for x in embeddings.columns]
     embeddings = embeddings.reset_index(drop=True)
-
-    # Temporary fix
-    #embeddings = embeddings[[x for x in embeddings.columns if x not in columns[1:]]]
-    #embeddings = pd.merge(embeddings, data[columns], on="UID", how="inner")
-    #out_dir = data_utils._makedir(out_dir)
-    #filename = os.path.join(out_dir, f"{iso}_{model.name}_embeds.csv")
-    #embeddings.to_csv(filename, index=False)
     
     test = embeddings[embeddings.dataset == "test"]
     train = embeddings[(embeddings.dataset == "train") | (embeddings.dataset == "val")]
@@ -60,14 +53,19 @@ def main(iso, config):
     model = cv.best_estimator_
     model.fit(train[features], train[target].values)
     train_preds = model.predict(train[features])
+    train_probs = model.predict_proba(train[features])[:, 1]
     test_preds = model.predict(test[features])
+    test_probs = model.predict_proba(test[features])[:, 1]
 
     model_file = os.path.join(results_dir, f"{iso}_{config['config_name']}.pkl")
     joblib.dump(model, model_file)
 
     pred_col = "y_preds"
+    prob_col = "y_probs"
     train[pred_col] = train_preds
+    train[prob_col] = train_probs
     test[pred_col] = test_preds
+    test[prob_col] = test_probs
     pos_class = config["pos_class"]
 
     for phase in ["train", "test"]:
@@ -78,6 +76,7 @@ def main(iso, config):
             pos_class=pos_class, 
             classes=classes, 
             pred=pred_col,
+            prob=prob_col,
             results_dir=os.path.join(results_dir, phase),
             prefix=phase
         )
@@ -92,6 +91,7 @@ def main(iso, config):
             pos_class=pos_class, 
             classes=classes, 
             pred=pred_col,
+            prob=prob_col,
             results_dir=subresults_dir, 
             prefix=f"{phase}_{rurban}"
         )
