@@ -237,14 +237,17 @@ def cnn_predict_images(data, model, config, in_dir, classes):
     preds, probs = [], []
     pbar = data_utils._create_progress_bar(files)
     for file in pbar:
-        image = Image.open(file).convert("RGB")
-        transforms = cnn_utils.get_transforms(config["img_size"])
-        output = model(transforms["test"](image).to(device).unsqueeze(0))
-        prob = nn.softmax(output, dim=1).detach().cpu().numpy()[0]
-        probs.append(prob)
-        _, pred = torch.max(output, 1)
-        label = str(classes[int(pred[0])])
-        preds.append(label)
+        try:
+            image = Image.open(file).convert("RGB")
+            transforms = cnn_utils.get_transforms(config["img_size"])
+            output = model(transforms["test"](image).to(device).unsqueeze(0))
+            prob = nn.softmax(output, dim=1).detach().cpu().numpy()[0]
+            probs.append(prob)
+            _, pred = torch.max(output, 1)
+            label = str(classes[int(pred[0])])
+            preds.append(label)
+        except:
+            logging.info(file)
 
     probs_col = [f"{classes[index]}_prob" for index in range(len(classes))]
     probs = pd.DataFrame(probs, columns=probs_col)
@@ -368,6 +371,12 @@ def filter_by_buildings(iso_code, config, data, n_seconds=10):
     google_path = os.path.join(raster_dir, "google_buildings", f"{iso_code}_google.tif")
     ghsl_path = os.path.join(raster_dir, "ghsl", config["ghsl_built_c_file"])
 
+    if os.path.exists(ms_path):
+        ms_source = rio.open(ms_path)
+
+    if os.path.exists(google_path):
+        google_source = rio.open(google_path)
+
     pixel_sums = []
     bar_format = "{l_bar}{bar:20}{r_bar}{bar:-20b}"
     pbar = tqdm(
@@ -379,23 +388,21 @@ def filter_by_buildings(iso_code, config, data, n_seconds=10):
     for index in pbar:
         subdata = data.iloc[[index]]
         pixel_sum = 0
-        with rio.open(ms_path) as src:
+        try:
+            geometry = [subdata.iloc[0]["geometry"]]
+            image, transform = rio.mask.mask(ms_source, geometry, crop=True)
+            image[image == 255] = 1
+            pixel_sum = np.sum(image)
+        except:
+            pass
+        if pixel_sum == 0 and os.path.exists(google_path):
             try:
                 geometry = [subdata.iloc[0]["geometry"]]
-                image, transform = rio.mask.mask(src, geometry, crop=True)
+                image, transform = rio.mask.mask(google_source, geometry, crop=True)
                 image[image == 255] = 1
                 pixel_sum = np.sum(image)
             except:
                 pass
-        if pixel_sum == 0 and os.path.exists(google_path):
-            with rio.open(google_path) as src:
-                try:
-                    geometry = [subdata.iloc[0]["geometry"]]
-                    image, transform = rio.mask.mask(src, geometry, crop=True)
-                    image[image == 255] = 1
-                    pixel_sum = np.sum(image)
-                except:
-                    pass
         pixel_sums.append(pixel_sum) 
         
     data["sum"] = pixel_sums
