@@ -1,4 +1,5 @@
 import os
+import shutil
 import argparse
 import joblib
 import pandas as pd
@@ -20,8 +21,9 @@ def main(iso, config):
     exp_name = f"{iso}_{config['config_name']}"
     wandb.run.name = exp_name
     results_dir = os.path.join(cwd, config["exp_dir"], c["project"], exp_name)
-    if not os.path.exists(results_dir):
-        os.makedirs(results_dir)
+    if os.path.exists(results_dir):
+        shutil.rmtree(results_dir)
+    os.makedirs(results_dir)
 
     model = embed_utils.load_model(config)
     data = model_utils.load_data(config, attributes=["rurban", "iso"], verbose=True)
@@ -67,16 +69,24 @@ def main(iso, config):
     test[pred_col] = test_preds
     test[prob_col] = test_probs
     pos_class = config["pos_class"]
+    neg_class = config["neg_class"]
 
+    results = dict()
+    optim_threshold = None
     for phase in ["train", "test"]:
         result = train if phase == "train" else test
-        eval_utils.save_results(
+        if phase == "test":
+            optim_threshold = results["train"]["train_optim_threshold"]
+            
+        results[phase] = eval_utils.save_results(
             result, 
             target=target, 
             pos_class=pos_class, 
+            neg_class=neg_class,
             classes=classes, 
             pred=pred_col,
             prob=prob_col,
+            optim_threshold=optim_threshold,
             results_dir=os.path.join(results_dir, phase),
             prefix=phase
         )
@@ -89,9 +99,11 @@ def main(iso, config):
             subtest, 
             target=target, 
             pos_class=pos_class, 
+            neg_class=neg_class,
             classes=classes, 
             pred=pred_col,
             prob=prob_col,
+            optim_threshold=optim_threshold,
             results_dir=subresults_dir, 
             prefix=f"{phase}_{rurban}"
         )
@@ -116,6 +128,15 @@ if __name__ == "__main__":
     }
     iso = args.iso[0]
     if "name" in c: iso = c["name"]
+    log_c = {
+        key: val for key, val in c.items() 
+        if ('url' not in key) 
+        and ('dir' not in key)
+        and ('file' not in key)
+        and ('school' not in key)
+        and ('exclude' not in key)
+        and ('ms_dict' not in key)
+    }
     log_c["iso_code"] = iso
     logging.info(log_c)
     
