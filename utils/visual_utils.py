@@ -168,7 +168,10 @@ def validate_data(
                 justify_content="center", border="solid", width="auto", height="auto"
             ),
         )])
-        image.set_title(0, item["name"][:20])
+        name = item["name"]
+        if name:
+            name = name[:20]
+        image.set_title(0, name)
         
         return image
 
