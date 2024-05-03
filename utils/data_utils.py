@@ -305,7 +305,7 @@ def read_data(data_dir, sources=[], exclude=[]):
 
     # Concatenate files in data_dir
     data = gpd.GeoDataFrame(pd.concat(data).copy(), crs="EPSG:4326")
-    #data = data.drop_duplicates()
+    data = data.drop_duplicates()
     return data
 
 
