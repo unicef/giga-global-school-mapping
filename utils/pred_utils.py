@@ -371,12 +371,6 @@ def filter_by_buildings(iso_code, config, data, n_seconds=10):
     google_path = os.path.join(raster_dir, "google_buildings", f"{iso_code}_google.tif")
     ghsl_path = os.path.join(raster_dir, "ghsl", config["ghsl_built_c_file"])
 
-    if os.path.exists(ms_path):
-        ms_source = rio.open(ms_path)
-
-    if os.path.exists(google_path):
-        google_source = rio.open(google_path)
-
     pixel_sums = []
     bar_format = "{l_bar}{bar:20}{r_bar}{bar:-20b}"
     pbar = tqdm(
@@ -389,18 +383,20 @@ def filter_by_buildings(iso_code, config, data, n_seconds=10):
         subdata = data.iloc[[index]]
         pixel_sum = 0
         try:
-            geometry = [subdata.iloc[0]["geometry"]]
-            image, transform = rio.mask.mask(ms_source, geometry, crop=True)
-            image[image == 255] = 1
-            pixel_sum = np.sum(image)
+            with rio.open(ms_path) as ms_source:
+                geometry = [subdata.iloc[0]["geometry"]]
+                image, transform = rio.mask.mask(ms_source, geometry, crop=True)
+                image[image == 255] = 1
+                pixel_sum = np.sum(image)
         except:
             pass
         if pixel_sum == 0 and os.path.exists(google_path):
             try:
-                geometry = [subdata.iloc[0]["geometry"]]
-                image, transform = rio.mask.mask(google_source, geometry, crop=True)
-                image[image == 255] = 1
-                pixel_sum = np.sum(image)
+                with rio.open(google_path) as google_source:
+                    geometry = [subdata.iloc[0]["geometry"]]
+                    image, transform = rio.mask.mask(google_source, geometry, crop=True)
+                    image[image == 255] = 1
+                    pixel_sum = np.sum(image)
             except:
                 pass
         pixel_sums.append(pixel_sum) 
@@ -428,7 +424,8 @@ def generate_pred_tiles(config, iso_code, spacing, buffer_size, adm_level="ADM2"
         adm_level=adm_level, 
         shapename=shapename
     )
-    logging.info(shapename)
+    
+    logging.info(f"Shapename: {shapename}")
     points["points"] = points["geometry"]
     points["geometry"] = points.buffer(buffer_size, cap_style=3)
     points["UID"] = list(points.index)
@@ -436,5 +433,4 @@ def generate_pred_tiles(config, iso_code, spacing, buffer_size, adm_level="ADM2"
     filtered = filter_by_buildings(iso_code, config, points)
     filtered = filtered[["UID", "geometry", "shapeName", "sum"]]
     filtered.to_file(out_file, driver="GPKG", index=False)
-
     return filtered
