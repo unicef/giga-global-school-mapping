@@ -421,7 +421,7 @@ def _filter_pois_with_matching_names(data, proximity, threshold, priority):
     return data
 
 
-def clean_data(config, category, name="clean", id="UID", sources=[]):
+def clean_data(config, category, name="clean", id="UID", sources=[], name_col="clean"):
     """
     Process and clean spatial data based on specified categories.
 
@@ -443,9 +443,9 @@ def clean_data(config, category, name="clean", id="UID", sources=[]):
     and saving the cleaned data as GeoJSON files in the specified directory.
     """
 
-    def _get_condition(data, name, id, ids, shape_name):
+    def _get_condition(data, name_col, id, ids, shape_name):
         return (
-            (data[name] == 0) 
+            (data[name_col] == 0) 
             & (~data[id].isin(ids))
             & (data["shapeName"] == shape_name)
         )
@@ -473,7 +473,7 @@ def clean_data(config, category, name="clean", id="UID", sources=[]):
             geoboundaries = data_utils._get_geoboundaries(config, iso_code, adm_level="ADM1")
             geoboundaries = geoboundaries[["shapeName", "geometry"]].dropna(subset=["shapeName"])
             subdata = subdata.sjoin(geoboundaries, how="left", predicate="within")
-            subdata[name] = 0
+            subdata[name_col] = 0
             logging.info(f"Dimensions: {subdata.shape}")
     
             # Split the data into smaller admin boundaries for scalability
@@ -490,8 +490,8 @@ def clean_data(config, category, name="clean", id="UID", sources=[]):
                         subsubdata, exclude=config["exclude"]
                     )[config["columns"]]
                     ids = subsubdata[id].values
-                    condition = _get_condition(subdata, name, id, ids, shape_name)
-                    subdata.loc[condition, name] = 1
+                    condition = _get_condition(subdata, name_col, id, ids, shape_name)
+                    subdata.loc[condition, name_col] = 1
     
                 # Remove POIs within proximity of each other
                 subsubdata = _filter_pois_within_proximity(
@@ -500,8 +500,8 @@ def clean_data(config, category, name="clean", id="UID", sources=[]):
                     priority=config["priority"],
                 )[config["columns"]]
                 ids = subsubdata[id].values
-                condition = _get_condition(subdata, name, id, ids, shape_name)
-                subdata.loc[condition, name] = 2
+                condition = _get_condition(subdata, name_col, id, ids, shape_name)
+                subdata.loc[condition, name_col] = 2
     
                 # Remove POIs with matching names within proximity of each other
                 subsubdata = _filter_pois_with_matching_names(
@@ -511,8 +511,8 @@ def clean_data(config, category, name="clean", id="UID", sources=[]):
                     proximity=config["name_match_proximity"],
                 )
                 ids = subsubdata[id].values
-                condition = _get_condition(subdata, name, id, ids, shape_name)
-                subdata.loc[condition, name] = 3
+                condition = _get_condition(subdata, name_col, id, ids, shape_name)
+                subdata.loc[condition, name_col] = 3
 
                 # Filter uninhabited locations based on specified buffer size
                 subsubdata = _filter_uninhabited_locations(
@@ -521,11 +521,11 @@ def clean_data(config, category, name="clean", id="UID", sources=[]):
                     pbar=pbar
                 )[config["columns"]]
                 ids = subsubdata[id].values
-                condition = _get_condition(subdata, name, id, ids, shape_name)
-                subdata.loc[condition, name] = 4
+                condition = _get_condition(subdata, name_col, id, ids, shape_name)
+                subdata.loc[condition, name_col] = 4
                 
             # Save cleaned file as a GeoJSON
-            subdata = subdata[config["columns"]+[name]].reset_index(drop=True)
+            subdata = subdata[config["columns"]+[name_col]].reset_index(drop=True)
             out_subdata = data_utils._concat_data([subdata], out_file=out_subfile)
     
         # Read and store the cleaned data
