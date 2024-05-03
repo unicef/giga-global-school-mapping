@@ -56,6 +56,7 @@ def save_results(
     pred, 
     prob, 
     beta=0.5, 
+    neg_class=0,
     optim_threshold=None, 
     prefix=None, 
     log=True
@@ -76,7 +77,15 @@ def save_results(
     """
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
-    results = evaluate(test[target], test[pred], test[prob], pos_class, beta, optim_threshold)
+    results = evaluate(
+        test[target], 
+        test[pred], 
+        test[prob], 
+        pos_label=pos_class, 
+        beta=beta, 
+        optim_threshold=optim_threshold, 
+        neg_label=neg_class
+    )
     if prefix: 
         results = {f"{prefix}_{key}": val for key, val in results.items()}
     
@@ -160,10 +169,10 @@ def get_optimal_threshold(precision, recall, thresholds, beta=0.5):
     denom = ((beta**2) * precision) + recall
     fscores = np.divide(numerator, denom, out=np.zeros_like(denom), where=(denom!=0))
     threshold = thresholds[np.argmax(fscores)]
-    return threshold
+    return threshold, fscores
 
 
-def evaluate(y_true, y_pred, y_prob, pos_label, beta=0.5, optim_threshold=None):
+def evaluate(y_true, y_pred, y_prob, pos_label, neg_label=0, beta=0.5, optim_threshold=None):
     """Returns a dictionary of performance metrics.
 
     Args:
@@ -173,12 +182,14 @@ def evaluate(y_true, y_pred, y_prob, pos_label, beta=0.5, optim_threshold=None):
     Returns:
     - dict: A dictionary of performance metrics.
     """
-    y_prob_50 = [val if val > 0.50 else 0 for val in y_prob]
     precision, recall, thresholds = precision_recall_curve(y_true, y_prob, pos_label=pos_label)
+    
+    y_prob_50 = [val if val > 0.50 else 0 for val in y_prob]
     precision_50, recall_50, thresholds_50 = precision_recall_curve(y_true, y_prob_50, pos_label=pos_label)
+    
     if not optim_threshold:
-        optim_threshold = get_optimal_threshold(precision_50, recall_50, thresholds_50, beta=beta)
-    y_pred_optim = [1 if val > optim_threshold else 0 for val in y_prob]
+        optim_threshold, _ = get_optimal_threshold(precision_50, recall_50, thresholds_50, beta=beta)
+    y_pred_optim = [pos_label if val > optim_threshold else neg_label for val in y_prob]
 
     return {
         "fbeta_score": fbeta_score(
@@ -210,9 +221,9 @@ def evaluate(y_true, y_pred, y_prob, pos_label, beta=0.5, optim_threshold=None):
         "auprc_50": auc(recall_50, precision_50),
         "roc_auc_50": roc_auc_score(y_true, y_prob_50),
         "brier_score_50": brier_score_loss(y_true, y_prob_50, pos_label=pos_label),
-        "precision_scores_50_": precision,
-        "recall_scores_50_": recall,
-        "thresholds_50_": thresholds,
+        "precision_scores_50_": precision_50,
+        "recall_scores_50_": recall_50,
+        "thresholds_50_": thresholds_50,
         "optim_threshold": optim_threshold,
         "fbeta_score_optim": fbeta_score(
             y_true, y_pred_optim, beta=beta, pos_label=pos_label, average="binary", zero_division=0
@@ -237,4 +248,4 @@ def evaluate(y_true, y_pred, y_prob, pos_label, beta=0.5, optim_threshold=None):
 
 def get_scoring(pos_label, beta=0.5):
     """Returns the dictionary of scorer objects."""
-    return {"fbeta_score": make_scorer(fbeta_score, beta=beta, pos_label=pos_label, average="binary")}
+    return {"ap_50": make_scorer(average_precision_score, pos_label=pos_label)}
