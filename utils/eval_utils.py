@@ -248,4 +248,4 @@ def evaluate(y_true, y_pred, y_prob, pos_label, neg_label=0, beta=0.5, optim_thr
 
 def get_scoring(pos_label, beta=0.5):
     """Returns the dictionary of scorer objects."""
-    return {"ap_50": make_scorer(average_precision_score, pos_label=pos_label)}
+    return {"ap_50": make_scorer(average_precision_score, needs_proba=True, pos_label=pos_label)}
