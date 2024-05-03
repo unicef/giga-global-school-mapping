@@ -208,6 +208,9 @@ if __name__ == "__main__":
         if ('url' not in key) 
         and ('dir' not in key)
         and ('file' not in key)
+        and ('school' not in key)
+        and ('exclude' not in key)
+        and ('ms_dict' not in key)
     }
     logging.info(log_c)
 
