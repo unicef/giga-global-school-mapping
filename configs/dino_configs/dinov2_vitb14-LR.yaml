@@ -12,6 +12,6 @@ scalers: ['MinMaxScaler', 'StandardScaler', 'RobustScaler']
 cv: "GridSearchCV"
 cv_params:
    cv: 5
-   refit: 'fbeta_score'
+   refit: 'ap_50'
    verbose: 1
    n_jobs: -1
