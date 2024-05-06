@@ -68,7 +68,7 @@ def download_osm(config, category, source="osm"):
     - GeoDataFrame: Combined and processed GeoDataFrame containing OSM POIs.
     """
 
-    out_dir = os.path.join(config["vectors_dir"], category, source)
+    out_dir = os.path.join(config["vectors_dir"], config["project"], category, source)
     out_dir = data_utils._makedir(out_dir)
     osm_file = os.path.join(os.path.dirname(out_dir), f"{source}.geojson")
     iso_codes = config['iso_codes']
@@ -189,7 +189,7 @@ def download_overture(config, category, exclude=None, source="overture"):
     """
 
     # Generate output directory
-    out_dir = os.path.join(config["vectors_dir"], category, source)
+    out_dir = os.path.join(config["vectors_dir"], config["project"], category, source)
     out_dir = data_utils._makedir(out_dir)
     overture_file = os.path.join(os.path.dirname(out_dir), f"{source}.geojson")
     iso_codes = config['iso_codes']
@@ -271,7 +271,7 @@ def load_unicef(config, category="school", source="unicef"):
     """
 
     # Generate data directory
-    data_dir = os.path.join(config["vectors_dir"], category, source)
+    data_dir = os.path.join(config["vectors_dir"], config["project"], category, source)
     data_dir = data_utils._makedir(data_dir)
     files = next(os.walk(data_dir), (None, None, []))[2]
     logging.info(f"Number of CSV files: {len(files)}")
