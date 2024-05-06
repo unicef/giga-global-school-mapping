@@ -239,17 +239,14 @@ def cnn_predict_images(data, model, config, in_dir, classes):
     preds, probs = [], []
     pbar = data_utils._create_progress_bar(files)
     for file in pbar:
-        try:
-            image = Image.open(file).convert("RGB")
-            transforms = cnn_utils.get_transforms(config["img_size"])
-            output = model(transforms["test"](image).to(device).unsqueeze(0))
-            prob = nn.softmax(output, dim=1).detach().cpu().numpy()[0]
-            probs.append(prob)
-            _, pred = torch.max(output, 1)
-            label = str(classes[int(pred[0])])
-            preds.append(label)
-        except:
-            logging.info(file)
+        image = Image.open(file).convert("RGB")
+        transforms = cnn_utils.get_transforms(config["img_size"])
+        output = model(transforms["test"](image).to(device).unsqueeze(0))
+        prob = nn.softmax(output, dim=1).detach().cpu().numpy()[0]
+        probs.append(prob)
+        _, pred = torch.max(output, 1)
+        label = str(classes[int(pred[0])])
+        preds.append(label)
 
     probs_col = [f"{classes[index]}_prob" for index in range(len(classes))]
     probs = pd.DataFrame(probs, columns=probs_col)
