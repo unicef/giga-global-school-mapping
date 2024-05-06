@@ -58,7 +58,7 @@ def cam_predict(iso_code, config, data, geotiff_dir, out_file):
         cam_extractor
     )
     results = filter_by_buildings(iso_code, config, results)
-    if len(results > 0):
+    if len(results) > 0:
         results = data_utils._connect_components(results, buffer_size=0)
         results = results.sort_values("prob", ascending=False).drop_duplicates(["group"])
         results.to_file(out_file, driver="GPKG")
