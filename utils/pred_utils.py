@@ -83,6 +83,7 @@ def generate_cam_bboxes(data, config, in_dir, model, cam_extractor, show=False):
     results = []
     data = data.reset_index(drop=True)
     filepaths = data_utils.get_image_filepaths(config, data, in_dir, ext=".tif")
+    crs = data.crs
     for index in tqdm(list(data.index), total=len(data)):
         _, bbox = generate_cam(config, filepaths[index], model, cam_extractor, show=False)
         with rio.open(filepaths[index]) as map_layer:
