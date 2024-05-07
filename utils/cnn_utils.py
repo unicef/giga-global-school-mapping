@@ -299,6 +299,8 @@ def evaluate(
 
         with torch.set_grad_enabled(False):
             outputs = model(inputs)
+            if type(outputs) is tuple:
+                outputs = outputs[0]
             _, preds = torch.max(outputs, 1)
             soft_outputs = nnf.softmax(outputs, dim=1)
             probs = soft_outputs[:, 1]
