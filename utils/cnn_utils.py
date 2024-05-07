@@ -245,7 +245,9 @@ def train(
             y_probs.extend(probs.data.cpu().numpy().tolist())
 
     epoch_loss = running_loss / len(data_loader)
-    epoch_results = eval_utils.evaluate(y_actuals, y_preds, y_probs, pos_label, beta, optim_threshold)
+    epoch_results = eval_utils.evaluate(
+        y_actuals, y_preds, y_probs, pos_label, beta=beta, optim_threshold=optim_threshold
+    )
     epoch_results["loss"] = epoch_loss
     epoch_results = {f"train_{key}": val for key, val in epoch_results.items()}
 
@@ -319,7 +321,9 @@ def evaluate(
         y_uids.extend(uids)
 
     epoch_loss = running_loss / len(data_loader)
-    epoch_results = eval_utils.evaluate(y_actuals, y_preds, y_probs, pos_label, beta, optim_threshold)
+    epoch_results = eval_utils.evaluate(
+        y_actuals, y_preds, y_probs, pos_label, beta=beta, optim_threshold=optim_threshold
+    )
     epoch_results["loss"] = epoch_loss
     epoch_results = {f"{phase}_{key}": val for key, val in epoch_results.items()}
 
