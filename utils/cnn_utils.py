@@ -228,9 +228,12 @@ def train(
             outputs = model(inputs)
             if type(outputs) is tuple:
                 outputs = outputs[0]
-            _, preds = torch.max(outputs, 1)
-            soft_outputs = nnf.softmax(outputs, dim=1)
-            probs = soft_outputs[:, 1]
+                _, preds = torch.max(outputs, 1)
+                probs = outputs[:, 1]
+            else:
+                _, preds = torch.max(outputs, 1)
+                soft_outputs = nnf.softmax(outputs, dim=1)
+                probs = soft_outputs[:, 1]
             loss = criterion(outputs, labels)
 
             loss.backward()
@@ -301,9 +304,12 @@ def evaluate(
             outputs = model(inputs)
             if type(outputs) is tuple:
                 outputs = outputs[0]
-            _, preds = torch.max(outputs, 1)
-            soft_outputs = nnf.softmax(outputs, dim=1)
-            probs = soft_outputs[:, 1]
+                _, preds = torch.max(outputs, 1)
+                probs = outputs[:, 1]
+            else:
+                _, preds = torch.max(outputs, 1)
+                soft_outputs = nnf.softmax(outputs, dim=1)
+                probs = soft_outputs[:, 1]
             loss = criterion(outputs, labels)
 
         running_loss += loss.item() * inputs.size(0)
