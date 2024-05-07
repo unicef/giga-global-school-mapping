@@ -167,12 +167,12 @@ def _get_metrics(cm, class_names):
     return metrics
 
 def get_optimal_threshold(precision, recall, thresholds, beta=0.5):
+    if len(thresholds) == 0:
+        return 0, []
     numerator = (1 + beta**2) * precision * recall
     denom = ((beta**2) * precision) + recall
     fscores = np.divide(numerator, denom, out=np.zeros_like(denom), where=(denom!=0))
-    threshold = 0
-    if len(fscores) > 0:
-        threshold = thresholds[np.argmax(fscores)]
+    threshold = thresholds[np.argmax(fscores)]
     return threshold, fscores
 
 
