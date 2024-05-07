@@ -6,16 +6,13 @@ import rasterio as rio
 import pandas as pd
 import numpy as np
 
-import logging
-
-logging.basicConfig(level=logging.INFO)
-
 import timm
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.optim import lr_scheduler
 from torch.utils.data import Dataset
+from torch_lr_finder import LRFinder
 
 from torchvision import models, transforms
 import torchvision.transforms.functional as F
@@ -28,6 +25,7 @@ from torchvision.models import (
     EfficientNet_B0_Weights,
 )
 import torch.nn.functional as nnf
+import satlaspretrain_models
 
 import sys
 sys.path.insert(0, "../utils/")
@@ -40,6 +38,9 @@ SEED = 42
 # Add temporary fix for hash error: https://github.com/pytorch/vision/issues/7744
 from torchvision.models._api import WeightsEnum
 from torch.hub import load_state_dict_from_url
+
+import logging
+logging.basicConfig(level=logging.INFO)
 
 imagenet_mean, imagenet_std = [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
 
@@ -225,6 +226,9 @@ def train(
 
         with torch.set_grad_enabled(True):
             outputs = model(inputs)
+            if type(outputs) is tuple:
+                outputs = outputs[0]
+            print(outputs)
             _, preds = torch.max(outputs, 1)
             soft_outputs = nnf.softmax(outputs, dim=1)
             probs = soft_outputs[:, 1]
@@ -427,7 +431,18 @@ def get_model(model_type, n_classes, dropout=0):
             model = models.convnext_large(weights='IMAGENET1K_V1')
         num_ftrs = model.classifier[2].in_features
         model.classifier[2] = nn.Linear(num_ftrs, n_classes)
-    
+
+    if 'satlas' in model_type:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        weights_manager = satlaspretrain_models.Weights()
+        model_identifier = model_type.split("-")[-1]
+        model = weights_manager.get_pretrained_model(
+            model_identifier=model_identifier,
+            num_categories=n_classes,
+            fpn=True, 
+            head=satlaspretrain_models.Head.CLASSIFY,
+            device=device
+        )
     return model
 
 
@@ -486,3 +501,19 @@ def load_model(
         )
 
     return model, criterion, optimizer, scheduler
+
+
+def lr_finder(data_loader, model, optimizer, criterion, device, end_lr=1.0, num_iter=100, plot=False):
+    lr_finder = LRFinder(model, optimizer, criterion, device=device)
+    lr_finder.range_test(data_loader["train"], end_lr=end_lr, num_iter=num_iter)
+    if plot:
+        lr_finder.plot() 
+    lr_finder.reset()
+    lrs = np.array(lr_finder.history["lr"])
+    losses = np.array(lr_finder.history["loss"])
+    min_grad_idx = None
+    min_grad_idx = (np.gradient(np.array(losses))).argmin()
+    if min_grad_idx is not None:
+        best_lr = lrs[min_grad_idx]
+    logging.info(f"Best lr:", best_lr)
+    return best_lr
