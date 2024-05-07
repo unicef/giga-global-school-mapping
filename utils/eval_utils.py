@@ -188,9 +188,7 @@ def evaluate(y_true, y_pred, y_prob, pos_label, neg_label=0, beta=0.5, optim_thr
     
     y_prob_50 = [val if val > 0.5 else 0 for val in y_prob]
     precision_50, recall_50, thresholds_50 = precision_recall_curve(y_true, y_prob_50, pos_label=pos_label)
-    precision_50 = precision_50[1:]
-    recall_50 = recall_50[1:]
-    thresholds_50 = thresholds_50[1:]
+    precision_50, recall_50, thresholds_50 = precision_50[1:], recall_50[1:], thresholds_50[1:]
     
     if not optim_threshold:
         optim_threshold, _ = get_optimal_threshold(precision_50, recall_50, thresholds_50, beta=beta)
