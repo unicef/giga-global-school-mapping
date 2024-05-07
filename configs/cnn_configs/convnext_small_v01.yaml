@@ -3,7 +3,7 @@ test_size: 0.1
 batch_size: 32
 n_workers: 4
 n_epochs: 60
-scorer: "ap_50"
+scorer: "auprc_50"
 
 model: "convnext_small"
 pretrained: True
