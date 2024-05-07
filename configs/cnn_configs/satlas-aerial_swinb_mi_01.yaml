@@ -5,7 +5,7 @@ n_workers: 4
 n_epochs: 60
 scorer: "ap_50"
 
-model: "satlas-Aerial_SwinB_SI"
+model: "satlas-Aerial_SwinB_MI"
 pretrained: True
 scheduler: "ReduceLROnPlateau"
 optimizer: "Adam"
