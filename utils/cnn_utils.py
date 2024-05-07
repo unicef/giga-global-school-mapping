@@ -157,7 +157,7 @@ def load_dataset(config, phases):
     dataset["filepath"] = data_utils.get_image_filepaths(config, dataset)
     classes_dict = {config["pos_class"] : 1, config["neg_class"] : 0}
 
-    transforms = get_transforms(size=config["img_size"])
+    transforms = get_transforms(size=config["img_size"], normalize=config["normalize"])
     classes = list(dataset["class"].unique())
     logging.info(f" Classes: {classes}")
 
@@ -221,7 +221,7 @@ def train(
     for inputs, labels, _ in tqdm(data_loader, total=len(data_loader)):
         inputs = inputs.to(device)
         labels = labels.to(device)
-
+        
         optimizer.zero_grad()
 
         with torch.set_grad_enabled(True):
@@ -335,7 +335,7 @@ def evaluate(
     return epoch_results, (confusion_matrix, cm_metrics, cm_report), preds
 
 
-def get_transforms(size):
+def get_transforms(size, normalize="imagenet"):
     """
     Get image transformations for training and testing phases.
 
@@ -346,35 +346,32 @@ def get_transforms(size):
     - dict: A dictionary containing transformation pipelines for "TRAIN" and "TEST" phases.
     """
 
-    return {
-        "train": transforms.Compose(
-            [
+    transformations = {
+        "train": [
                 transforms.Resize(size),
                 transforms.RandomApply([transforms.RandomRotation((90, 90))], p=0.5),
                 transforms.RandomHorizontalFlip(),
                 transforms.RandomVerticalFlip(),
-                transforms.ToTensor(),
-                transforms.Normalize(imagenet_mean, imagenet_std),
-            ]
-        ),
-        "val": transforms.Compose(
-            [
+                transforms.ToTensor()
+        ],
+        "val": [
                 transforms.Resize(size),
                 transforms.CenterCrop(size),
-                transforms.ToTensor(),
-                transforms.Normalize(imagenet_mean, imagenet_std),
-            ]
-        ),
-        "test": transforms.Compose(
-            [
+                transforms.ToTensor()
+        ],
+        "test": [
                 transforms.Resize(size),
                 transforms.CenterCrop(size),
-                transforms.ToTensor(),
-                transforms.Normalize(imagenet_mean, imagenet_std),
-            ]
-        ),
+                transforms.ToTensor()
+        ],
     }
 
+    if normalize == "imagenet":
+        for k, v in transformations.items():
+            transformations[k].append(transforms.Normalize(imagenet_mean, imagenet_std))
+        
+    transformations = {k: transforms.Compose(v) for k, v in transformations.items()}
+    return transformations
 
 def get_model(model_type, n_classes, dropout=0):
     """
