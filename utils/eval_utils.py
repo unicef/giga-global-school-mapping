@@ -167,8 +167,6 @@ def _get_metrics(cm, class_names):
     return metrics
 
 def get_optimal_threshold(precision, recall, thresholds, beta=0.5):
-    if len(thresholds) == 0:
-        return 0, []
     numerator = (1 + beta**2) * precision * recall
     denom = ((beta**2) * precision) + recall
     fscores = np.divide(numerator, denom, out=np.zeros_like(denom), where=(denom!=0))
@@ -190,11 +188,12 @@ def evaluate(y_true, y_pred, y_prob, pos_label, neg_label=0, beta=0.5, optim_thr
     
     y_prob_50 = [val if val > 0.5 else 0 for val in y_prob]
     precision_50, recall_50, thresholds_50 = precision_recall_curve(y_true, y_prob_50, pos_label=pos_label)
-    precision_50, recall_50, thresholds_50 = precision_50[1:], recall_50[1:], thresholds_50[1:]
     
     if not optim_threshold:
         optim_threshold, _ = get_optimal_threshold(precision_50, recall_50, thresholds_50, beta=beta)
     y_pred_optim = [pos_label if val > optim_threshold else neg_label for val in y_prob]
+    
+    precision_50, recall_50, thresholds_50 = precision_50[1:], recall_50[1:], thresholds_50[1:]
 
     return {
         # Performance metrics for probabilities > 0.5 threshold
