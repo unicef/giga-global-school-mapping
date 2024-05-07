@@ -226,14 +226,9 @@ def train(
 
         with torch.set_grad_enabled(True):
             outputs = model(inputs)
-            if type(outputs) is tuple:
-                outputs = outputs[0]
-                _, preds = torch.max(outputs, 1)
-                probs = outputs[:, 1]
-            else:
-                _, preds = torch.max(outputs, 1)
-                soft_outputs = nnf.softmax(outputs, dim=1)
-                probs = soft_outputs[:, 1]
+            _, preds = torch.max(outputs, 1)
+            soft_outputs = nnf.softmax(outputs, dim=1)
+            probs = soft_outputs[:, 1]
             loss = criterion(outputs, labels)
 
             loss.backward()
@@ -304,14 +299,9 @@ def evaluate(
 
         with torch.set_grad_enabled(False):
             outputs = model(inputs)
-            if type(outputs) is tuple:
-                outputs = outputs[0]
-                _, preds = torch.max(outputs, 1)
-                probs = outputs[:, 1]
-            else:
-                _, preds = torch.max(outputs, 1)
-                soft_outputs = nnf.softmax(outputs, dim=1)
-                probs = soft_outputs[:, 1]
+            _, preds = torch.max(outputs, 1)
+            soft_outputs = nnf.softmax(outputs, dim=1)
+            probs = soft_outputs[:, 1]
             loss = criterion(outputs, labels)
 
         running_loss += loss.item() * inputs.size(0)
@@ -454,6 +444,15 @@ def get_model(model_type, n_classes, dropout=0):
             head=satlaspretrain_models.Head.CLASSIFY,
             device=device
         )
+        class ModelModified(nn.Module):
+            def __init__(self, model):
+                super(ModelModified, self).__init__()
+                self.model = model
+            def forward(self, x):
+                return self.model(x)[0]
+
+        model = ModelModified(model)
+        
     return model
 
 
