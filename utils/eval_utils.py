@@ -23,15 +23,18 @@ from sklearn.metrics import (
 )
 
 json.fallback_table[np.ndarray] = lambda array: array.tolist()
+json.fallback_table[np.integer] = lambda obj: int(obj)
 
 
 def _save_files(results, cm, exp_dir):
     """
     Save evaluation results and confusion matrix to the specified directory.
+    
     Args:
     - results (dict): Evaluation results to be saved as JSON.
     - cm (tuple): Tuple containing confusion matrix components (DataFrame, DataFrame, str).
     - exp_dir (str): Directory path to save the results.
+    
     Saves:
     - "results.json": JSON file containing the evaluation results.
     - "confusion_matrix.csv": CSV file containing the confusion matrix data.
@@ -127,7 +130,6 @@ def get_confusion_matrix(y_true, y_pred, class_names):
     cm_report = classification_report(
         y_true, y_pred, target_names=class_names, zero_division=0
     )
-
     return cm, cm_metrics, cm_report
 
 
