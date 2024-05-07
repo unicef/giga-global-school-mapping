@@ -193,7 +193,7 @@ def evaluate(y_true, y_pred, y_prob, pos_label, neg_label=0, beta=0.5, optim_thr
         optim_threshold, _ = get_optimal_threshold(precision_50, recall_50, thresholds_50, beta=beta)
     y_pred_optim = [pos_label if val > optim_threshold else neg_label for val in y_prob]
 
-    if len(precision_50) > 0:
+    if len(precision_50) > 1:
         precision_50, recall_50, thresholds_50 = precision_50[1:], recall_50[1:], thresholds_50[1:]
 
     return {
