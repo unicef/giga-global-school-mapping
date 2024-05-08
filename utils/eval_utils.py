@@ -194,8 +194,10 @@ def evaluate(
     - dict: A dictionary of performance metrics.
     """
     precision, recall, thresholds = precision_recall_curve(y_true, y_prob, pos_label=pos_label)
-    y_true_partial = y_true[y_prob > default_threshold]
-    y_prob_partial = y_prob[y_prob > default_threshold]
+
+    idx_threshold = np.where(y_prob > threshold)
+    y_true_partial = y_true[idx_threshold]
+    y_prob_partial = y_prob[idx_threshold]
     precision_partial, recall_partial, thresholds_partial = precision_recall_curve(
         y_true_partial, y_prob_partial, pos_label=pos_label
     )
