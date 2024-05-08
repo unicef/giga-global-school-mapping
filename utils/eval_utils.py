@@ -194,22 +194,23 @@ def evaluate(
     - dict: A dictionary of performance metrics.
     """
     precision, recall, thresholds = precision_recall_curve(y_true, y_prob, pos_label=pos_label)
-
     idx_threshold = np.where(np.array(thresholds) > default_threshold)
     precision_partial = precision[idx_threshold]
     recall_partial = recall[idx_threshold]
     thresholds_partial = thresholds[idx_threshold]
 
-    y_pred_optim = default_threshold
-    if not optim_threshold and len(thresholds_partial) > 0:
-        optim_threshold, _ = get_optimal_threshold(
-            precision_partial, recall_partial, thresholds_partial, beta=beta
-        )
+    p_auprc, y_pred_optim = 0, y_pred
+    if len(thresholds_partial) > 0:
+        p_auprc = auc(recall_partial, precision_partial)
+        if not optim_threshold:
+            optim_threshold, _ = get_optimal_threshold(
+                precision_partial, recall_partial, thresholds_partial, beta=beta
+            )
         y_pred_optim = [pos_label if val > optim_threshold else neg_label for val in y_prob]
     
     return {
         # Performance metrics for probabilities > 0.5 threshold
-        "p_auprc": auc(recall_partial, precision_partial),
+        "p_auprc": p_auprc,
         "p_precision_scores_": precision_partial,
         "p_recall_scores_": recall_partial,
         "p_thresholds_": thresholds_partial,
