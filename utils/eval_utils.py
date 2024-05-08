@@ -199,14 +199,14 @@ def evaluate(
     precision_partial = precision[idx_threshold]
     recall_partial = recall[idx_threshold]
     thresholds_partial = thresholds[idx_threshold]
-    
-    if not optim_threshold:
+
+    y_pred_optim = default_threshold
+    if not optim_threshold and len(thresholds_partial) > 0:
         optim_threshold, _ = get_optimal_threshold(
             precision_partial, recall_partial, thresholds_partial, beta=beta
         )
-    y_pred_optim = [pos_label if val > optim_threshold else neg_label for val in y_prob]
+        y_pred_optim = [pos_label if val > optim_threshold else neg_label for val in y_prob]
     
-
     return {
         # Performance metrics for probabilities > 0.5 threshold
         "p_auprc": auc(recall_partial, precision_partial),
