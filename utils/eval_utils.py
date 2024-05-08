@@ -195,7 +195,7 @@ def evaluate(
     """
     precision, recall, thresholds = precision_recall_curve(y_true, y_prob, pos_label=pos_label)
 
-    idx_threshold = np.where(y_prob > threshold)
+    idx_threshold = np.where(y_prob > default_threshold)
     y_true_partial = y_true[idx_threshold]
     y_prob_partial = y_prob[idx_threshold]
     precision_partial, recall_partial, thresholds_partial = precision_recall_curve(
