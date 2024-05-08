@@ -174,7 +174,16 @@ def get_optimal_threshold(precision, recall, thresholds, beta=0.5):
     return threshold, fscores
 
 
-def evaluate(y_true, y_pred, y_prob, pos_label, neg_label=0, beta=0.5, optim_threshold=None):
+def evaluate(
+    y_true, 
+    y_pred, 
+    y_prob, 
+    pos_label=1, 
+    neg_label=0, 
+    beta=0.5, 
+    optim_threshold=None, 
+    default_threshold=0.5
+):
     """Returns a dictionary of performance metrics.
 
     Args:
@@ -185,25 +194,35 @@ def evaluate(y_true, y_pred, y_prob, pos_label, neg_label=0, beta=0.5, optim_thr
     - dict: A dictionary of performance metrics.
     """
     precision, recall, thresholds = precision_recall_curve(y_true, y_prob, pos_label=pos_label)
-    
-    y_prob_50 = [val if val > 0.5 else 0 for val in y_prob]
-    precision_50, recall_50, thresholds_50 = precision_recall_curve(y_true, y_prob_50, pos_label=pos_label)
-    if len(precision_50) > 2: #need two endpoints
-        precision_50, recall_50, thresholds_50 = precision_50[1:], recall_50[1:], thresholds_50[1:]
-    
+    y_true_partial = y_true[y_prob > default_threshold]
+    y_prob_partial = y_prob[y_prob > default_threshold]
+    precision_partial, recall_partial, thresholds_partial = precision_recall_curve(
+        y_true_partial, y_prob_partial, pos_label=pos_label
+    )
     if not optim_threshold:
-        optim_threshold, _ = get_optimal_threshold(precision_50, recall_50, thresholds_50, beta=beta)
+        optim_threshold, _ = get_optimal_threshold(
+            precision_partial, recall_partial, thresholds_partial, beta=beta
+        )
     y_pred_optim = [pos_label if val > optim_threshold else neg_label for val in y_prob]
+    
 
     return {
         # Performance metrics for probabilities > 0.5 threshold
-        "auprc_50": auc(recall_50, precision_50),
-        "ap_50": average_precision_score(y_true, y_prob_50, pos_label=pos_label),
-        "roc_auc_50": roc_auc_score(y_true, y_prob_50),
-        "brier_score_50": brier_score_loss(y_true, y_prob_50, pos_label=pos_label),
-        "precision_scores_50_": precision_50,
-        "recall_scores_50_": recall_50,
-        "thresholds_50_": thresholds_50,
+        "p_ap": average_precision_score(y_true_partial, y_prob_partial, pos_label=pos_label),
+        "p_auprc": auc(recall_partial, precision_partial),
+        "p_roc_auc": roc_auc_score(y_true_partial, y_prob_partial),
+        "p_brier_score": brier_score_loss(y_true_partial, y_prob_partial, pos_label=pos_label),
+        "p_precision_scores_": precision_partial,
+        "p_recall_scores_": recall_partial,
+        "p_thresholds_": thresholds_partial,
+        # Performance metrics for the full range of thresholds
+        "ap": average_precision_score(y_true, y_prob, pos_label=pos_label),
+        "auprc": auc(recall, precision),
+        "roc_auc": roc_auc_score(y_true, y_prob),
+        "brier_score": brier_score_loss(y_true, y_prob, pos_label=pos_label),
+        "precision_scores_": precision,
+        "recall_scores_": recall,
+        "thresholds_": thresholds,
         # Performance metrics at the optimal threshold
         "optim_threshold": optim_threshold,
         "fbeta_score_optim": fbeta_score(
@@ -243,14 +262,6 @@ def evaluate(y_true, y_pred, y_prob, pos_label, neg_label=0, beta=0.5, optim_thr
         "balanced_accuracy": balanced_accuracy_score(
             y_true, y_pred
         ) * 100,
-        # Performance metrics for the full range of thresholds
-        "auprc": auc(recall, precision),
-        "ap": average_precision_score(y_true, y_prob, pos_label=pos_label),
-        "roc_auc": roc_auc_score(y_true, y_prob),
-        "brier_score": brier_score_loss(y_true, y_prob, pos_label=pos_label),
-        "precision_scores_": precision,
-        "recall_scores_": recall,
-        "thresholds_": thresholds,
     }
 
 
