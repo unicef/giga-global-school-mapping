@@ -195,13 +195,11 @@ def evaluate(
     """
     precision, recall, thresholds = precision_recall_curve(y_true, y_prob, pos_label=pos_label)
 
-    y_true, y_prob = np.array(y_true), np.array(y_prob)
-    idx_threshold = np.where(y_prob > default_threshold)
-    y_true_partial = y_true[idx_threshold]
-    y_prob_partial = y_prob[idx_threshold]
-    precision_partial, recall_partial, thresholds_partial = precision_recall_curve(
-        y_true_partial, y_prob_partial, pos_label=pos_label
-    )
+    idx_threshold = np.where(np.array(thresholds) > default_threshold)
+    precision_partial = precision[idx_threshold]
+    recall_partial = recall[idx_threshold]
+    thresholds_partial = thresholds[idx_threshold]
+    
     if not optim_threshold:
         optim_threshold, _ = get_optimal_threshold(
             precision_partial, recall_partial, thresholds_partial, beta=beta
@@ -211,10 +209,7 @@ def evaluate(
 
     return {
         # Performance metrics for probabilities > 0.5 threshold
-        "p_ap": average_precision_score(y_true_partial, y_prob_partial, pos_label=pos_label),
         "p_auprc": auc(recall_partial, precision_partial),
-        "p_roc_auc": roc_auc_score(y_true_partial, y_prob_partial),
-        "p_brier_score": brier_score_loss(y_true_partial, y_prob_partial, pos_label=pos_label),
         "p_precision_scores_": precision_partial,
         "p_recall_scores_": recall_partial,
         "p_thresholds_": thresholds_partial,
