@@ -64,20 +64,6 @@ def save_results(
     prefix=None, 
     log=True
 ):
-    """
-    Save evaluation results and confusion matrix to the specified directory.
-
-    Args:
-    - results (dict): Evaluation results to be saved as JSON.
-    - cm (tuple): Tuple containing confusion matrix components (DataFrame, DataFrame, str).
-    - exp_dir (str): Directory path to save the results.
-
-    Saves:
-    - "results.json": JSON file containing the evaluation results.
-    - "confusion_matrix.csv": CSV file containing the confusion matrix data.
-    - "cm_metrics.csv": CSV file containing metrics derived from the confusion matrix.
-    - "cm_report.log": Log file containing the detailed confusion matrix report.
-    """
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
     results = evaluate(
@@ -181,23 +167,31 @@ def evaluate(
     pos_label=1, 
     neg_label=0, 
     beta=0.5, 
-    optim_threshold=None, 
-    default_threshold=0.5
+    optim_threshold=None,
+    min_precision = 0.9
 ):
-    """Returns a dictionary of performance metrics.
+    """
+    Evaluate the performance of a binary classification model using various metrics.
 
-    Args:
-    - y_true (list or numpy array): A list of ground truth values.
-    - y_pred (list of numpy array): A list of prediction values.
+    Parameters:
+    - y_true (list or array): Ground truth (correct) target values.
+    - y_pred (list or array): Predicted target values.
+    - y_prob (list or array): Predicted probabilities for the positive class.
+    - pos_label (int or str, optional): The label of the positive class (default is 1).
+    - neg_label (int or str, optional): The label of the negative class (default is 0).
+    - beta (float, optional): The beta parameter for the F-beta score (default is 0.5).
+    - optim_threshold (float, optional): The threshold to optimize for performance (default is None).
+    - default_threshold (float, optional): The default threshold for binary classification (default is 0.5).
 
     Returns:
-    - dict: A dictionary of performance metrics.
+    - dict: A dictionary containing various performance metrics.
     """
     precision, recall, thresholds = precision_recall_curve(y_true, y_prob, pos_label=pos_label)
-    idx_threshold = np.where(np.array(thresholds) > default_threshold)
-    precision_partial = precision[idx_threshold]
-    recall_partial = recall[idx_threshold]
-    thresholds_partial = thresholds[idx_threshold]
+    print(len(precision), len(recall), len(thresholds))
+    idx = np.where(np.array(precision) > min_precision)[0]
+    precision_partial = precision[idx]
+    recall_partial = recall[idx]
+    thresholds_partial = thresholds[idx[:-1]]
 
     p_auprc, y_pred_optim = 0, y_pred
     if len(thresholds_partial) > 0:
@@ -266,4 +260,4 @@ def evaluate(
 
 def get_scoring(pos_label, beta=0.5):
     """Returns the dictionary of scorer objects."""
-    return {"ap_50": make_scorer(average_precision_score, needs_proba=True, pos_label=pos_label)}
+    return {"p_auprc": make_scorer(average_precision_score, needs_proba=True, pos_label=pos_label)}
