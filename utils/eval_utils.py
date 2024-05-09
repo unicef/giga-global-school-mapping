@@ -168,7 +168,7 @@ def evaluate(
     neg_label=0, 
     beta=0.5, 
     optim_threshold=None,
-    min_precision = 0.9
+    min_precision=0.8
 ):
     """
     Evaluate the performance of a binary classification model using various metrics.
@@ -181,7 +181,6 @@ def evaluate(
     - neg_label (int or str, optional): The label of the negative class (default is 0).
     - beta (float, optional): The beta parameter for the F-beta score (default is 0.5).
     - optim_threshold (float, optional): The threshold to optimize for performance (default is None).
-    - default_threshold (float, optional): The default threshold for binary classification (default is 0.5).
 
     Returns:
     - dict: A dictionary containing various performance metrics.
