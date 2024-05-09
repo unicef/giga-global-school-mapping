@@ -187,7 +187,6 @@ def evaluate(
     - dict: A dictionary containing various performance metrics.
     """
     precision, recall, thresholds = precision_recall_curve(y_true, y_prob, pos_label=pos_label)
-    print(len(precision), len(recall), len(thresholds))
     idx = np.where(np.array(precision) > min_precision)[0]
     precision_partial = precision[idx]
     recall_partial = recall[idx]
