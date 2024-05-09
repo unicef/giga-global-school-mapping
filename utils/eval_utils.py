@@ -168,7 +168,7 @@ def evaluate(
     neg_label=0, 
     beta=0.5, 
     optim_threshold=None,
-    min_precision=0.8
+    min_precision=0.9
 ):
     """
     Evaluate the performance of a binary classification model using various metrics.
