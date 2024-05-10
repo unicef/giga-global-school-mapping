@@ -159,6 +159,16 @@ def get_optimal_threshold(precision, recall, thresholds, beta=0.5):
     fscores = np.divide(numerator, denom, out=np.zeros_like(denom), where=(denom!=0))
     threshold = thresholds[np.argmax(fscores)]
     return threshold, fscores
+
+
+def partial_auc(recall, precision, trapezoid=False):
+    inds = [i for (i, (s, e)) in enumerate(zip(recall[: -1], recall[1: ])) if s != e] + [len(recall) - 1]
+    recall, precision = recall[inds], precision[inds]
+    area = 0
+    ft = zip(recall, precision)
+    for p0, p1 in zip(ft[: -1], ft[1: ]):
+        area += (p1[0] - p0[0]) * ((p1[1] + p0[1]) / 2 if trapezoid else p0[1])
+    return area
     
 
 def evaluate(
@@ -190,10 +200,13 @@ def evaluate(
         return -np.sum(np.diff(recall) * np.array(precision)[:-1]) 
     
     precision, recall, thresholds = precision_recall_curve(y_true, y_prob, pos_label=pos_label)
-    idx = np.where(np.array(precision) >= min_precision)[0]
-    precision_partial = precision[idx]
-    recall_partial = recall[idx]
-    thresholds_partial = thresholds[idx[:-1]]
+    
+    start = np.searchsorted(precision, min_precision, "left")
+    x_interp = [precision[start], precision[start+1]]
+    y_interp = [recall[start], recall[start+1]]
+    recall_partial = np.insert(recall[start:], 0, np.interp(min_precision, x_interp, y_interp))
+    precision_partial = np.insert(precision[start:], 0, min_precision)
+    thresholds_partial = thresholds[start:]
 
     p_auprc, y_pred_optim = 0, y_pred
     if len(thresholds_partial) > 0:
