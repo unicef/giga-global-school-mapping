@@ -21,6 +21,7 @@ from sklearn.metrics import (
     roc_auc_score,
     brier_score_loss
 )
+from functools import partial
 
 json.fallback_table[np.ndarray] = lambda array: array.tolist()
 json.fallback_table[np.integer] = lambda obj: int(obj)
@@ -158,7 +159,7 @@ def get_optimal_threshold(precision, recall, thresholds, beta=0.5):
     fscores = np.divide(numerator, denom, out=np.zeros_like(denom), where=(denom!=0))
     threshold = thresholds[np.argmax(fscores)]
     return threshold, fscores
-
+    
 
 def evaluate(
     y_true, 
@@ -168,7 +169,7 @@ def evaluate(
     neg_label=0, 
     beta=0.5, 
     optim_threshold=None,
-    min_precision=0.9
+    min_precision=0.8
 ):
     """
     Evaluate the performance of a binary classification model using various metrics.
@@ -185,15 +186,18 @@ def evaluate(
     Returns:
     - dict: A dictionary containing various performance metrics.
     """
+    def auprc(recall, precision):
+        return -np.sum(np.diff(recall) * np.array(precision)[:-1]) 
+    
     precision, recall, thresholds = precision_recall_curve(y_true, y_prob, pos_label=pos_label)
-    idx = np.where(np.array(precision) > min_precision)[0]
+    idx = np.where(np.array(precision) >= min_precision)[0]
     precision_partial = precision[idx]
     recall_partial = recall[idx]
     thresholds_partial = thresholds[idx[:-1]]
 
     p_auprc, y_pred_optim = 0, y_pred
     if len(thresholds_partial) > 0:
-        p_auprc = auc(recall_partial, precision_partial)
+        p_auprc = auprc(recall_partial, precision_partial)
         if not optim_threshold:
             optim_threshold, _ = get_optimal_threshold(
                 precision_partial, recall_partial, thresholds_partial, beta=beta
@@ -208,7 +212,7 @@ def evaluate(
         "p_thresholds_": thresholds_partial,
         # Performance metrics for the full range of thresholds
         "ap": average_precision_score(y_true, y_prob, pos_label=pos_label),
-        "auprc": auc(recall, precision),
+        "auprc": auprc(recall, precision),
         "roc_auc": roc_auc_score(y_true, y_prob),
         "brier_score": brier_score_loss(y_true, y_prob, pos_label=pos_label),
         "precision_scores_": precision,
