@@ -161,15 +161,21 @@ def get_optimal_threshold(precision, recall, thresholds, beta=0.5):
     return threshold, fscores
 
 
-def partial_auc(recall, precision, trapezoid=False):
-    inds = [i for (i, (s, e)) in enumerate(zip(recall[: -1], recall[1: ])) if s != e] + [len(recall) - 1]
-    recall, precision = recall[inds], precision[inds]
-    area = 0
-    ft = zip(recall, precision)
-    for p0, p1 in zip(ft[: -1], ft[1: ]):
-        area += (p1[0] - p0[0]) * ((p1[1] + p0[1]) / 2 if trapezoid else p0[1])
-    return area
-    
+def auprc(recall, precision):
+    return -np.sum(np.diff(recall) * np.array(precision)[:-1]) 
+
+
+def partial_auprc(precision, recall, thresholds, min_precision=0.8):
+    start = np.searchsorted(precision, min_precision, "left")
+    if start < len(precision):
+        x_interp = [precision[start], precision[start+1]]
+        y_interp = [recall[start], recall[start+1]]
+        recall_partial = np.insert(recall[start:], 0, np.interp(min_precision, x_interp, y_interp))
+        precision_partial = np.insert(precision[start:], 0, min_precision)
+        thresholds_partial = thresholds[start:]
+        return precision_partial, recall_partial, thresholds_partial
+        
+    return precision, recall, thresholds
 
 def evaluate(
     y_true, 
@@ -196,18 +202,11 @@ def evaluate(
     Returns:
     - dict: A dictionary containing various performance metrics.
     """
-    def auprc(recall, precision):
-        return -np.sum(np.diff(recall) * np.array(precision)[:-1]) 
     
     precision, recall, thresholds = precision_recall_curve(y_true, y_prob, pos_label=pos_label)
-    
-    start = np.searchsorted(precision, min_precision, "left")
-    x_interp = [precision[start], precision[start+1]]
-    y_interp = [recall[start], recall[start+1]]
-    recall_partial = np.insert(recall[start:], 0, np.interp(min_precision, x_interp, y_interp))
-    precision_partial = np.insert(precision[start:], 0, min_precision)
-    thresholds_partial = thresholds[start:]
-
+    precision_partial, recall_partial, thresholds_partial = partial_auprc(
+        precision, recall, thresholds, min_precision
+    )
     p_auprc, y_pred_optim = 0, y_pred
     if len(thresholds_partial) > 0:
         p_auprc = auprc(recall_partial, precision_partial)
