@@ -207,13 +207,12 @@ def evaluate(
         precision, recall, thresholds, min_precision
     )
     p_auprc, y_pred_optim = 0, y_pred
-    if len(thresholds_partial) > 0:
+    if len(precision_partial) > 0:
         p_auprc = auprc(recall_partial, precision_partial)
-        if not optim_threshold:
-            optim_threshold, _ = get_optimal_threshold(
-                precision_partial, recall_partial, thresholds_partial, beta=beta
-            )
-        y_pred_optim = [pos_label if val > optim_threshold else neg_label for val in y_prob]
+    
+    if not optim_threshold:
+        optim_threshold, _ = get_optimal_threshold(precision, recall, thresholds, beta=beta)
+    y_pred_optim = [pos_label if val > optim_threshold else neg_label for val in y_prob]
     
     return {
         # Performance metrics for probabilities > 0.5 threshold
