@@ -167,6 +167,9 @@ def auprc(recall, precision):
 
 def partial_auprc(precision, recall, thresholds, min_precision=0.9):
     start = np.searchsorted(precision, min_precision, "left")
+    if min_precision < np.min(precision):
+        return precision, recall, thresholds
+    
     if start < len(precision) - 1:
         x_interp = [precision[start], precision[start+1]]
         y_interp = [recall[start], recall[start+1]]
@@ -174,6 +177,7 @@ def partial_auprc(precision, recall, thresholds, min_precision=0.9):
         precision_partial = np.insert(precision[start:], 0, min_precision)
         thresholds_partial = thresholds[start:]
         return precision_partial, recall_partial, thresholds_partial
+        
     return [], [], []
 
 def evaluate(
