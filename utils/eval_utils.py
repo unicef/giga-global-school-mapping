@@ -162,10 +162,12 @@ def get_optimal_threshold(precision, recall, thresholds, beta=0.5):
 
 
 def auprc(recall, precision, min_precision=0):
-    return -np.sum(np.diff(recall) * (np.array(precision)[:-1] - min_precision)) 
+    auc_ = -np.sum(np.diff(recall) * (np.array(precision)[:-1])) 
+    max_area = min_precision * np.max(recall)
+    return auc_ - max_area
 
 
-def partial_auprc(precision, recall, thresholds, min_precision=0.9):
+def partial_auprc(precision, recall, thresholds, min_precision):
     start = np.searchsorted(precision, min_precision, "left")    
     if start < len(precision) - 1:
         x_interp = [precision[start], precision[start+1]]
@@ -184,7 +186,7 @@ def evaluate(
     neg_label=0, 
     beta=0.5, 
     optim_threshold=None,
-    min_precision=0.9
+    min_precision=0.8
 ):
     """
     Evaluate the performance of a binary classification model using various metrics.
