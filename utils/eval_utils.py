@@ -174,7 +174,6 @@ def partial_auprc(precision, recall, thresholds, min_precision=0.9):
         precision_partial = np.insert(precision[start:], 0, min_precision)
         thresholds_partial = thresholds[start:]
         return precision_partial, recall_partial, thresholds_partial
-        
     return [], [], []
 
 def evaluate(
