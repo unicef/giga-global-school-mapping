@@ -161,8 +161,8 @@ def get_optimal_threshold(precision, recall, thresholds, beta=0.5):
     return threshold, fscores
 
 
-def auprc(recall, precision):
-    return -np.sum(np.diff(recall) * np.array(precision)[:-1]) 
+def auprc(recall, precision, min_precision=0):
+    return -np.sum(np.diff(recall) * (np.array(precision)[:-1] - min_precision)) 
 
 
 def partial_auprc(precision, recall, thresholds, min_precision=0.9):
@@ -212,7 +212,7 @@ def evaluate(
     )
     p_auprc = 0
     if len(precision_partial) > 0:
-        p_auprc = auprc(recall_partial, precision_partial)
+        p_auprc = auprc(recall_partial, precision_partial, min_precision)
     
     if not optim_threshold:
         optim_threshold, _ = get_optimal_threshold(precision, recall, thresholds, beta=beta)
