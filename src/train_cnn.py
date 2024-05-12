@@ -65,8 +65,6 @@ def main(c):
         lr_finder=c["lr_finder"]
     )
     logging.info(model)
-    model_file_ = os.path.join(exp_dir, f"{exp_name}_.pth")
-    torch.save(model.state_dict(), model_file_)
 
     lr = optimizer.param_groups[0]["lr"]
     logging.info(f"LR: {lr}")
@@ -131,11 +129,6 @@ def main(c):
         learning_rate = optimizer.param_groups[0]["lr"]
         if learning_rate < c['lr_min']:
             break
-
-        if val_results[f"val_fbeta_score_optim"] == 0 and epoch > 5:
-            model.load_state_dict(torch.load(model_file_, map_location=device))
-            for param in optimizer.param_groups:
-                param['lr'] = c["lr"] # Reset to default
 
     # Terminate trackers
     time_elapsed = time.time() - since
