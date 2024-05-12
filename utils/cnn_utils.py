@@ -532,7 +532,7 @@ def load_model(
 
 def lr_finder(data_loader, model, optimizer, criterion, device, end_lr=1.0, num_iter=1000, plot=False):
     lr_finder = LRFinder(model, optimizer, criterion, device=device)
-    lr_finder.range_test(data_loader["train"], end_lr=end_lr, num_iter=num_iter, step_mode="linear")
+    lr_finder.range_test(data_loader["train"], end_lr=end_lr, num_iter=num_iter)
     if plot:
         lr_finder.plot() 
     lr_finder.reset()
