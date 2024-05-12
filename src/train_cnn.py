@@ -68,7 +68,7 @@ def main(c):
         optimizer, 
         criterion, 
         device, 
-        end_lr=1.0, 
+        end_lr=0.01, 
         num_iter=100, 
         plot=False
     )
