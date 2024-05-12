@@ -536,7 +536,9 @@ def load_model(
 
 def lr_finder(data_loader, model, optimizer, criterion, device, start_lr, end_lr, num_iter, plot=False):
     lr_finder = LRFinder(model, optimizer, criterion, device=device)
-    lr_finder.range_test(data_loader["val"], start_lr, end_lr=end_lr, num_iter=num_iter, step_mode='exp')
+    lr_finder.range_test(
+        data_loader["val"], start_lr=start_lr, end_lr=end_lr, num_iter=num_iter, step_mode='exp'
+    )
     if plot: lr_finder.plot() 
         
     lrs = np.array(lr_finder.history["lr"])
