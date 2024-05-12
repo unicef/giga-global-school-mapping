@@ -64,6 +64,8 @@ def main(c):
         device=device,
     )
     logging.info(model)
+    model_file_ = os.path.join(exp_dir, f"{exp_name}_.pth")
+    torch.save(model.state_dict(), model_file_)
 
     lr = optimizer.param_groups[0]["lr"]
     logging.info(f"LR: {lr}")
@@ -79,7 +81,6 @@ def main(c):
     since = time.time()
     best_score = -1
     best_results = None
-    reset_model = copy.deepcopy(model)
 
     for epoch in range(1, n_epochs + 1):
         logging.info("\nEpoch {}/{}".format(epoch, n_epochs))
@@ -111,7 +112,7 @@ def main(c):
         )
         scheduler.step(val_results[f"val_loss"])
 
-        # Save best model so far
+        # Save best model so far                
         if val_results[f"val_{scorer}"] > best_score:
             best_score = val_results[f"val_{scorer}"]
             best_results = val_results
@@ -127,12 +128,13 @@ def main(c):
 
         # Terminate if learning rate becomes too low
         learning_rate = optimizer.param_groups[0]["lr"]
-        if val_results[f"val_fbeta_score"] == 0 and epoch > 1:
-            model = reset_model
-            for param in optimizer.param_groups:
-                param['lr'] = c["lr"] # Reset to default
         if learning_rate < c['lr_min']:
             break
+
+        if val_results[f"val_fbeta_score"] == 0 and epoch > 1:
+            model.load_state_dict(torch.load(model_file_, map_location=device))
+            for param in optimizer.param_groups:
+                param['lr'] = c["lr"] # Reset to default
 
     # Terminate trackers
     time_elapsed = time.time() - since
