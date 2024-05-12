@@ -162,7 +162,6 @@ def load_dataset(config, phases):
 
     normalize = config["normalize"]
     transforms = get_transforms(size=config["img_size"], normalize=normalize)
-    print(transforms)
     classes = list(dataset["class"].unique())
     logging.info(f" Classes: {classes}")
 
