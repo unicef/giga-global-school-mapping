@@ -62,6 +62,7 @@ def main(c):
         dropout=c["dropout"],
         data_loader=data_loader,
         device=device,
+        lr_finder=c["lr_finder"]
     )
     logging.info(model)
     model_file_ = os.path.join(exp_dir, f"{exp_name}_.pth")

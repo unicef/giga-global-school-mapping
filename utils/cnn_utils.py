@@ -480,7 +480,8 @@ def load_model(
     device="cpu",
     start_lr=1e-6,
     end_lr=1e-3,
-    num_iter=1000
+    num_iter=1000,
+    lr_finder=True
 ):
     """
     Load a neural network model with specified configurations.
@@ -514,7 +515,7 @@ def load_model(
     elif optimizer_type == "Adam":
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
-    if data_loader:
+    if lr_finder:
         lr = lr_finder(
             data_loader, 
             model, 
