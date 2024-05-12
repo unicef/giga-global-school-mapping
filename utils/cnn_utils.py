@@ -515,8 +515,7 @@ def load_model(
             criterion, 
             device, 
             end_lr=0.01, 
-            num_iter=1000,
-            step_mode="linear"
+            num_iter=1000
         )
         for param in optimizer.param_groups:
             param['lr'] = lr
@@ -531,9 +530,9 @@ def load_model(
     return model, criterion, optimizer, scheduler
 
 
-def lr_finder(data_loader, model, optimizer, criterion, device, end_lr=1.0, num_iter=100, plot=False):
+def lr_finder(data_loader, model, optimizer, criterion, device, end_lr=1.0, num_iter=1000, plot=False):
     lr_finder = LRFinder(model, optimizer, criterion, device=device)
-    lr_finder.range_test(data_loader["train"], end_lr=end_lr, num_iter=num_iter)
+    lr_finder.range_test(data_loader["train"], end_lr=end_lr, num_iter=num_iter, step_mode="linear")
     if plot:
         lr_finder.plot() 
     lr_finder.reset()
