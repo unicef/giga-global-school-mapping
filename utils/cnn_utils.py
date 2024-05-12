@@ -514,8 +514,9 @@ def load_model(
             optimizer, 
             criterion, 
             device, 
-            end_lr=0.001, 
-            num_iter=100
+            end_lr=0.01, 
+            num_iter=1000,
+            step_mode="linear"
         )
         for param in optimizer.param_groups:
             param['lr'] = lr
