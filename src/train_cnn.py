@@ -63,6 +63,7 @@ def main(c):
         device=device,
     )
     logging.info(model)
+    logging.info(optimizer.param_groups[0]["lr"])
 
     # Instantiate wandb tracker
     wandb.watch(model)

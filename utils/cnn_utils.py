@@ -514,7 +514,7 @@ def load_model(
             optimizer, 
             criterion, 
             device, 
-            end_lr=0.1, 
+            end_lr=0.001, 
             num_iter=100
         )
         for param in optimizer.param_groups:
