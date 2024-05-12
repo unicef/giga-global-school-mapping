@@ -518,7 +518,7 @@ def load_model(
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
     if lr_finder:
-        lr = lr_finder(
+        lr = run_lr_finder(
             data_loader, 
             model, 
             optimizer, 
@@ -541,12 +541,13 @@ def load_model(
     return model, criterion, optimizer, scheduler
 
 
-def lr_finder(data_loader, model, optimizer, criterion, device, start_lr, end_lr, num_iter, plot=False):
+def run_lr_finder(data_loader, model, optimizer, criterion, device, start_lr, end_lr, num_iter, plot=False):
     lr_finder = LRFinder(model, optimizer, criterion, device=device)
     lr_finder.range_test(
         data_loader["val"], start_lr=start_lr, end_lr=end_lr, num_iter=num_iter, step_mode='exp'
     )
-    if plot: lr_finder.plot() 
+    if plot: 
+        lr_finder.plot() 
         
     lrs = np.array(lr_finder.history["lr"])
     losses = np.array(lr_finder.history["loss"])
