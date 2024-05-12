@@ -474,6 +474,9 @@ def load_model(
     patience=7,
     dropout=0,
     device="cpu",
+    start_lr=1e-6,
+    end_lr=1e-3,
+    num_iter=1000
 ):
     """
     Load a neural network model with specified configurations.
@@ -514,8 +517,9 @@ def load_model(
             optimizer, 
             criterion, 
             device, 
-            end_lr=0.001, 
-            num_iter=1000
+            start_lr=start_lr,
+            end_lr=end_lr, 
+            num_iter=num_iter
         )
         for param in optimizer.param_groups:
             param['lr'] = lr
@@ -530,17 +534,18 @@ def load_model(
     return model, criterion, optimizer, scheduler
 
 
-def lr_finder(data_loader, model, optimizer, criterion, device, end_lr=1.0, num_iter=1000, plot=False):
+def lr_finder(data_loader, model, optimizer, criterion, device, start_lr, end_lr, num_iter, plot=False):
     lr_finder = LRFinder(model, optimizer, criterion, device=device)
-    lr_finder.range_test(data_loader["train"], end_lr=end_lr, num_iter=num_iter, step_mode='exp')
-    if plot:
-        lr_finder.plot() 
+    lr_finder.range_test(data_loader["val"], start_lr, end_lr=end_lr, num_iter=num_iter, step_mode='exp')
+    if plot: lr_finder.plot() 
+        
     lrs = np.array(lr_finder.history["lr"])
     losses = np.array(lr_finder.history["loss"])
     min_grad_idx = None
     min_grad_idx = (np.gradient(np.array(losses))).argmin()
     if min_grad_idx is not None:
         best_lr = lrs[min_grad_idx]
+    
     logging.info(f"Best lr: {best_lr}")
     lr_finder.reset()
     return best_lr
