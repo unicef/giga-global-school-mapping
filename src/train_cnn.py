@@ -125,6 +125,9 @@ def main(c):
 
         # Terminate if learning rate becomes too low
         learning_rate = optimizer.param_groups[0]["lr"]
+        if best_score == 0 and epoch == 2:
+            for param in optimizer.param_groups:
+                param['lr'] = c["lr"] # Reset to default
         if learning_rate < c['lr_min']:
             break
 
