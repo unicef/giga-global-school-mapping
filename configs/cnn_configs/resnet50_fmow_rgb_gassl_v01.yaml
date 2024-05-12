@@ -19,3 +19,4 @@ gamma:
 step_size: 
 lr_min: 0.0000001
 normalize: 
+lr_finder: True

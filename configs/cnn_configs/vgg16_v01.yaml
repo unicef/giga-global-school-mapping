@@ -19,3 +19,4 @@ patience: 7
 dropout:
 lr_min: 0.0000001
 normalize: "imagenet"
+lr_finder: True
