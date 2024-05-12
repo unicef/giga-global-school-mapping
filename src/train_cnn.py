@@ -5,6 +5,7 @@ import argparse
 import pandas as pd
 from collections import Counter
 import torch
+import copy
 
 import sys
 sys.path.insert(0, "../utils/")
@@ -78,6 +79,7 @@ def main(c):
     since = time.time()
     best_score = -1
     best_results = None
+    reset_model = copy.deepcopy(model)
 
     for epoch in range(1, n_epochs + 1):
         logging.info("\nEpoch {}/{}".format(epoch, n_epochs))
@@ -126,6 +128,7 @@ def main(c):
         # Terminate if learning rate becomes too low
         learning_rate = optimizer.param_groups[0]["lr"]
         if val_results[f"val_fbeta_score"] == 0 and epoch > 1:
+            model = reset_model
             for param in optimizer.param_groups:
                 param['lr'] = c["lr"] # Reset to default
         if learning_rate < c['lr_min']:
