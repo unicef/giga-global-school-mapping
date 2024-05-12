@@ -72,7 +72,7 @@ def main(c):
         num_iter=100, 
         plot=False
     )
-    for param in optim.param_groups:
+    for param in optimizer.param_groups:
         param['lr'] = lr
         
     logging.info(f"Learning rate: {lr}")
