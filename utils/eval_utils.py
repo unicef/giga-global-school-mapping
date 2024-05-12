@@ -213,7 +213,7 @@ def evaluate(
         p_auprc = auprc(recall_partial, precision_partial, min_precision)
     
     if not optim_threshold:
-        optim_threshold, _ = get_optimal_threshold(precision, recall, thresholds, beta=beta)
+        optim_threshold, _ = get_optimal_threshold(precision[:-1], recall[:-1], thresholds, beta=beta)
     y_pred_optim = [pos_label if val > optim_threshold else neg_label for val in y_prob]
     
     return {
