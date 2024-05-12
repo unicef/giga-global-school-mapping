@@ -481,7 +481,7 @@ def load_model(
     dropout=0,
     device="cpu",
     start_lr=1e-6,
-    end_lr=1e-3,
+    end_lr=1e-2,
     num_iter=1000,
     lr_finder=True
 ):
