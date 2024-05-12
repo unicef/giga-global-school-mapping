@@ -59,23 +59,9 @@ def main(c):
         step_size=c["step_size"],
         patience=c["patience"],
         dropout=c["dropout"],
+        data_loader=data_loader,
         device=device,
     )
-
-    lr = cnn_utils.lr_finder(
-        data_loader, 
-        model, 
-        optimizer, 
-        criterion, 
-        device, 
-        end_lr=0.01, 
-        num_iter=100, 
-        plot=False
-    )
-    for param in optimizer.param_groups:
-        param['lr'] = lr
-        
-    logging.info(f"Learning rate: {lr}")
     logging.info(model)
 
     # Instantiate wandb tracker

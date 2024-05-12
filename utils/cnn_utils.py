@@ -13,6 +13,7 @@ import torch.optim as optim
 from torch.optim import lr_scheduler
 from torch.utils.data import Dataset
 from torch_lr_finder import LRFinder
+from torchgeo.models import ResNet50_Weights
 
 from torchvision import models, transforms
 import torchvision.transforms.functional as F
@@ -393,6 +394,11 @@ def get_model(model_type, n_classes, dropout=0):
             model = models.resnet34(weights=ResNet34_Weights.DEFAULT)
         elif model_type == "resnet50":
             model = models.resnet50(weights=ResNet50_Weights.DEFAULT)
+        elif model_type == "resnet50_fmow_rgb_gassl":
+            weights = ResNet50_Weights.FMOW_RGB_GASSL
+            model = timm.create_model("resnet50", in_chans=weights.meta["in_chans"], num_classes=n_classes)
+            model.load_state_dict(weights.get_state_dict(progress=True), strict=False)
+        
         num_ftrs = model.fc.in_features
         if dropout > 0:
             model.fc = nn.Sequential(
@@ -459,6 +465,7 @@ def load_model(
     pretrained,
     scheduler_type,
     optimizer_type,
+    data_loader=None,
     label_smoothing=0.0,
     lr=0.001,
     momentum=0.9,
@@ -500,6 +507,19 @@ def load_model(
     elif optimizer_type == "Adam":
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
+    if data_loader:
+        lr = lr_finder(
+            data_loader, 
+            model, 
+            optimizer, 
+            criterion, 
+            device, 
+            end_lr=0.1, 
+            num_iter=100
+        )
+        for param in optimizer.param_groups:
+            param['lr'] = lr
+
     if scheduler_type == "StepLR":
         scheduler = lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=gamma)
     elif scheduler_type == "ReduceLROnPlateau":
@@ -522,5 +542,6 @@ def lr_finder(data_loader, model, optimizer, criterion, device, end_lr=1.0, num_
     min_grad_idx = (np.gradient(np.array(losses))).argmin()
     if min_grad_idx is not None:
         best_lr = lrs[min_grad_idx]
-    logging.info(f"Best lr:", best_lr)
+    logging.info(f"Best lr: {best_lr}")
+    lr_finder.reset()
     return best_lr
