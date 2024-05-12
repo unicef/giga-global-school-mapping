@@ -56,7 +56,7 @@ if torch.cuda.is_available():
 
     
 class SchoolDataset(Dataset):
-    def __init__(self, dataset, classes, transform=None):
+    def __init__(self, dataset, classes, transform=None, normalize="imagenet"):
         """
         Custom dataset for Caribbean images.
 
@@ -72,6 +72,7 @@ class SchoolDataset(Dataset):
         self.dataset = dataset
         self.transform = transform
         self.classes = classes
+        self.normalize = normalize
 
     def __getitem__(self, index):
         """
@@ -108,7 +109,7 @@ class SchoolDataset(Dataset):
         return len(self.dataset)
 
 
-def visualize_data(data, data_loader, phase="test", n=4):
+def visualize_data(data, data_loader, phase="test", n=4, normalize="imagenet"):
     """
     Visualize a sample of data from a DataLoader.
 
@@ -130,9 +131,10 @@ def visualize_data(data, data_loader, phase="test", n=4):
         for j in range(n):
             image = inputs[i * n + j].numpy().transpose((1, 2, 0))
             title = key_list[val_list.index(classes[i * n + j])]
-            image = np.clip(
-                np.array(imagenet_std) * image + np.array(imagenet_mean), 0, 1
-            )
+            if normalize == "imagenet":
+                image = np.clip(
+                    np.array(imagenet_std) * image + np.array(imagenet_mean), 0, 1
+                )
             axes[i, j].imshow(image)
             axes[i, j].set_title(title, fontdict={"fontsize": 7})
             axes[i, j].axis("off")
@@ -158,7 +160,9 @@ def load_dataset(config, phases):
     dataset["filepath"] = data_utils.get_image_filepaths(config, dataset)
     classes_dict = {config["pos_class"] : 1, config["neg_class"] : 0}
 
-    transforms = get_transforms(size=config["img_size"], normalize=config["normalize"])
+    normalize = config["normalize"]
+    transforms = get_transforms(size=config["img_size"], normalize=normalize)
+    print(transforms)
     classes = list(dataset["class"].unique())
     logging.info(f" Classes: {classes}")
 
@@ -168,7 +172,8 @@ def load_dataset(config, phases):
             .sample(frac=1, random_state=SEED)
             .reset_index(drop=True),
             classes_dict,
-            transforms[phase]
+            transforms[phase],
+            normalize=normalize
         )
         for phase in phases
     }
