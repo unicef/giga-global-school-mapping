@@ -131,7 +131,7 @@ def main(c):
         if learning_rate < c['lr_min']:
             break
 
-        if val_results[f"val_fbeta_score"] == 0 and epoch > 3:
+        if val_results[f"val_fbeta_score"] == 0 and epoch > 5:
             model.load_state_dict(torch.load(model_file_, map_location=device))
             for param in optimizer.param_groups:
                 param['lr'] = c["lr"] # Reset to default
