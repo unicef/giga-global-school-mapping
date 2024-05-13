@@ -1,5 +1,4 @@
 embed_model: "esa_foundation_v2"
-project: "GIGAv1"
 beta: 0.5
 
 input_dim: 3
@@ -8,7 +7,7 @@ dims: [16, 16, 32, 32, 64, 64]
 latent_dim: 1024
 dropout: [0.85, 0.85, 0.90, 0.90, 0.95, 0.95]
 
-test_size: 0.2
+test_size: 0.1
 image_size: 256
 model: 'LogisticRegression'
 model_params:

@@ -1,9 +1,11 @@
 import os
+import shutil
 import time
 import argparse
 import pandas as pd
 from collections import Counter
 import torch
+import copy
 
 import sys
 sys.path.insert(0, "../utils/")
@@ -16,7 +18,7 @@ import logging
 
 # Get device
 cwd = os.path.dirname(os.getcwd())
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 logging.info(f"Device: {device}")
 
 
@@ -25,8 +27,9 @@ def main(c):
     exp_name = f"{c['iso_code']}_{c['config_name']}"
     exp_dir = os.path.join(cwd,  c["exp_dir"], c["project"], exp_name)
     logging.info(f"Experiment directory: {exp_dir}")
-    if not os.path.exists(exp_dir):
-        os.makedirs(exp_dir)
+    if os.path.exists(exp_dir):
+        shutil.rmtree(exp_dir)
+    os.makedirs(exp_dir)
     
     logname = os.path.join(exp_dir, f"{exp_name}.log")
     logging.basicConfig(level=logging.INFO)
@@ -41,6 +44,7 @@ def main(c):
     phases = ["train", "val", "test"]
     data, data_loader, classes = cnn_utils.load_dataset(config=c, phases=phases)
     logging.info(f"Train/val/test sizes: {len(data['train'])}/{len(data['val'])}/{len(data['test'])}")
+    wandb.log({f"{phase}_size": len(data[phase]) for phase in phases})
 
     # Load model, optimizer, and scheduler
     model, criterion, optimizer, scheduler = cnn_utils.load_model(
@@ -56,9 +60,15 @@ def main(c):
         step_size=c["step_size"],
         patience=c["patience"],
         dropout=c["dropout"],
+        data_loader=data_loader,
         device=device,
+        lr_finder=c["lr_finder"]
     )
     logging.info(model)
+
+    lr = optimizer.param_groups[0]["lr"]
+    logging.info(f"LR: {lr}")
+    wandb.log({'lr': lr})
 
     # Instantiate wandb tracker
     wandb.watch(model)
@@ -66,8 +76,10 @@ def main(c):
     # Commence model training
     n_epochs = c["n_epochs"]
     beta = c["beta"]
+    scorer = c["scorer"]
     since = time.time()
     best_score = -1
+    best_results = None
 
     for epoch in range(1, n_epochs + 1):
         logging.info("\nEpoch {}/{}".format(epoch, n_epochs))
@@ -97,24 +109,25 @@ def main(c):
             wandb=wandb, 
             logging=logging
         )
-        scheduler.step(val_results[f"val_fbeta_score_{beta}"])
+        scheduler.step(val_results[f"val_loss"])
 
-        # Save best model so far
-        if val_results[f"val_fbeta_score_{beta}"] > best_score:
-            best_score = val_results[f"val_fbeta_score_{beta}"]
-            precision = val_results["val_precision_score"]
-            recall = val_results["val_recall_score"]
+        # Save best model so far                
+        if val_results[f"val_{scorer}"] > best_score:
+            best_score = val_results[f"val_{scorer}"]
+            best_results = val_results
             best_weights = model.state_dict()
 
             eval_utils._save_files(val_results, val_cm, exp_dir)
             model_file = os.path.join(exp_dir, f"{exp_name}.pth")
             torch.save(model.state_dict(), model_file)
             
-        logging.info(f"Best Val Fbeta score: {best_score} Precision: {precision} Recall: {recall}")
+        logging.info(f"Best val_{scorer}: {best_score}")
+        log_results = {key: val for key, val in best_results.items() if key[-1] != '_'}
+        logging.info(f"Best scores: {log_results}")
 
         # Terminate if learning rate becomes too low
         learning_rate = optimizer.param_groups[0]["lr"]
-        if learning_rate < 1e-10:
+        if learning_rate < c['lr_min']:
             break
 
     # Terminate trackers
@@ -129,6 +142,7 @@ def main(c):
     model_file = os.path.join(exp_dir, f"{exp_name}.pth")
     model.load_state_dict(torch.load(model_file, map_location=device))
     model = model.to(device)
+    optim_threshold = best_results["val_optim_threshold"]
 
     # Calculate test performance using best model
     final_results = {}
@@ -144,6 +158,7 @@ def main(c):
             beta=beta,
             phase=phase,
             wandb=wandb, 
+            optim_threshold=optim_threshold,
             logging=logging
         )
         final_results.update(test_results)
@@ -156,8 +171,10 @@ def main(c):
             test_preds, 
             target="y_true", 
             pred="y_preds", 
+            prob="y_probs", 
             pos_class=1, 
             classes=[1, 0], 
+            optim_threshold=optim_threshold,
             results_dir=os.path.join(exp_dir, phase),
             prefix=phase
         )
@@ -168,8 +185,10 @@ def main(c):
                 subtest_preds, 
                 target="y_true",  
                 pred="y_preds", 
+                prob="y_probs", 
                 pos_class=1, 
                 classes=[1, 0], 
+                optim_threshold=optim_threshold,
                 results_dir=os.path.join(exp_dir, phase, rurban), 
                 prefix=f"{phase}_{rurban}"
             )
@@ -196,6 +215,9 @@ if __name__ == "__main__":
         if ('url' not in key) 
         and ('dir' not in key)
         and ('file' not in key)
+        and ('school' not in key)
+        and ('exclude' not in key)
+        and ('ms_dict' not in key)
     }
     logging.info(log_c)
 

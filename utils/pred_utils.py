@@ -58,9 +58,10 @@ def cam_predict(iso_code, config, data, geotiff_dir, out_file):
         cam_extractor
     )
     results = filter_by_buildings(iso_code, config, results)
-    results = data_utils._connect_components(results, buffer_size=0)
-    results = results.sort_values("prob", ascending=False).drop_duplicates(["group"])
-    results.to_file(out_file, driver="GPKG")
+    if len(results) > 0:
+        results = data_utils._connect_components(results, buffer_size=0)
+        results = results.sort_values("prob", ascending=False).drop_duplicates(["group"])
+        results.to_file(out_file, driver="GPKG")
     return results
 
 
@@ -83,6 +84,7 @@ def generate_cam_bboxes(data, config, in_dir, model, cam_extractor, show=False):
     results = []
     data = data.reset_index(drop=True)
     filepaths = data_utils.get_image_filepaths(config, data, in_dir, ext=".tif")
+    crs = data.crs
     for index in tqdm(list(data.index), total=len(data)):
         _, bbox = generate_cam(config, filepaths[index], model, cam_extractor, show=False)
         with rio.open(filepaths[index]) as map_layer:
@@ -306,6 +308,7 @@ def load_cnn(c, classes, model_file=None, verbose=True):
     
     n_classes = len(classes)
     model = cnn_utils.get_model(c["model"], n_classes, c["dropout"])
+    model= torch.nn.DataParallel(model)
     model.load_state_dict(torch.load(model_file, map_location=device))
     model = model.to(device)
     model.eval()
@@ -378,23 +381,23 @@ def filter_by_buildings(iso_code, config, data, n_seconds=10):
     for index in pbar:
         subdata = data.iloc[[index]]
         pixel_sum = 0
-        with rio.open(ms_path) as src:
-            try:
+        try:
+            with rio.open(ms_path) as ms_source:
                 geometry = [subdata.iloc[0]["geometry"]]
-                image, transform = rio.mask.mask(src, geometry, crop=True)
+                image, transform = rio.mask.mask(ms_source, geometry, crop=True)
                 image[image == 255] = 1
                 pixel_sum = np.sum(image)
-            except:
-                pass
+        except:
+            pass
         if pixel_sum == 0 and os.path.exists(google_path):
-            with rio.open(google_path) as src:
-                try:
+            try:
+                with rio.open(google_path) as google_source:
                     geometry = [subdata.iloc[0]["geometry"]]
-                    image, transform = rio.mask.mask(src, geometry, crop=True)
+                    image, transform = rio.mask.mask(google_source, geometry, crop=True)
                     image[image == 255] = 1
                     pixel_sum = np.sum(image)
-                except:
-                    pass
+            except:
+                pass
         pixel_sums.append(pixel_sum) 
         
     data["sum"] = pixel_sums
@@ -420,7 +423,8 @@ def generate_pred_tiles(config, iso_code, spacing, buffer_size, adm_level="ADM2"
         adm_level=adm_level, 
         shapename=shapename
     )
-    logging.info(shapename)
+    
+    logging.info(f"Shapename: {shapename}")
     points["points"] = points["geometry"]
     points["geometry"] = points.buffer(buffer_size, cap_style=3)
     points["UID"] = list(points.index)
@@ -428,5 +432,4 @@ def generate_pred_tiles(config, iso_code, spacing, buffer_size, adm_level="ADM2"
     filtered = filter_by_buildings(iso_code, config, points)
     filtered = filtered[["UID", "geometry", "shapeName", "sum"]]
     filtered.to_file(out_file, driver="GPKG", index=False)
-
     return filtered

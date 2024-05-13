@@ -27,6 +27,7 @@ def get_image_filepaths(config, data, in_dir=None, ext=".tiff"):
                 cwd, 
                 config["rasters_dir"], 
                 config["maxar_dir"], 
+                config["project"], 
                 row["iso"], 
                 row["class"],
                 file 
@@ -240,7 +241,12 @@ def _get_geoboundaries(config, iso_code, out_dir=None, adm_level="ADM0"):
     # Query geoBoundaries
     if not out_dir:
         cwd = os.path.dirname(os.getcwd())
-        out_dir = os.path.join(cwd, config["vectors_dir"], "geoboundaries")
+        out_dir = os.path.join(
+            cwd, 
+            config["vectors_dir"], 
+            config["project"], 
+            "geoboundaries"
+        )
     if not os.path.exists(out_dir):
         out_dir = _makedir(out_dir)
 
@@ -288,6 +294,7 @@ def read_data(data_dir, sources=[], exclude=[]):
     else:
         files = next(os.walk(data_dir), (None, None, []))[2]
     files = [file for file in files if file not in exclude]
+    logging.info(files)
 
     data = []
     for file in (pbar := _create_progress_bar(files)):
@@ -390,9 +397,9 @@ def get_counts(config, column='iso', layer="clean"):
     
     iso_codes = config["iso_codes"]
     for iso_code in (pbar := _create_progress_bar(iso_codes)):
-        pbar.set_description(f"Reading {iso_code}")
+        pbar.set_description(f"Reading counts for {iso_code}")
         for category in categories:
-            dir = os.path.join(cwd, config['vectors_dir'], category)
+            dir = os.path.join(cwd, config['vectors_dir'], config["project"], category)
             filepath = os.path.join(dir, layer, f"{iso_code}_{layer}.geojson")
             subdata = gpd.read_file(filepath)
             if "clean" in subdata.columns:
