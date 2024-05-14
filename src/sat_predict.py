@@ -100,7 +100,7 @@ if __name__ == "__main__":
     parser.add_argument("--adm_level", help="Admin level", default="ADM2")
     parser.add_argument("--spacing", help="Tile spacing", default=150)
     parser.add_argument("--buffer_size", help="Buffer size", default=150)
-    parser.add_argument("--threshold", help="Probability threhsold", default=0.5)
+    parser.add_argument("--threshold", type=float, help="Probability threhsold", default=0.5)
     parser.add_argument("--sum_threshold", help="Pixel sum threshold", default=5)
     parser.add_argument("--iso", help="ISO code")
     args = parser.parse_args()
