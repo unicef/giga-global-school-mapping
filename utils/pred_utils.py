@@ -54,10 +54,10 @@ def cam_predict(iso_code, config, data, geotiff_dir, out_file):
     model_file = os.path.join(exp_dir, f"{iso_code}_{config['config_name']}.pth")
     model = load_cnn(config, classes, model_file, verbose=False).eval()
 
-    if "Swin" not in model_config["model"]:
+    if model_config["type"] == "cnn":
         from torchcam.methods import LayerCAM
         cam_extractor = LayerCAM(model)
-    else:
+    elif model_config["type"] == "vit":
         from pytorch_grad_cam import  LayerCAM
         target_layers = [model.module.model.backbone.backbone.features[-1][-2].norm1]
         cam_extractor = LayerCAM(
@@ -143,14 +143,14 @@ def georeference_images(data, config, in_dir, out_dir):
 
 
 def compare_cams(filepath, model, model_config, classes, model_file):
-    if "Swin" not in model_config["model"]:
+    if model_config["type"] == "cnn":
         from torchcam.methods import GradCAM, GradCAMpp, SmoothGradCAMpp, LayerCAM
         for cam_extractor in GradCAM, GradCAMpp, SmoothGradCAMpp, LayerCAM:
             model = load_cnn(model_config, classes, model_file, verbose=False).eval()
             cam_extractor = cam_extractor(model)
             title = str(cam_extractor.__class__.__name__)
             generate_cam(model_config, filepath, model, cam_extractor, title=title)
-    else:
+    elif model_config["type"] == "vit":
         from pytorch_grad_cam import GradCAM, GradCAMPlusPlus, LayerCAM
         for cam_extractor in GradCAM, GradCAMPlusPlus, LayerCAM:
             model = load_cnn(model_config, classes, model_file, verbose=False).eval()
@@ -245,13 +245,13 @@ def generate_cam(config, filepath, model, cam_extractor, show=True, title="", fi
     )
     output = model(input)
 
-    if "Swin" not in config["model"]:
+    if model_config["type"] == "cnn":
         cams = cam_extractor(output.squeeze(0).argmax().item(), output)
         for name, cam in zip(cam_extractor.target_names, cams):
             cam_map = cam.squeeze(0)
             result = overlay_mask(image, to_pil_image(cam_map, mode='F'), alpha=0.5)
         bbox, draw_bbox = generate_bbox_from_cam_cnn(cam_map, image, 75)
-    else:
+    elif model_config["type"] == "vit":
         cam_map= cam_extractor(input_tensor=input, targets=None)[0, :]
         result = show_cam_on_image(input_image, cam_map, use_rgb=True)
         bbox, draw_bbox = generate_bbox_from_cam_vit(cam_map, input_image)
