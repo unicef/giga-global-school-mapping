@@ -163,7 +163,7 @@ def compare_cams(filepath, model, model_config, classes, model_file):
             generate_cam(model_config, filepath, model, cam_extractor, title=title);
 
 
-def generate_bbox_from_cam_cnn(cam_map, image, buffer=75):
+def generate_bbox_from_cam_cnn(cam_map, image, buffer=100):
     cam_arr = np.array(cam_map.cpu())
     ten_map = torch.tensor(cam_arr)
     values = []
@@ -192,7 +192,7 @@ def generate_bbox_from_cam_cnn(cam_map, image, buffer=75):
     return boxes, F.to_pil_image(draw_boxes)
 
         
-def generate_bbox_from_cam_vit(cam_map, image, buffer=75):
+def generate_bbox_from_cam_vit(cam_map, image, buffer=100):
     def convert(img, target_type_min, target_type_max, target_type):
         imin = img.min()
         imax = img.max()
