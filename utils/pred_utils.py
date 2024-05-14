@@ -54,10 +54,10 @@ def cam_predict(iso_code, config, data, geotiff_dir, out_file):
     model_file = os.path.join(exp_dir, f"{iso_code}_{config['config_name']}.pth")
     model = load_cnn(config, classes, model_file, verbose=False).eval()
 
-    if model_config["type"] == "cnn":
+    if config["type"] == "cnn":
         from torchcam.methods import LayerCAM
         cam_extractor = LayerCAM(model)
-    elif model_config["type"] == "vit":
+    elif config["type"] == "vit":
         from pytorch_grad_cam import  LayerCAM
         target_layers = [model.module.model.backbone.backbone.features[-1][-2].norm1]
         cam_extractor = LayerCAM(
