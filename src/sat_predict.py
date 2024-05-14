@@ -24,6 +24,7 @@ logging.basicConfig(level=logging.INFO)
 def main(args):
     cwd = os.path.dirname(os.getcwd())
     iso_code = args.iso
+    threshold = args.threshold
     
     data_config_file = os.path.join(cwd, args.data_config)
     data_config = config_utils.load_config(data_config_file)
@@ -58,7 +59,9 @@ def main(args):
         print(f"Downloading satellite images for {shapename}...")
         sat_download.download_sat_images(sat_creds, sat_config, data=data, out_dir=sat_dir)
     
-        geotiff_dir = data_utils._makedir(os.path.join("output", iso_code, "geotiff", shapename))
+        geotiff_dir = data_utils._makedir(
+            os.path.join("output", iso_code, "geotiff", shapename)
+        )
         if "cnn" in model_config_file:
             print(f"Generating predictions for {shapename}...")
             results = pred_utils.cnn_predict(
@@ -71,7 +74,9 @@ def main(args):
 
             print(f"Generating CAMs for {shapename}...")
             out_file = f"{iso_code}_{shapename}_{model_config['config_name']}_cam.gpkg"
-            pred_utils.cam_predict(iso_code, model_config, subdata, geotiff_dir, out_file)
+            pred_utils.cam_predict(
+                iso_code, model_config, subdata, geotiff_dir, out_file, threshold
+            )
         else:
             results = pred_utils.vit_pred(
                 tiles, model_config, iso_code, shapename, sat_dir
@@ -91,6 +96,7 @@ if __name__ == "__main__":
     parser.add_argument("--adm_level", help="Admin level", default="ADM2")
     parser.add_argument("--spacing", help="Tile spacing", default=150)
     parser.add_argument("--buffer_size", help="Buffer size", default=150)
+    parser.add_argument("--threshold", help="Probability threhsold", default=0.5)
     parser.add_argument("--sum_threshold", help="Pixel sum threshold", default=5)
     parser.add_argument("--iso", help="ISO code")
     args = parser.parse_args()

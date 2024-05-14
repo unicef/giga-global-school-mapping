@@ -31,6 +31,7 @@ from rasterio.mask import mask
 from shapely import geometry
 import rasterio.plot
 from pytorch_grad_cam.utils.image import show_cam_on_image
+import torch.nn.functional as nnf
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 logging.basicConfig(level=logging.INFO)
@@ -267,7 +268,7 @@ def generate_cam(config, filepath, model, cam_extractor, show=True, title="", fi
     return cam_map, bbox
         
 
-def cnn_predict_images(data, model, config, in_dir, classes):
+def cnn_predict_images(data, model, config, in_dir, classes, threshold=0.5):
     """
     Predicts labels and probabilities for the given dataset using the provided model.
 
@@ -287,25 +288,31 @@ def cnn_predict_images(data, model, config, in_dir, classes):
     files = data_utils.get_image_filepaths(config, data, in_dir)
     preds, probs = [], []
     pbar = data_utils._create_progress_bar(files)
+
     for file in pbar:
         image = Image.open(file).convert("RGB")
         transforms = cnn_utils.get_transforms(config["img_size"])
         output = model(transforms["test"](image).to(device).unsqueeze(0))
-        prob = nn.softmax(output, dim=1).detach().cpu().numpy()[0]
-        probs.append(prob)
-        _, pred = torch.max(output, 1)
-        label = str(classes[int(pred[0])])
-        preds.append(label)
-
-    probs_col = [f"{classes[index]}_prob" for index in range(len(classes))]
-    probs = pd.DataFrame(probs, columns=probs_col)
+        soft_outputs = nnf.softmax(output, dim=1).detach().cpu().numpy()
+        probs.append(soft_outputs[:, 1][0])
+        
+    preds = np.array(probs) > threshold
+    preds = [str(classes[int(pred)]) for pred in preds]
     data["pred"] = preds
-    data["prob"] = probs.max(axis=1)
-
+    data["prob"] = probs
     return data
 
 
-def cnn_predict(data, iso_code, shapename, config, in_dir=None, out_dir=None, n_classes=None):
+def cnn_predict(
+    data, 
+    iso_code, 
+    shapename, 
+    config, 
+    in_dir=None, 
+    out_dir=None, 
+    n_classes=None, 
+    threshold=0.5
+):
     cwd = os.path.dirname(os.getcwd())
     if not out_dir:
         out_dir = os.path.join("output", iso_code, "results", config["project"])
@@ -326,7 +333,7 @@ def cnn_predict(data, iso_code, shapename, config, in_dir=None, out_dir=None, n_
     model_file = os.path.join(exp_dir, f"{iso_code}_{config['config_name']}.pth")
     model = load_cnn(config, classes, model_file)
 
-    results = cnn_predict_images(data, model, config, in_dir, classes)
+    results = cnn_predict_images(data, model, config, in_dir, classes, threshold)
     results = results[["UID", "geometry", "pred", "prob"]]
     results = gpd.GeoDataFrame(results, geometry="geometry")
     results.to_file(out_file, driver="GPKG")
