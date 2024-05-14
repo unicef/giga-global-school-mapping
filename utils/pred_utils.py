@@ -245,13 +245,13 @@ def generate_cam(config, filepath, model, cam_extractor, show=True, title="", fi
     )
     output = model(input)
 
-    if model_config["type"] == "cnn":
+    if config["type"] == "cnn":
         cams = cam_extractor(output.squeeze(0).argmax().item(), output)
         for name, cam in zip(cam_extractor.target_names, cams):
             cam_map = cam.squeeze(0)
             result = overlay_mask(image, to_pil_image(cam_map, mode='F'), alpha=0.5)
         bbox, draw_bbox = generate_bbox_from_cam_cnn(cam_map, image, 75)
-    elif model_config["type"] == "vit":
+    elif config["type"] == "vit":
         cam_map= cam_extractor(input_tensor=input, targets=None)[0, :]
         result = show_cam_on_image(input_image, cam_map, use_rgb=True)
         bbox, draw_bbox = generate_bbox_from_cam_vit(cam_map, input_image)
