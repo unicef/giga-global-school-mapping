@@ -37,6 +37,12 @@ def main(args):
 
     model_config_file = os.path.join(cwd, args.model_config)
     model_config = config_utils.load_config(model_config_file)
+    
+    if not args.cam_model_config:
+        cam_model_config = model_config
+    else:
+        cam_model_config_file = os.path.join(cwd, args.cam_model_config)
+        cam_model_config = config_utils.load_config(cam_model_config_file)
 
     geoboundary = data_utils._get_geoboundaries(
         data_config, args.iso, adm_level="ADM2"
@@ -74,13 +80,12 @@ def main(args):
                 threshold=threshold
             )
             subdata = results[results["pred"] == model_config["pos_class"]]
-            
             print(f"Generating GeoTIFFs for {shapename}...")
             pred_utils.georeference_images(subdata, sat_config, sat_dir, geotiff_dir)
 
             print(f"Generating CAMs for {shapename}...")
             out_file = f"{iso_code}_{shapename}_{model_config['config_name']}_cam.gpkg"
-            pred_utils.cam_predict(iso_code, model_config, subdata, geotiff_dir, out_file)
+            pred_utils.cam_predict(iso_code, cam_model_config, subdata, geotiff_dir, out_file)
         else:
             results = pred_utils.vit_pred(
                 tiles, model_config, iso_code, shapename, sat_dir
@@ -94,6 +99,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Model Prediction")
     parser.add_argument("--data_config", help="Data config file")
     parser.add_argument("--model_config", help="Model config file")
+    parser.add_argument("--cam_model_config", help="Model config file", default=None)
     parser.add_argument("--sat_config", help="Maxar config file")
     parser.add_argument("--sat_creds", help="Credentials file")
     parser.add_argument("--shapename", help="Model shapename", default=None)

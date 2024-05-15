@@ -44,7 +44,10 @@ def cam_predict(iso_code, config, data, geotiff_dir, out_file):
     cwd = os.path.dirname(os.getcwd())
     classes = {1: config["pos_class"], 0: config["neg_class"]}
 
-    out_dir = os.path.join(cwd, "output", iso_code, "results", config["project"])
+    out_dir = os.path.join(
+        cwd, "output", iso_code, "results", config["project"], "cams", config['config_name']
+    )
+    out_dir = data_utils._makedir(out_dir)
     out_file = os.path.join(out_dir, out_file)
     if os.path.exists(out_file):
         return gpd.read_file(out_file)
@@ -79,7 +82,7 @@ def cam_predict(iso_code, config, data, geotiff_dir, out_file):
     return results
 
 
-def generate_cam_points(data, config, in_dir, model, cam_extractor, buffer_size=100, show=False):    
+def generate_cam_points(data, config, in_dir, model, cam_extractor, buffer_size=50, show=False):    
     results = []
     data = data.reset_index(drop=True)
     filepaths = data_utils.get_image_filepaths(config, data, in_dir, ext=".tif")
@@ -88,9 +91,7 @@ def generate_cam_points(data, config, in_dir, model, cam_extractor, buffer_size=
         _, point = generate_cam(config, filepaths[index], model, cam_extractor, show=False)
         with rio.open(filepaths[index]) as map_layer:
             coord = [map_layer.xy(point[0], point[1])]
-            print(coord)
             coord = geometry.Point(coord)
-            print(coord)
             crs = map_layer.crs
             results.append(coord)
             if show:
@@ -267,7 +268,9 @@ def cnn_predict(
 ):
     cwd = os.path.dirname(os.getcwd())
     if not out_dir:
-        out_dir = os.path.join("output", iso_code, "results", config["project"])
+        out_dir = os.path.join(
+            "output", iso_code, "results", config["project"], "tiles", config['config_name']
+        )
         out_dir = data_utils._makedir(out_dir)
     
     name = f"{iso_code}_{shapename}"
