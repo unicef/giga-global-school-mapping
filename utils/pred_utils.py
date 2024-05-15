@@ -40,7 +40,7 @@ def reshape_transform(tensor):
     result = tensor.transpose(2, 3).transpose(1, 2)
     return result
 
-def cam_predict(iso_code, config, data, geotiff_dir, out_file):
+def cam_predict(iso_code, config, data, geotiff_dir, out_file, buffer_size=50):
     cwd = os.path.dirname(os.getcwd())
     classes = {1: config["pos_class"], 0: config["neg_class"]}
 
@@ -72,7 +72,8 @@ def cam_predict(iso_code, config, data, geotiff_dir, out_file):
         config,
         geotiff_dir, 
         model, 
-        cam_extractor
+        cam_extractor,
+        buffer_size
     )
     results = filter_by_buildings(iso_code, config, results)
     if len(results) > 0:
@@ -221,23 +222,7 @@ def generate_point_from_cam(config, cam_map, image, buffer=100):
     return (x, y)
         
 
-def cnn_predict_images(data, model, config, in_dir, classes, threshold=0.5):
-    """
-    Predicts labels and probabilities for the given dataset using the provided model.
-
-    Args:
-    - data (Pandas DataFrame): Input dataset.
-    - model (torch.nn.Module): Trained neural network model.
-    - c (dict): Configuration dictionary.
-    - in_file (str): Path to the input file.
-    - out_dir (str): Directory path to save output files.
-    - classes (dict): Dictionary containing class labels.
-    - scale (float, optional): Scale factor for cropping shapes (default: 1.5).
-
-    Returns:
-    - Results as a GeoDataFrame containing predicted labels and probabilities for the dataset.
-    """
-    
+def cnn_predict_images(data, model, config, in_dir, classes, threshold=0.5):    
     files = data_utils.get_image_filepaths(config, data, in_dir)
     preds, probs = [], []
     pbar = data_utils._create_progress_bar(files)
@@ -295,19 +280,7 @@ def cnn_predict(
     return results
 
 
-def load_cnn(c, classes, model_file=None, verbose=True):
-    """
-    Loads a pre-trained model based on the provided configuration.
-
-    Args:
-    - c (dict): Configuration dictionary containing model details.
-    - classes (dict): Dictionary containing class labels.
-    - model_file (str, optional): Path to the pre-trained model file.
-
-    Returns:
-    - Loaded pre-trained model based on the provided configuration.
-    """
-    
+def load_cnn(c, classes, model_file=None, verbose=True):    
     n_classes = len(classes)
     model = cnn_utils.get_model(c["model"], n_classes, c["dropout"])
     model= torch.nn.DataParallel(model)
