@@ -64,14 +64,13 @@ def cam_predict(iso_code, config, data, geotiff_dir, out_file):
         cam_extractor = LayerCAM(
             model=model, target_layers=target_layers, reshape_transform=reshape_transform
         )
-    results = generate_cam_bboxes(
+    results = generate_cam_points(
         data.reset_index(drop=True), 
         config,
         geotiff_dir, 
         model, 
         cam_extractor
     )
-    
     results = filter_by_buildings(iso_code, config, results)
     if len(results) > 0:
         results = data_utils._connect_components(results, buffer_size=0)
@@ -80,22 +79,20 @@ def cam_predict(iso_code, config, data, geotiff_dir, out_file):
     return results
 
 
-def generate_cam_bboxes(data, config, in_dir, model, cam_extractor, show=False):    
+def generate_cam_points(data, config, in_dir, model, cam_extractor, buffer_size=100, show=False):    
     results = []
     data = data.reset_index(drop=True)
     filepaths = data_utils.get_image_filepaths(config, data, in_dir, ext=".tif")
     crs = data.crs
     for index in tqdm(list(data.index), total=len(data)):
-        _, bbox = generate_cam(config, filepaths[index], model, cam_extractor, show=False)
+        _, point = generate_cam(config, filepaths[index], model, cam_extractor, show=False)
         with rio.open(filepaths[index]) as map_layer:
-            coords1 = [x[0] for x in list(map_layer.xy(bbox[0][1], bbox[0][0]))]
-            coords2 = [x[0] for x in list(map_layer.xy(bbox[0][3], bbox[0][0]))]  
-            coords3 = [x[0] for x in list(map_layer.xy(bbox[0][3], bbox[0][2]))]  
-            coords4 = [x[0] for x in list(map_layer.xy(bbox[0][1], bbox[0][2]))]  
-            coords = [coords1, coords2, coords3, coords4]
-            polygon = geometry.Polygon(coords)
+            coord = [map_layer.xy(point[0], point[1])]
+            print(coord)
+            coord = geometry.Point(coord)
+            print(coord)
             crs = map_layer.crs
-            results.append(polygon)
+            results.append(coord)
             if show:
                 fig, ax = plt.subplots(figsize=(6, 6))
                 rasterio.plot.show(map_layer, ax=ax)
@@ -103,6 +100,9 @@ def generate_cam_bboxes(data, config, in_dir, model, cam_extractor, show=False):
                 geom.plot(facecolor='none', edgecolor='blue', ax=ax)
                 
     results = gpd.GeoDataFrame(geometry=results, crs=crs)
+    results = results.to_crs("EPSG:3857")
+    results["geometry"] = results["geometry"].buffer(buffer_size, cap_style=3)
+    results = results.to_crs(crs)
     results["prob"] = data.prob
     results["UID"] = data.UID
     return results
@@ -151,6 +151,7 @@ def compare_cams(filepath, model, model_config, classes, model_file):
             cam_extractor = cam_extractor(model)
             title = str(cam_extractor.__class__.__name__)
             generate_cam(model_config, filepath, model, cam_extractor, title=title)
+            
     elif model_config["type"] == "vit":
         from pytorch_grad_cam import GradCAM, GradCAMPlusPlus, LayerCAM
         for cam_extractor in GradCAM, GradCAMPlusPlus, LayerCAM:
@@ -163,77 +164,7 @@ def compare_cams(filepath, model, model_config, classes, model_file):
             generate_cam(model_config, filepath, model, cam_extractor, title=title);
 
 
-def generate_bbox_from_cam_cnn(cam_map, image, buffer=100):
-    cam_arr = np.array(cam_map.cpu())
-    ten_map = torch.tensor(cam_arr)
-    values = []
-    for i in range(0, ten_map.shape[0]):
-        index, value = max(enumerate(ten_map[i]), key=operator.itemgetter(1))
-        values.append(value)
-    y_index, y_value = max(enumerate(values), key=operator.itemgetter(1))
-    x_index, x_value = max(enumerate(ten_map[y_index]), key=operator.itemgetter(1))
-    
-    cms = cam_map.shape[0]
-    x = x_index * (image.size[1] // cms)
-    y = y_index * (image.size[0] // cms)
-    
-    boxes = torch.tensor([[
-        x-buffer, 
-        y-buffer, 
-        (x + (image.size[0]//cms)) + buffer, 
-        (y + (image.size[1]//cms)) + buffer
-    ]])
-    draw_boxes = torchvision.utils.draw_bounding_boxes(
-        image=transforms.PILToTensor()(image), 
-        boxes=boxes,
-        width=5,
-        colors="blue"
-    )
-    return boxes, F.to_pil_image(draw_boxes)
-
-        
-def generate_bbox_from_cam_vit(cam_map, image, buffer=100):
-    def convert(img, target_type_min, target_type_max, target_type):
-        imin = img.min()
-        imax = img.max()
-    
-        a = (target_type_max - target_type_min) / (imax - imin)
-        b = target_type_max - a * imax
-        new_img = (a * img + b).astype(target_type)
-        return new_img
-
-    if torch.is_tensor(cam_map):
-        cam_map = np.array(cam_map.cpu())
-    cam_arr = np.array(cam_map)
-    ten_map = torch.tensor(cam_arr)
-    values = []
-    for i in range(0, ten_map.shape[0]):
-        index, value = max(enumerate(ten_map[i]), key=operator.itemgetter(1))
-        values.append(value)
-    y_index, y_value = max(enumerate(values), key=operator.itemgetter(1))
-    x_index, x_value = max(enumerate(ten_map[y_index]), key=operator.itemgetter(1))
-    
-    cms = cam_map.shape[0]
-    x = x_index * (image.shape[1] // cms)
-    y = y_index * (image.shape[0] // cms)
-    
-    boxes = torch.tensor([[
-        x-buffer, 
-        y-buffer, 
-        (x + (image.shape[0]//cms)) + buffer, 
-        (y + (image.shape[1]//cms)) + buffer
-    ]])
-    image = convert(image, 0, 255, np.uint8).transpose((2, 0, 1))
-    draw_boxes = torchvision.utils.draw_bounding_boxes(
-        image=torch.from_numpy(image),
-        boxes=boxes,
-        width=5,
-        colors="blue"
-    )
-    return boxes, F.to_pil_image(draw_boxes)
-
-
-def generate_cam(config, filepath, model, cam_extractor, show=True, title="", figsize=(7, 7)):
+def generate_cam(config, filepath, model, cam_extractor, show=True, title="", figsize=(5, 5)):
     logger = logging.getLogger()
     logger.disabled = True
 
@@ -251,21 +182,42 @@ def generate_cam(config, filepath, model, cam_extractor, show=True, title="", fi
         for name, cam in zip(cam_extractor.target_names, cams):
             cam_map = cam.squeeze(0)
             result = overlay_mask(image, to_pil_image(cam_map, mode='F'), alpha=0.5)
-        bbox, draw_bbox = generate_bbox_from_cam_cnn(cam_map, image, 75)
     elif config["type"] == "vit":
         cam_map= cam_extractor(input_tensor=input, targets=None)[0, :]
         result = show_cam_on_image(input_image, cam_map, use_rgb=True)
-        bbox, draw_bbox = generate_bbox_from_cam_vit(cam_map, input_image)
+    point = generate_point_from_cam(config, cam_map, input_image)
 
     if show:
-        fig, ax = plt.subplots(1,3, figsize=figsize)
+        fig, ax = plt.subplots(1, 2, figsize=figsize)
         ax[0].imshow(image)
         ax[1].imshow(result)
-        ax[2].imshow(draw_bbox)
+        ax[1].scatter([point[0]], [point[1]])
         ax[1].title.set_text(title)
         plt.show()
         
-    return cam_map, bbox
+    return cam_map, point
+
+
+def generate_point_from_cam(config, cam_map, image, buffer=100):
+    if torch.is_tensor(cam_map):
+        cam_map = np.array(cam_map.cpu())
+    ten_map = torch.tensor(cam_map)
+    values = []
+    for i in range(0, ten_map.shape[0]):
+        index, value = max(enumerate(ten_map[i]), key=operator.itemgetter(1))
+        values.append(value)
+    y_index, y_value = max(enumerate(values), key=operator.itemgetter(1))
+    x_index, x_value = max(enumerate(ten_map[y_index]), key=operator.itemgetter(1))
+    
+    cms = cam_map.shape[0]
+    if config["type"] == "cnn":
+        x = x_index * (image.size[1] // cms)
+        y = y_index * (image.size[0] // cms)
+    elif config["type"] == "vit":
+        x = x_index * (image.shape[1] // cms)
+        y = y_index * (image.shape[0] // cms)
+    
+    return (x, y)
         
 
 def cnn_predict_images(data, model, config, in_dir, classes, threshold=0.5):
