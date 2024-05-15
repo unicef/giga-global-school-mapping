@@ -24,6 +24,7 @@ logging.basicConfig(level=logging.INFO)
 def main(args):
     cwd = os.path.dirname(os.getcwd())
     iso_code = args.iso
+    threshold = args.threshold
     
     data_config_file = os.path.join(cwd, args.data_config)
     data_config = config_utils.load_config(data_config_file)
@@ -36,6 +37,12 @@ def main(args):
 
     model_config_file = os.path.join(cwd, args.model_config)
     model_config = config_utils.load_config(model_config_file)
+    
+    if not args.cam_model_config:
+        cam_model_config = model_config
+    else:
+        cam_model_config_file = os.path.join(cwd, args.cam_model_config)
+        cam_model_config = config_utils.load_config(cam_model_config_file)
 
     geoboundary = data_utils._get_geoboundaries(
         data_config, args.iso, adm_level="ADM2"
@@ -58,20 +65,27 @@ def main(args):
         print(f"Downloading satellite images for {shapename}...")
         sat_download.download_sat_images(sat_creds, sat_config, data=data, out_dir=sat_dir)
     
-        geotiff_dir = data_utils._makedir(os.path.join("output", iso_code, "geotiff", shapename))
+        geotiff_dir = data_utils._makedir(
+            os.path.join("output", iso_code, "geotiff", shapename)
+        )
         if "cnn" in model_config_file:
             print(f"Generating predictions for {shapename}...")
             results = pred_utils.cnn_predict(
-                tiles, iso_code, shapename, model_config, sat_dir, n_classes=2
+                tiles, 
+                iso_code, 
+                shapename, 
+                model_config, 
+                sat_dir, 
+                n_classes=2, 
+                threshold=threshold
             )
             subdata = results[results["pred"] == model_config["pos_class"]]
-            
             print(f"Generating GeoTIFFs for {shapename}...")
             pred_utils.georeference_images(subdata, sat_config, sat_dir, geotiff_dir)
 
             print(f"Generating CAMs for {shapename}...")
             out_file = f"{iso_code}_{shapename}_{model_config['config_name']}_cam.gpkg"
-            pred_utils.cam_predict(iso_code, model_config, subdata, geotiff_dir, out_file)
+            pred_utils.cam_predict(iso_code, cam_model_config, subdata, geotiff_dir, out_file)
         else:
             results = pred_utils.vit_pred(
                 tiles, model_config, iso_code, shapename, sat_dir
@@ -85,12 +99,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Model Prediction")
     parser.add_argument("--data_config", help="Data config file")
     parser.add_argument("--model_config", help="Model config file")
+    parser.add_argument("--cam_model_config", help="Model config file", default=None)
     parser.add_argument("--sat_config", help="Maxar config file")
     parser.add_argument("--sat_creds", help="Credentials file")
     parser.add_argument("--shapename", help="Model shapename", default=None)
     parser.add_argument("--adm_level", help="Admin level", default="ADM2")
     parser.add_argument("--spacing", help="Tile spacing", default=150)
     parser.add_argument("--buffer_size", help="Buffer size", default=150)
+    parser.add_argument("--threshold", type=float, help="Probability threhsold", default=0.5)
     parser.add_argument("--sum_threshold", help="Pixel sum threshold", default=5)
     parser.add_argument("--iso", help="ISO code")
     args = parser.parse_args()

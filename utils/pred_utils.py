@@ -26,31 +26,48 @@ from PIL import Image
 import torchvision
 import torchvision.transforms.functional as F
 import torchvision.transforms as transforms 
-from torchcam.methods import GradCAM, GradCAMpp, SmoothGradCAMpp, LayerCAM
 import rasterio as rio
 from rasterio.mask import mask
 from shapely import geometry
 import rasterio.plot
+from pytorch_grad_cam.utils.image import show_cam_on_image
+import torch.nn.functional as nnf
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 logging.basicConfig(level=logging.INFO)
 
+def reshape_transform(tensor):
+    result = tensor.transpose(2, 3).transpose(1, 2)
+    return result
 
 def cam_predict(iso_code, config, data, geotiff_dir, out_file):
     cwd = os.path.dirname(os.getcwd())
     classes = {1: config["pos_class"], 0: config["neg_class"]}
 
-    out_dir = os.path.join(cwd, "output", iso_code, "results", config["project"])
+    out_dir = os.path.join(
+        cwd, "output", iso_code, "results", config["project"], "cams", config['config_name']
+    )
+    out_dir = data_utils._makedir(out_dir)
     out_file = os.path.join(out_dir, out_file)
     if os.path.exists(out_file):
         return gpd.read_file(out_file)
     
-    exp_dir = os.path.join(cwd, config["exp_dir"], config["project"], f"{iso_code}_{config['config_name']}")
+    exp_dir = os.path.join(
+        cwd, config["exp_dir"], config["project"], f"{iso_code}_{config['config_name']}"
+    )
     model_file = os.path.join(exp_dir, f"{iso_code}_{config['config_name']}.pth")
     model = load_cnn(config, classes, model_file, verbose=False).eval()
-    
-    cam_extractor = LayerCAM(model)
-    results = generate_cam_bboxes(
+
+    if config["type"] == "cnn":
+        from torchcam.methods import LayerCAM
+        cam_extractor = LayerCAM(model)
+    elif config["type"] == "vit":
+        from pytorch_grad_cam import  LayerCAM
+        target_layers = [model.module.model.backbone.backbone.features[-1][-2].norm1]
+        cam_extractor = LayerCAM(
+            model=model, target_layers=target_layers, reshape_transform=reshape_transform
+        )
+    results = generate_cam_points(
         data.reset_index(drop=True), 
         config,
         geotiff_dir, 
@@ -65,43 +82,28 @@ def cam_predict(iso_code, config, data, geotiff_dir, out_file):
     return results
 
 
-def generate_cam_bboxes(data, config, in_dir, model, cam_extractor, show=False):
-    """
-    Generate bounding boxes around regions of interest using Class Activation Maps (CAM).
-
-    Args:
-    - data (pandas.DataFrame): DataFrame containing image data.
-    - config (dict): Configuration parameters.
-    - in_dir (str): Input directory path.
-    - model (torch model): Trained model for generating CAM.
-    - cam_extractor (torchcam method): Model used for extracting CAM.
-    - show (bool, optional): Whether to display the generated bounding boxes on the images. Defaults to False.
-
-    Returns:
-    - gpd.GeoDataFrame: DataFrame containing polygons representing the bounding boxes along with probabilities.
-    """
-    
+def generate_cam_points(data, config, in_dir, model, cam_extractor, buffer_size=50, show=False):    
     results = []
     data = data.reset_index(drop=True)
     filepaths = data_utils.get_image_filepaths(config, data, in_dir, ext=".tif")
     crs = data.crs
     for index in tqdm(list(data.index), total=len(data)):
-        _, bbox = generate_cam(config, filepaths[index], model, cam_extractor, show=False)
+        _, point = generate_cam(config, filepaths[index], model, cam_extractor, show=False)
         with rio.open(filepaths[index]) as map_layer:
-            coords1 = [x[0] for x in list(map_layer.xy(bbox[0][1], bbox[0][0]))]
-            coords2 = [x[0] for x in list(map_layer.xy(bbox[0][3], bbox[0][0]))]  
-            coords3 = [x[0] for x in list(map_layer.xy(bbox[0][3], bbox[0][2]))]  
-            coords4 = [x[0] for x in list(map_layer.xy(bbox[0][1], bbox[0][2]))]  
-            coords = [coords1, coords2, coords3, coords4]
-            polygon = geometry.Polygon(coords)
+            coord = [map_layer.xy(point[0], point[1])]
+            coord = geometry.Point(coord)
             crs = map_layer.crs
-            results.append(polygon)
+            results.append(coord)
             if show:
                 fig, ax = plt.subplots(figsize=(6, 6))
                 rasterio.plot.show(map_layer, ax=ax)
                 geom = gpd.GeoDataFrame(geometry=[polygon], crs=crs)
                 geom.plot(facecolor='none', edgecolor='blue', ax=ax)
+                
     results = gpd.GeoDataFrame(geometry=results, crs=crs)
+    results = results.to_crs("EPSG:3857")
+    results["geometry"] = results["geometry"].buffer(buffer_size, cap_style=3)
+    results = results.to_crs(crs)
     results["prob"] = data.prob
     results["UID"] = data.UID
     return results
@@ -143,30 +145,64 @@ def georeference_images(data, config, in_dir, out_dir):
 
 
 def compare_cams(filepath, model, model_config, classes, model_file):
-    # GradCAM
-    model = load_cnn(model_config, classes, model_file, verbose=False).eval()
-    cam_extractor = GradCAM(model)
-    generate_cam(model_config, filepath, model, cam_extractor, title="GradCAM")
-    
-    # GradCAM++
-    model = load_cnn(model_config, classes, model_file, verbose=False).eval()
-    cam_extractor = GradCAMpp(model)
-    generate_cam(model_config, filepath, model, cam_extractor, title="GradCAM++")
-    
-    # LayerCAM
-    model = load_cnn(model_config, classes, model_file, verbose=False).eval()
-    cam_extractor = LayerCAM(model)
-    generate_cam(model_config, filepath, model, cam_extractor, title="LayerCAM")
-    
-    # SmoothGradCAMpp
-    model = load_cnn(model_config, classes, model_file, verbose=False).eval()
-    cam_extractor = SmoothGradCAMpp(model)
-    generate_cam(model_config, filepath, model, cam_extractor, title="SmoothGradCAM++");
+    if model_config["type"] == "cnn":
+        from torchcam.methods import GradCAM, GradCAMpp, SmoothGradCAMpp, LayerCAM
+        for cam_extractor in GradCAM, GradCAMpp, SmoothGradCAMpp, LayerCAM:
+            model = load_cnn(model_config, classes, model_file, verbose=False).eval()
+            cam_extractor = cam_extractor(model)
+            title = str(cam_extractor.__class__.__name__)
+            generate_cam(model_config, filepath, model, cam_extractor, title=title)
+            
+    elif model_config["type"] == "vit":
+        from pytorch_grad_cam import GradCAM, GradCAMPlusPlus, LayerCAM
+        for cam_extractor in GradCAM, GradCAMPlusPlus, LayerCAM:
+            model = load_cnn(model_config, classes, model_file, verbose=False).eval()
+            target_layers = [model.module.model.backbone.backbone.features[-1][-2].norm1]
+            cam_extractor = cam_extractor(
+                model=model, target_layers=target_layers, reshape_transform=reshape_transform
+            )
+            title = str(cam_extractor.__class__.__name__)
+            generate_cam(model_config, filepath, model, cam_extractor, title=title);
 
 
-def generate_bbox_from_cam(cam_map, image, buffer=75):
-    cam_arr = np.array(cam_map.cpu())
-    ten_map = torch.tensor(cam_arr)
+def generate_cam(config, filepath, model, cam_extractor, show=True, title="", figsize=(5, 5)):
+    logger = logging.getLogger()
+    logger.disabled = True
+
+    image = Image.open(filepath).convert("RGB")
+    transforms = cnn_utils.get_transforms(config["img_size"])
+    input = transforms["test"](image).to(device).unsqueeze(0)
+    input_image = input.detach().cpu().numpy()[0].transpose((1, 2, 0))
+    input_image = np.clip(
+        np.array(cnn_utils.imagenet_std) * input_image + np.array(cnn_utils.imagenet_mean), 0, 1
+    )
+    output = model(input)
+
+    if config["type"] == "cnn":
+        cams = cam_extractor(output.squeeze(0).argmax().item(), output)
+        for name, cam in zip(cam_extractor.target_names, cams):
+            cam_map = cam.squeeze(0)
+            result = overlay_mask(image, to_pil_image(cam_map, mode='F'), alpha=0.5)
+    elif config["type"] == "vit":
+        cam_map= cam_extractor(input_tensor=input, targets=None)[0, :]
+        result = show_cam_on_image(input_image, cam_map, use_rgb=True)
+    point = generate_point_from_cam(config, cam_map, input_image)
+
+    if show:
+        fig, ax = plt.subplots(1, 2, figsize=figsize)
+        ax[0].imshow(image)
+        ax[1].imshow(result)
+        ax[1].scatter([point[0]], [point[1]])
+        ax[1].title.set_text(title)
+        plt.show()
+        
+    return cam_map, point
+
+
+def generate_point_from_cam(config, cam_map, image, buffer=100):
+    if torch.is_tensor(cam_map):
+        cam_map = np.array(cam_map.cpu())
+    ten_map = torch.tensor(cam_map)
     values = []
     for i in range(0, ten_map.shape[0]):
         index, value = max(enumerate(ten_map[i]), key=operator.itemgetter(1))
@@ -175,50 +211,17 @@ def generate_bbox_from_cam(cam_map, image, buffer=75):
     x_index, x_value = max(enumerate(ten_map[y_index]), key=operator.itemgetter(1))
     
     cms = cam_map.shape[0]
-    x = x_index * (image.size[1] // cms)
-    y = y_index * (image.size[0] // cms)
+    if config["type"] == "cnn":
+        x = x_index * (image.size[1] // cms)
+        y = y_index * (image.size[0] // cms)
+    elif config["type"] == "vit":
+        x = x_index * (image.shape[1] // cms)
+        y = y_index * (image.shape[0] // cms)
     
-    boxes = torch.tensor([[
-        x-buffer, 
-        y-buffer, 
-        (x + (image.size[0]//cms)) + buffer, 
-        (y + (image.size[1]//cms)) + buffer
-    ]])
-    draw_boxes = torchvision.utils.draw_bounding_boxes(
-        image=transforms.PILToTensor()(image), 
-        boxes=boxes,
-        width=5,
-        colors="blue"
-    )
-    return boxes, F.to_pil_image(draw_boxes)
-
-
-def generate_cam(config, filepath, model, cam_extractor, show=True, title="", figsize=(7, 7)):
-    logger = logging.getLogger()
-    logger.disabled = True
-
-    image = Image.open(filepath).convert("RGB")
-    transforms = cnn_utils.get_transforms(config["img_size"])
-    output = model(transforms["test"](image).to(device).unsqueeze(0))
-    
-    cams = cam_extractor(output.squeeze(0).argmax().item(), output)
-    for name, cam in zip(cam_extractor.target_names, cams):
-        cam_map = cam.squeeze(0)
-        result = overlay_mask(image, to_pil_image(cam_map, mode='F'), alpha=0.5)
-    bbox, draw_bbox = generate_bbox_from_cam(cam_map, image)
-
-    if show:
-        fig, ax = plt.subplots(1,3, figsize=figsize)
-        ax[0].imshow(image)
-        ax[1].imshow(result)
-        ax[2].imshow(draw_bbox)
-        ax[1].title.set_text(title)
-        plt.show()
-        
-    return cam_map, bbox
+    return (x, y)
         
 
-def cnn_predict_images(data, model, config, in_dir, classes):
+def cnn_predict_images(data, model, config, in_dir, classes, threshold=0.5):
     """
     Predicts labels and probabilities for the given dataset using the provided model.
 
@@ -238,41 +241,36 @@ def cnn_predict_images(data, model, config, in_dir, classes):
     files = data_utils.get_image_filepaths(config, data, in_dir)
     preds, probs = [], []
     pbar = data_utils._create_progress_bar(files)
+
     for file in pbar:
         image = Image.open(file).convert("RGB")
         transforms = cnn_utils.get_transforms(config["img_size"])
         output = model(transforms["test"](image).to(device).unsqueeze(0))
-        prob = nn.softmax(output, dim=1).detach().cpu().numpy()[0]
-        probs.append(prob)
-        _, pred = torch.max(output, 1)
-        label = str(classes[int(pred[0])])
-        preds.append(label)
-
-    probs_col = [f"{classes[index]}_prob" for index in range(len(classes))]
-    probs = pd.DataFrame(probs, columns=probs_col)
+        soft_outputs = nnf.softmax(output, dim=1).detach().cpu().numpy()
+        probs.append(soft_outputs[:, 1][0])
+        
+    preds = np.array(probs) > threshold
+    preds = [str(classes[int(pred)]) for pred in preds]
     data["pred"] = preds
-    data["prob"] = probs.max(axis=1)
-
+    data["prob"] = probs
     return data
 
 
-def cnn_predict(data, iso_code, shapename, config, in_dir=None, out_dir=None, n_classes=None):
-    """
-    Predicts classes for buildings using a trained model and input image file.
-
-    Args:
-    - bldgs (GeoDataFrame): Building dataset to predict classes for.
-    - in_file (str): Input image file used for prediction.
-    - exp_config (str): Path to the experiment configuration file.
-    - model_file (str, optional): Path to the trained model file.
-    - prefix (str, optional): Prefix for file paths.
-
-    Returns:
-    - Predictions for the building dataset using the trained model.
-    """
+def cnn_predict(
+    data, 
+    iso_code, 
+    shapename, 
+    config, 
+    in_dir=None, 
+    out_dir=None, 
+    n_classes=None, 
+    threshold=0.5
+):
     cwd = os.path.dirname(os.getcwd())
     if not out_dir:
-        out_dir = os.path.join("output", iso_code, "results", config["project"])
+        out_dir = os.path.join(
+            "output", iso_code, "results", config["project"], "tiles", config['config_name']
+        )
         out_dir = data_utils._makedir(out_dir)
     
     name = f"{iso_code}_{shapename}"
@@ -282,11 +280,15 @@ def cnn_predict(data, iso_code, shapename, config, in_dir=None, out_dir=None, n_
         return gpd.read_file(out_file)
     
     classes = {1: config["pos_class"], 0: config["neg_class"]}
-    exp_dir = os.path.join(cwd, config["exp_dir"], config["project"], f"{iso_code}_{config['config_name']}")
+    exp_dir = os.path.join(
+        cwd, config["exp_dir"], 
+        config["project"], 
+        f"{iso_code}_{config['config_name']}"
+    )
     model_file = os.path.join(exp_dir, f"{iso_code}_{config['config_name']}.pth")
     model = load_cnn(config, classes, model_file)
 
-    results = cnn_predict_images(data, model, config, in_dir, classes)
+    results = cnn_predict_images(data, model, config, in_dir, classes, threshold)
     results = results[["UID", "geometry", "pred", "prob"]]
     results = gpd.GeoDataFrame(results, geometry="geometry")
     results.to_file(out_file, driver="GPKG")

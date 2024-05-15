@@ -6,6 +6,7 @@ n_epochs: 60
 scorer: "auprc"
 
 model: "vgg16"
+type: "cnn"
 pretrained: True
 scheduler: "ReduceLROnPlateau"
 optimizer: "Adam"
