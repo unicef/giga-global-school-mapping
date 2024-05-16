@@ -40,7 +40,7 @@ def reshape_transform(tensor):
     result = tensor.transpose(2, 3).transpose(1, 2)
     return result
 
-def cam_predict(iso_code, config, data, geotiff_dir, out_file, buffer_size=50):
+def cam_predict(iso_code, config, data, geotiff_dir, out_file, buffer_size=100):
     cwd = os.path.dirname(os.getcwd())
     classes = {1: config["pos_class"], 0: config["neg_class"]}
 
@@ -78,13 +78,13 @@ def cam_predict(iso_code, config, data, geotiff_dir, out_file, buffer_size=50):
     results = filter_by_buildings(iso_code, config, results)
     if len(results) > 0:
         results = data_utils._connect_components(results, buffer_size=0)
-        #results = results.sort_values("prob", ascending=False).drop_duplicates(["group"])
+        results = results.sort_values("prob", ascending=False).drop_duplicates(["group"])
         #results["geometry"] = results["geometry"].centroid
         results.to_file(out_file, driver="GPKG")
     return results
 
 
-def generate_cam_points(data, config, in_dir, model, cam_extractor, buffer_size=50, show=False):    
+def generate_cam_points(data, config, in_dir, model, cam_extractor, buffer_size=100, show=False):    
     results = []
     data = data.reset_index(drop=True)
     filepaths = data_utils.get_image_filepaths(config, data, in_dir, ext=".tif")
