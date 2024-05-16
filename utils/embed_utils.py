@@ -60,9 +60,6 @@ def load_model(config):
 
 
 def load_image_esa(image_file, image_size) -> torch.Tensor:
-    """
-    Load an image and return a tensor that can be used as an input to DINOv2.
-    """
     image = Image.open(image_file).convert("RGB")
     image = image.resize((image_size, image_size))
     image = np.array(image).transpose((2, 1, 0))
@@ -74,9 +71,6 @@ def load_image_esa(image_file, image_size) -> torch.Tensor:
 
 
 def load_image(image_file, image_size) -> torch.Tensor:
-    """
-    Load an image and return a tensor that can be used as an input to DINOv2.
-    """
     image = Image.open(image_file)
     image = np.array(image)
     transform = transforms.Compose(
