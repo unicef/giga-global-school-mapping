@@ -187,7 +187,7 @@ def generate_cam(config, filepath, model, cam_extractor, show=True, title="", fi
     elif config["type"] == "vit":
         cam_map= cam_extractor(input_tensor=input, targets=None)[0, :]
         result = show_cam_on_image(input_image, cam_map, use_rgb=True)
-    point = generate_point_from_cam(config, cam_map, input_image)
+    point = generate_point_from_cam(config, cam_map, image)
 
     if show:
         fig, ax = plt.subplots(1, 2, figsize=figsize)
@@ -203,23 +203,20 @@ def generate_cam(config, filepath, model, cam_extractor, show=True, title="", fi
 def generate_point_from_cam(config, cam_map, image, buffer=100):
     if torch.is_tensor(cam_map):
         cam_map = np.array(cam_map.cpu())
+
     ten_map = torch.tensor(cam_map)
+    transform = transforms.Resize(size=(image.size[0], image.size[1]))
+    ten_map = transform(ten_map.unsqueeze(0)).squeeze()
+    
     values = []
     for i in range(0, ten_map.shape[0]):
         index, value = max(enumerate(ten_map[i]), key=operator.itemgetter(1))
         values.append(value)
+        
     y_index, y_value = max(enumerate(values), key=operator.itemgetter(1))
     x_index, x_value = max(enumerate(ten_map[y_index]), key=operator.itemgetter(1))
-    
-    cms = cam_map.shape[0]
-    if config["type"] == "cnn":
-        x = x_index * (image.size[1] // cms)
-        y = y_index * (image.size[0] // cms)
-    elif config["type"] == "vit":
-        x = x_index * (image.shape[1] // cms)
-        y = y_index * (image.shape[0] // cms)
-    
-    return (x, y)
+        
+    return (x_index, y_index)
         
 
 def cnn_predict_images(data, model, config, in_dir, classes, threshold=0.5):    
