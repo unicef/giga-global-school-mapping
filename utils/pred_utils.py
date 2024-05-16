@@ -79,7 +79,6 @@ def cam_predict(iso_code, config, data, geotiff_dir, out_file, buffer_size=50):
     if len(results) > 0:
         results = data_utils._connect_components(results, buffer_size=0)
         #results = results.sort_values("prob", ascending=False).drop_duplicates(["group"])
-        #results = results.dissolve(by='group', aggfunc='max')
         #results["geometry"] = results["geometry"].centroid
         results.to_file(out_file, driver="GPKG")
     return results
