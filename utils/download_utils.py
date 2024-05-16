@@ -18,10 +18,11 @@ from rapidfuzz import fuzz
 from country_bounding_boxes import country_subunits_by_iso_code
 
 import warnings
-warnings.filterwarnings('ignore')
-warnings.simplefilter('ignore')
+
+warnings.filterwarnings("ignore")
+warnings.simplefilter("ignore")
 logging.basicConfig(level=logging.INFO)
-os.environ['PROJ_LIB'] =pyproj.datadir.get_data_dir()
+os.environ["PROJ_LIB"] = pyproj.datadir.get_data_dir()
 
 
 def _query_osm(iso_code, out_file, query):
@@ -71,7 +72,7 @@ def download_osm(config, category, source="osm"):
     out_dir = os.path.join(config["vectors_dir"], config["project"], category, source)
     out_dir = data_utils._makedir(out_dir)
     osm_file = os.path.join(os.path.dirname(out_dir), f"{source}.geojson")
-    iso_codes = config['iso_codes']
+    iso_codes = config["iso_codes"]
 
     url = config["iso_codes_url"]
     codes = pd.read_csv(url)
@@ -192,10 +193,10 @@ def download_overture(config, category, exclude=None, source="overture"):
     out_dir = os.path.join(config["vectors_dir"], config["project"], category, source)
     out_dir = data_utils._makedir(out_dir)
     overture_file = os.path.join(os.path.dirname(out_dir), f"{source}.geojson")
-    iso_codes = config['iso_codes']
+    iso_codes = config["iso_codes"]
 
     # Fetch school keywords and generate keywords query
-    keywords = config[category] 
+    keywords = config[category]
     query = " or ".join(
         [
             f"""UPPER(names) LIKE '%{keyword.replace('_', ' ').upper()}%'
@@ -261,9 +262,9 @@ def load_unicef(config, category="school", source="unicef"):
     Args:
     - config (dict): Configuration settings.
         - "columns" (list): List of columns for the dataset.
-    - category (str, optional): Type of data category ('school' or 'non_school'). 
+    - category (str, optional): Type of data category ('school' or 'non_school').
       Defaults to 'school'.
-    - source (str, optional): Source identifier for UNICEF/Giga dataset. 
+    - source (str, optional): Source identifier for UNICEF/Giga dataset.
       Defaults to 'unicef'.
 
     Returns:
@@ -305,7 +306,7 @@ def load_unicef(config, category="school", source="unicef"):
 
 def _get_country(config, source="ms"):
     """
-    Match ISO country codes to Microsoft (MS) Building Footprints country names 
+    Match ISO country codes to Microsoft (MS) Building Footprints country names
     using fuzzy string matching.
 
     Parameters:
@@ -314,20 +315,20 @@ def _get_country(config, source="ms"):
         - "microsoft_url" (str): URL or file path to the MS country data CSV file.
 
     Returns:
-    - matches (dict): A dictionary mapping ISO country codes to their respective best-matched 
+    - matches (dict): A dictionary mapping ISO country codes to their respective best-matched
     MS country names.
     """
-    
-    iso_codes = config["iso_codes"]   
+
+    iso_codes = config["iso_codes"]
     msf_links = pd.read_csv(config["microsoft_url"])
     matches = dict()
     for iso_code in iso_codes:
-        country, _, _ = data_utils._get_iso_regions(config, iso_code)  
+        country, _, _ = data_utils._get_iso_regions(config, iso_code)
         if source == "ms":
             max_score = 0
             for msf_country in msf_links.Location.unique():
                 msf_country_ = re.sub(r"(\w)([A-Z])", r"\1 \2", msf_country)
-                score = fuzz.partial_token_sort_ratio(country, msf_country_)           
+                score = fuzz.partial_token_sort_ratio(country, msf_country_)
                 if score > max_score:
                     max_score = score
                     matches[iso_code] = msf_country
@@ -356,53 +357,58 @@ def download_buildings(config, source="ms", verbose=False):
     """
     iso_codes = config["iso_codes"]
     matches = _get_country(config, source)
-        
+
     for iso_code in (pbar := data_utils._create_progress_bar(iso_codes)):
         pbar.set_description(f"Processing {iso_code}")
-        out_dir = data_utils._makedir(os.path.join(config["vectors_dir"], f"{source}_buildings"))
+        out_dir = data_utils._makedir(
+            os.path.join(config["vectors_dir"], f"{source}_buildings")
+        )
         temp_dir = data_utils._makedir(os.path.join(out_dir, iso_code))
         country = matches[iso_code]
-        
+
         out_file = str(os.path.join(out_dir, f"{iso_code}_{source}_EPSG4326.geojson"))
         if not os.path.exists(out_file):
             quiet = operator.not_(verbose)
             try:
                 if source == "ms":
                     leafmap.download_ms_buildings(
-                        country, 
-                        out_dir=temp_dir, 
+                        country,
+                        out_dir=temp_dir,
                         merge_output=out_file,
                         quiet=quiet,
-                        overwrite=True
+                        overwrite=True,
                     )
                 elif source == "google":
                     leafmap.download_google_buildings(
-                        country, 
-                        out_dir=temp_dir, 
-                        merge_output=out_file, 
+                        country,
+                        out_dir=temp_dir,
+                        merge_output=out_file,
                         quiet=quiet,
-                        overwrite=True
+                        overwrite=True,
                     )
             except:
                 continue
-    
-        out_file_epsg3857 = str(os.path.join(out_dir, f"{iso_code}_{source}_EPSG3857.geojson"))
-        tif_dir = data_utils._makedir(os.path.join(config["rasters_dir"], f"{source}_buildings"))
+
+        out_file_epsg3857 = str(
+            os.path.join(out_dir, f"{iso_code}_{source}_EPSG3857.geojson")
+        )
+        tif_dir = data_utils._makedir(
+            os.path.join(config["rasters_dir"], f"{source}_buildings")
+        )
         tif_file = str(os.path.join(tif_dir, f"{iso_code}_{source}.tif"))
-    
+
         if (
-            (os.path.exists(out_file)) 
-            and (not os.path.exists(out_file_epsg3857)) 
+            (os.path.exists(out_file))
+            and (not os.path.exists(out_file_epsg3857))
             and (not os.path.exists(tif_file))
         ):
             command1 = "ogr2ogr -s_srs EPSG:4326 -t_srs EPSG:3857 {} {}".format(
-                out_file_epsg3857,
-                out_file
+                out_file_epsg3857, out_file
             )
-            command2 = "gdal_rasterize -burn 255 -tr 10 10 -a_nodata 0 -at -l {} {} {}".format(
-                f'{iso_code}_{source}_EPSG4326',
-                out_file_epsg3857,
-                tif_file
+            command2 = (
+                "gdal_rasterize -burn 255 -tr 10 10 -a_nodata 0 -at -l {} {} {}".format(
+                    f"{iso_code}_{source}_EPSG4326", out_file_epsg3857, tif_file
+                )
             )
             subprocess.Popen(f"{command1} && {command2}", shell=True)
 
@@ -410,20 +416,18 @@ def download_buildings(config, source="ms", verbose=False):
 def download_ghsl(config, type="built_c"):
     ghsl_folder = os.path.join(config["rasters_dir"], "ghsl")
     ghsl_folder = data_utils._makedir(ghsl_folder)
-    
+
     if type == "built_c":
         ghsl_path = os.path.join(ghsl_folder, config["ghsl_built_c_file"])
     elif type == "smod":
         ghsl_path = os.path.join(ghsl_folder, config["ghsl_smod_file"])
-        
+
     ghsl_zip = os.path.join(ghsl_folder, "ghsl.zip")
     if not os.path.exists(ghsl_path):
         if type == "built_c":
             command1 = f"wget {config['ghsl_built_c_url']} -O {ghsl_zip}"
         elif type == "smod":
             command1 = f"wget {config['ghsl_smod_url']} -O {ghsl_zip}"
-            
+
         command2 = f"unzip {ghsl_zip} -d {ghsl_folder}"
         subprocess.Popen(f"{command1} && {command2}", shell=True)
-
-    

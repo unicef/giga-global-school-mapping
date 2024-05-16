@@ -24,8 +24,9 @@ from xgboost import XGBClassifier
 from sklearn.svm import LinearSVC, SVC, NuSVC
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.neural_network import MLPClassifier
-#from sklearnex import patch_sklearn
-#patch_sklearn()
+
+# from sklearnex import patch_sklearn
+# patch_sklearn()
 
 SEED = 42
 SCALERS = {
@@ -66,65 +67,25 @@ MODELS = {
 
 
 def get_dim_reduce(dim_reduce):
-    """Instantiates and returns a scaler instance.
-
-    Args:
-        scaler (str): Indicates the selector to instantiate.
-    Returns:
-        object: The selector for feature selection.
-    """
-
     assert dim_reduce in DIM_REDUCE
     return DIM_REDUCE[dim_reduce]
 
 
 def get_resampler(resampler):
-    """Instantiates and returns a scaler instance.
-
-    Args:
-        scaler (str): Indicates the selector to instantiate.
-    Returns:
-        object: The selector for feature selection.
-    """
-
     assert resampler in RESAMPLERS
     return RESAMPLERS[resampler]
 
 
 def get_scaler(scaler):
-    """Instantiates and returns a scaler instance.
-
-    Args:
-        scaler (str): Indicates the selector to instantiate.
-    Returns:
-        object: The selector for feature selection.
-    """
-
     assert scaler in SCALERS
     return SCALERS[scaler]
 
 
 def get_selector(selector):
-    """Instantiates and returns a selector instance.
-
-    Args:
-        selector (str): Indicates the selector to instantiate.
-    Returns:
-        object: The selector for feature selection.
-    """
-
     assert selector in SELECTORS
     return SELECTORS[selector]
 
 
 def get_model(model):
-    """Instantiates and returns a model instance.
-
-    Args:
-        model (str): Indicates the model to instantiate.
-    Returns:
-        object: The model instance for development.
-    """
-
     assert model in MODELS
     return MODELS[model]
