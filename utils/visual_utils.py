@@ -16,30 +16,11 @@ logging.basicConfig(level=logging.INFO)
 
 
 def _get_filename(cwd, iso, vector_dir, project, category, name):
-    """
-    Generate a file path based on provided parameters.
-
-    Args:
-    - cwd (str): Current working directory.
-    - iso (str): ISO code for the country.
-    - vector_dir (str): Directory for vector data.
-    - category (str): Category of the data.
-    - name (str): Name used for the file.
-
-    Returns:
-    - str: File path generated using the parameters.
-    """
-    
     filename = os.path.join(
-        cwd, 
-        vector_dir, 
-        project, 
-        category, 
-        name, 
-        f"{iso}_{name}.geojson"
+        cwd, vector_dir, project, category, name, f"{iso}_{name}.geojson"
     )
     return filename
-    
+
 
 def map_coordinates(
     config,
@@ -51,29 +32,13 @@ def map_coordinates(
     max_zoom=20,
     name="clean",
     id_col="UID",
-    name_col="name"
+    name_col="name",
 ):
-    """
-    Generate and display a Folium map centered around the coordinates of a specific data point.
 
-    Args:
-    - config (dict): Configuration settings.
-    - index (int): Index of the data point to be displayed.
-    - category (str): Category of the data.
-    - iso (str): ISO code for the country.
-    - filename (str, optional): File name to load the data. Defaults to None.
-    - zoom_start (int, optional): Initial zoom level for the map. Defaults to 18.
-    - max_zoom (int, optional): Maximum zoom level allowed for the map. Defaults to 20.
-    - name (str, optional): Column name used for data filtering. Defaults to "validated".
-
-    Returns:
-    - folium.Map: Folium map displaying the location of the specified data point.
-    """
-    
     cwd = os.path.dirname(os.getcwd())
     vector_dir = config["vectors_dir"]
     project = config["project"]
-    
+
     filename = _get_filename(cwd, iso, vector_dir, project, category, "clean")
     data = gpd.read_file(filename)
 
@@ -106,26 +71,8 @@ def validate_data(
     filename=None,
     name="clean",
     id_col="UID",
-    show_validated=True
+    show_validated=True,
 ):
-    """
-    Perform data cleaning and provide an interactive widget for data inspection and validation.
-
-    Args:
-    - config (dict): Configuration settings.
-    - iso (str): ISO code for the country.
-    - category (str): Category of the data.
-    - start_index (int, optional): Starting index for data sampling. Defaults to 0.
-    - row_inc (int, optional): Increment value for rows. Defaults to 3.
-    - n_rows (int, optional): Number of rows in the visualization grid. Defaults to 4.
-    - n_cols (int, optional): Number of columns in the visualization grid. Defaults to 4.
-    - filename (str, optional): File name to load or save the cleaned data. Defaults to None.
-    - name (str, optional): Column name used for data filtering. Defaults to "validated".
-
-    Returns:
-    - GridspecLayout: An interactive widget for inspecting and validating data.
-    """
-    
     cwd = os.path.dirname(os.getcwd())
     image_dir = config["rasters_dir"]
     vector_dir = config["vectors_dir"]
@@ -135,57 +82,46 @@ def validate_data(
     if not filename:
         filename = _get_filename(cwd, iso, vector_dir, project, category, name)
     data = gpd.read_file(filename)
-    
-    if 'validated' not in data.columns:
+
+    if "validated" not in data.columns:
         data["validated"] = 0
-        
-    samples = data[(data['clean'] == 0)]
+
+    samples = data[(data["clean"] == 0)]
     if not show_validated:
-        samples = samples[(samples['validated'] == 0)]
+        samples = samples[(samples["validated"] == 0)]
     samples = samples.iloc[start_index : start_index + (n_rows * n_cols)]
-    
+
     grid = GridspecLayout(n_rows * row_inc + n_rows, n_cols)
     button_dict = {0: ("primary", category), -1: ("warning", "unrecognized")}
 
     def _add_image(item):
-        """
-        Loads an image associated with an item and returns it as a widget for display.
-    
-        Args:
-        - item (pandas.Series): Data item containing information about the image.
-    
-        Returns:
-        - Image: A widget displaying the image.
-        """
-        
-        class_dir = os.path.join(cwd, image_dir, maxar_dir, project, iso, category.lower())
+        class_dir = os.path.join(
+            cwd, image_dir, maxar_dir, project, iso, category.lower()
+        )
         filepath = os.path.join(class_dir, f"{item[id_col]}.tiff")
         img = open(filepath, "rb").read()
-        image = Tab([Image(
-            value=img,
-            format="png",
-            layout=Layout(
-                justify_content="center", border="solid", width="auto", height="auto"
-            ),
-        )])
+        image = Tab(
+            [
+                Image(
+                    value=img,
+                    format="png",
+                    layout=Layout(
+                        justify_content="center",
+                        border="solid",
+                        width="auto",
+                        height="auto",
+                    ),
+                )
+            ]
+        )
         name = item["name"]
         if name:
             name = name[:20]
         image.set_title(0, name)
-        
+
         return image
 
     def _on_button_click(button):
-        """
-        Updates the button's style and description based on a click event.
-    
-        Args:
-        - button (Button): The button clicked by the user.
-    
-        Returns:
-        - None
-        """
-        
         index = int(button.description.split(" ")[0])
         item = data.iloc[index]
 
@@ -201,16 +137,6 @@ def validate_data(
         data.to_file(filename, driver="GeoJSON")
 
     def _create_button(item):
-        """
-        Creates a Button widget based on the item's properties.
-    
-        Args:
-        - item (DataFrame): The item from the dataset.
-    
-        Returns:
-        - Button: A Button widget with specified properties.
-        """
-        
         val = item["validated"]
         button_style, category = button_dict[val]
         description = f"{item.name} {category.upper()}"
@@ -249,26 +175,8 @@ def inspect_images(
     random=False,
     id_col="UID",
     name_col="name",
-    figsize=(15, 15)
+    figsize=(15, 15),
 ):
-    """
-    Visualizes image samples associated with geographic data for inspection.
-
-    Args:
-    - config (dict): Configuration settings.
-    - iso (str): ISO code for the country.
-    - category (str): Category of the data.
-    - n_rows (int, optional): Number of rows in the visualization grid. Defaults to 4.
-    - n_cols (int, optional): Number of columns in the visualization grid. Defaults to 4.
-    - start_index (int, optional): Starting index for data sampling. Defaults to 0.
-    - figsize (tuple, optional): Size of the figure. Defaults to (15, 15).
-    - filename (str, optional): File name to load the data. Defaults to None.
-    - name (str, optional): Column name to consider for data filtering. Defaults to "validated".
-
-    Returns:
-    - None
-    """
-    
     cwd = os.path.dirname(os.getcwd())
     image_dir = config["rasters_dir"]
     vector_dir = config["vectors_dir"]
@@ -295,7 +203,9 @@ def inspect_images(
 
     # Iterate over the samples to display associated images
     for idx, item in samples.iterrows():
-        class_dir = os.path.join(cwd, image_dir, maxar_dir, project, iso, category.lower())
+        class_dir = os.path.join(
+            cwd, image_dir, maxar_dir, project, iso, category.lower()
+        )
         filepath = os.path.join(class_dir, f"{item[id_col]}.tiff")
 
         # Open and display the image on the subplot

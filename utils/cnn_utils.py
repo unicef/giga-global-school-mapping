@@ -29,11 +29,13 @@ import torch.nn.functional as nnf
 import satlaspretrain_models
 
 import sys
+
 sys.path.insert(0, "../utils/")
 import eval_utils
 import clf_utils
 import data_utils
 import model_utils
+
 SEED = 42
 
 # Add temporary fix for hash error: https://github.com/pytorch/vision/issues/7744
@@ -41,54 +43,35 @@ from torchvision.models._api import WeightsEnum
 from torch.hub import load_state_dict_from_url
 
 import logging
+
 logging.basicConfig(level=logging.INFO)
 
 imagenet_mean, imagenet_std = [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
 
+
 def get_state_dict(self, *args, **kwargs):
     kwargs.pop("check_hash")
     return load_state_dict_from_url(self.url, *args, **kwargs)
+
+
 WeightsEnum.get_state_dict = get_state_dict
 
 torch.manual_seed(SEED)
 if torch.cuda.is_available():
     torch.cuda.manual_seed_all(SEED)
 
-    
+
 class SchoolDataset(Dataset):
     def __init__(self, dataset, classes, transform=None, normalize="imagenet"):
-        """
-        Custom dataset for Caribbean images.
-
-        Args:
-        - dataset (pandas.DataFrame): The dataset containing image information.
-        - attribute (str): The column name specifying the attribute for classification.
-        - classes (dict): A dictionary mapping attribute values to classes.
-        - transform (callable, optional): Optional transformations to apply to the image. 
-        Defaults to None.
-        - prefix (str, optional): Prefix to append to file paths. Defaults to an empty string.
-        """
-        
         self.dataset = dataset
         self.transform = transform
         self.classes = classes
         self.normalize = normalize
 
     def __getitem__(self, index):
-        """
-        Retrieves an item (image and label) from the dataset based on index.
-
-        Args:
-        - index (int): Index of the item to retrieve.
-
-        Returns:
-        - tuple: A tuple containing the transformed image (if transform is specified)
-        and its label.
-        """
-        
         item = self.dataset.iloc[index]
         uid = item["UID"]
-        filepath= item["filepath"]
+        filepath = item["filepath"]
         image = Image.open(filepath).convert("RGB")
 
         if self.transform:
@@ -99,28 +82,10 @@ class SchoolDataset(Dataset):
         return x, y, uid
 
     def __len__(self):
-        """
-        Returns the length of the dataset.
-
-        Returns:
-        - int: Length of the dataset.
-        """
-        
         return len(self.dataset)
 
 
 def visualize_data(data, data_loader, phase="test", n=4, normalize="imagenet"):
-    """
-    Visualize a sample of data from a DataLoader.
-
-    Args:
-    - data (dict): A dictionary containing data split into different phases 
-    (TRAIN, VALIDATION, TEST).
-    - data_loader (torch.utils.data.DataLoader): DataLoader containing the data.
-    - phase (str, optional): The phase of data to visualize. Defaults to "test".
-    - n (int, optional): Number of images to visualize in a grid. Defaults to 4.
-    """
-    
     inputs, classes, uids = next(iter(data_loader[phase]))
     fig, axes = plt.subplots(n, n, figsize=(6, 6))
 
@@ -141,24 +106,9 @@ def visualize_data(data, data_loader, phase="test", n=4, normalize="imagenet"):
 
 
 def load_dataset(config, phases):
-    """
-    Load dataset based on configuration settings and phases.
-
-    Args:
-    - config (dict): Configuration settings including data directories, attributes, etc.
-    - phases (list): List of phases for which to load the dataset (e.g., ["train", "test"]).
-    - prefix (str, optional): Prefix to be added to file paths. Defaults to an empty string.
-
-    Returns:
-    - tuple: A tuple containing:
-        - dict: A dictionary containing datasets for each phase.
-        - dict: A dictionary containing data loaders for each phase.
-        - dict: A dictionary containing classes and their mappings.
-    """
-    
     dataset = model_utils.load_data(config, attributes=["rurban", "iso"], verbose=True)
     dataset["filepath"] = data_utils.get_image_filepaths(config, dataset)
-    classes_dict = {config["pos_class"] : 1, config["neg_class"] : 0}
+    classes_dict = {config["pos_class"]: 1, config["neg_class"]: 0}
 
     normalize = config["normalize"]
     transforms = get_transforms(size=config["img_size"], normalize=normalize)
@@ -167,12 +117,12 @@ def load_dataset(config, phases):
 
     data = {
         phase: SchoolDataset(
-            dataset[dataset.dataset==phase]
+            dataset[dataset.dataset == phase]
             .sample(frac=1, random_state=SEED)
             .reset_index(drop=True),
             classes_dict,
             transforms[phase],
-            normalize=normalize
+            normalize=normalize,
         )
         for phase in phases
     }
@@ -183,7 +133,7 @@ def load_dataset(config, phases):
             batch_size=config["batch_size"],
             num_workers=config["n_workers"],
             shuffle=True,
-            drop_last=True
+            drop_last=True,
         )
         for phase in phases
     }
@@ -192,33 +142,17 @@ def load_dataset(config, phases):
 
 
 def train(
-    data_loader, 
-    model, 
-    criterion, 
-    optimizer, 
-    device, 
-    logging, 
-    pos_label, 
-    beta, 
-    optim_threshold=None, 
-    wandb=None
+    data_loader,
+    model,
+    criterion,
+    optimizer,
+    device,
+    logging,
+    pos_label,
+    beta,
+    optim_threshold=None,
+    wandb=None,
 ):
-    """
-    Train the model on the provided data.
-
-    Args:
-    - data_loader (torch.utils.data.DataLoader): DataLoader containing training data.
-    - model (torch.nn.Module): The neural network model.
-    - criterion: Loss function.
-    - optimizer: Optimization algorithm.
-    - device (str): Device to run the training on (e.g., 'cuda' or 'cpu').
-    - logging: Logging object to record training information.
-    - wandb: Weights & Biases object for logging if available. Defaults to None.
-
-    Returns:
-    - dict: Results of the training including loss and evaluation metrics.
-    """
-    
     model.train()
 
     y_actuals, y_preds, y_probs = [], [], []
@@ -226,7 +160,7 @@ def train(
     for inputs, labels, _ in tqdm(data_loader, total=len(data_loader)):
         inputs = inputs.to(device)
         labels = labels.to(device)
-        
+
         optimizer.zero_grad()
 
         with torch.set_grad_enabled(True):
@@ -246,52 +180,39 @@ def train(
 
     epoch_loss = running_loss / len(data_loader)
     epoch_results = eval_utils.evaluate(
-        y_actuals, y_preds, y_probs, pos_label, beta=beta, optim_threshold=optim_threshold
+        y_actuals,
+        y_preds,
+        y_probs,
+        pos_label,
+        beta=beta,
+        optim_threshold=optim_threshold,
     )
     epoch_results["loss"] = epoch_loss
     epoch_results = {f"train_{key}": val for key, val in epoch_results.items()}
 
     learning_rate = optimizer.param_groups[0]["lr"]
-    log_results = {key: val for key, val in epoch_results.items() if key[-1] != '_'}
+    log_results = {key: val for key, val in epoch_results.items() if key[-1] != "_"}
     logging.info(f"Train: {log_results} LR: {learning_rate}")
 
     if wandb is not None:
         wandb.log(log_results)
-        
+
     return epoch_results
 
 
 def evaluate(
-    data_loader, 
-    class_names, 
-    model, 
-    criterion, 
-    device, 
-    logging, 
-    pos_label, 
-    beta, 
-    phase, 
-    optim_threshold=None, 
-    wandb=None
+    data_loader,
+    class_names,
+    model,
+    criterion,
+    device,
+    logging,
+    pos_label,
+    beta,
+    phase,
+    optim_threshold=None,
+    wandb=None,
 ):
-    """
-    Evaluate the model using the provided data.
-
-    Args:
-    - data_loader (torch.utils.data.DataLoader): DataLoader containing validation/test data.
-    - class_names (list): List of class names.
-    - model (torch.nn.Module): The neural network model.
-    - criterion: Loss function.
-    - device (str): Device to run evaluation on (e.g., 'cuda' or 'cpu').
-    - logging: Logging object to record evaluation information.
-    - wandb: Weights & Biases object for logging if available. Defaults to None.
-
-    Returns:
-    - tuple: A tuple containing:
-        - dict: Results of the evaluation including loss and evaluation metrics.
-        - tuple: A tuple containing confusion matrix, metrics, and report.
-    """
-    
     model.eval()
 
     y_uids, y_actuals, y_preds, y_probs = [], [], [], []
@@ -317,7 +238,12 @@ def evaluate(
 
     epoch_loss = running_loss / len(data_loader)
     epoch_results = eval_utils.evaluate(
-        y_actuals, y_preds, y_probs, pos_label, beta=beta, optim_threshold=optim_threshold
+        y_actuals,
+        y_preds,
+        y_probs,
+        pos_label,
+        beta=beta,
+        optim_threshold=optim_threshold,
     )
     epoch_results["loss"] = epoch_loss
     epoch_results = {f"{phase}_{key}": val for key, val in epoch_results.items()}
@@ -325,72 +251,48 @@ def evaluate(
     confusion_matrix, cm_metrics, cm_report = eval_utils.get_confusion_matrix(
         y_actuals, y_preds, class_names
     )
-    preds = pd.DataFrame({
-        'UID': y_uids,
-        'y_true': y_actuals, 
-        'y_preds': y_preds, 
-        'y_probs': y_probs
-    })
+    preds = pd.DataFrame(
+        {"UID": y_uids, "y_true": y_actuals, "y_preds": y_preds, "y_probs": y_probs}
+    )
 
-    log_results = {key: val for key, val in epoch_results.items() if key[-1] != '_'}    
+    log_results = {key: val for key, val in epoch_results.items() if key[-1] != "_"}
     logging.info(f"{phase.capitalize()} Loss: {epoch_loss} {log_results}")
     if wandb is not None:
         wandb.log(log_results)
-        
+
     return epoch_results, (confusion_matrix, cm_metrics, cm_report), preds
 
 
 def get_transforms(size, normalize="imagenet"):
-    """
-    Get image transformations for training and testing phases.
-
-    Args:
-    - size (int): Size of the transformed images.
-
-    Returns:
-    - dict: A dictionary containing transformation pipelines for "TRAIN" and "TEST" phases.
-    """
-
     transformations = {
         "train": [
-                transforms.Resize(size),
-                transforms.RandomApply([transforms.RandomRotation((90, 90))], p=0.5),
-                transforms.RandomHorizontalFlip(),
-                transforms.RandomVerticalFlip(),
-                transforms.ToTensor()
+            transforms.Resize(size),
+            transforms.RandomApply([transforms.RandomRotation((90, 90))], p=0.5),
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomVerticalFlip(),
+            transforms.ToTensor(),
         ],
         "val": [
-                transforms.Resize(size),
-                transforms.CenterCrop(size),
-                transforms.ToTensor()
+            transforms.Resize(size),
+            transforms.CenterCrop(size),
+            transforms.ToTensor(),
         ],
         "test": [
-                transforms.Resize(size),
-                transforms.CenterCrop(size),
-                transforms.ToTensor()
+            transforms.Resize(size),
+            transforms.CenterCrop(size),
+            transforms.ToTensor(),
         ],
     }
 
     if normalize == "imagenet":
         for k, v in transformations.items():
             transformations[k].append(transforms.Normalize(imagenet_mean, imagenet_std))
-        
+
     transformations = {k: transforms.Compose(v) for k, v in transformations.items()}
     return transformations
 
+
 def get_model(model_type, n_classes, dropout=0):
-    """
-    Get a neural network model based on specified parameters.
-
-    Args:
-    - model_type (str): The type of model architecture to use.
-    - n_classes (int): The number of output classes.
-    - dropout (float, optional): Dropout rate if applicable. Defaults to 0.
-
-    Returns:
-    - torch.nn.Module: A neural network model based on the specified architecture.
-    """
-    
     if "resnet" in model_type:
         if model_type == "resnet18":
             model = models.resnet18(weights=ResNet18_Weights.DEFAULT)
@@ -404,7 +306,7 @@ def get_model(model_type, n_classes, dropout=0):
                 "resnet50", in_chans=weights.meta["in_chans"], num_classes=n_classes
             )
             model.load_state_dict(weights.get_state_dict(progress=True), strict=False)
-        
+
         num_ftrs = model.fc.in_features
         if dropout > 0:
             model.fc = nn.Sequential(
@@ -430,38 +332,40 @@ def get_model(model_type, n_classes, dropout=0):
         model.classifier[1] = nn.Linear(num_ftrs, n_classes)
 
     if "xception" in model_type:
-        model = timm.create_model('xception', pretrained=True, num_classes=n_classes)
+        model = timm.create_model("xception", pretrained=True, num_classes=n_classes)
 
     if "convnext" in model_type:
         if "small" in model_type:
-            model = models.convnext_small(weights='IMAGENET1K_V1')
+            model = models.convnext_small(weights="IMAGENET1K_V1")
         elif "base" in model_type:
-            model = models.convnext_base(weights='IMAGENET1K_V1')
+            model = models.convnext_base(weights="IMAGENET1K_V1")
         elif "large" in model_type:
-            model = models.convnext_large(weights='IMAGENET1K_V1')
+            model = models.convnext_large(weights="IMAGENET1K_V1")
         num_ftrs = model.classifier[2].in_features
         model.classifier[2] = nn.Linear(num_ftrs, n_classes)
 
-    if 'satlas' in model_type:
+    if "satlas" in model_type:
         device = "cuda" if torch.cuda.is_available() else "cpu"
         weights_manager = satlaspretrain_models.Weights()
         model_identifier = model_type.split("-")[-1]
         model = weights_manager.get_pretrained_model(
             model_identifier=model_identifier,
             num_categories=n_classes,
-            fpn=True, 
+            fpn=True,
             head=satlaspretrain_models.Head.CLASSIFY,
-            device=device
+            device=device,
         )
+
         class ModelModified(nn.Module):
             def __init__(self, model):
                 super(ModelModified, self).__init__()
                 self.model = model
+
             def forward(self, x):
                 return self.model(x)[0]
 
         model = ModelModified(model)
-        
+
     return model
 
 
@@ -483,32 +387,10 @@ def load_model(
     start_lr=1e-6,
     end_lr=1e-3,
     num_iter=1000,
-    lr_finder=True
+    lr_finder=True,
 ):
-    """
-    Load a neural network model with specified configurations.
-
-    Args:
-    - model_type (str): The type of model architecture to use.
-    - n_classes (int): The number of output classes.
-    - pretrained (bool): Whether to use pre-trained weights.
-    - scheduler_type (str): The type of learning rate scheduler to use.
-    - optimizer_type (str): The type of optimizer to use.
-    - label_smoothing (float, optional): Label smoothing parameter. Defaults to 0.0.
-    - lr (float, optional): Learning rate. Defaults to 0.001.
-    - momentum (float, optional): Momentum factor for SGD optimizer. Defaults to 0.9.
-    - gamma (float, optional): Gamma factor for learning rate scheduler. Defaults to 0.1.
-    - step_size (int, optional): Step size for learning rate scheduler. Defaults to 7.
-    - patience (int, optional): Patience for ReduceLROnPlateau scheduler. Defaults to 7.
-    - dropout (float, optional): Dropout rate if applicable. Defaults to 0.
-    - device (str, optional): Device to run the model on. Defaults to "cpu".
-
-    Returns:
-    - tuple: A tuple containing the loaded model, criterion, optimizer, and scheduler.
-    """
-    
     model = get_model(model_type, n_classes, dropout)
-    model= nn.DataParallel(model)
+    model = nn.DataParallel(model)
     model = model.to(device)
     criterion = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
 
@@ -519,43 +401,57 @@ def load_model(
 
     if lr_finder:
         lr = run_lr_finder(
-            data_loader, 
-            model, 
-            optimizer, 
-            criterion, 
-            device, 
+            data_loader,
+            model,
+            optimizer,
+            criterion,
+            device,
             start_lr=start_lr,
-            end_lr=end_lr, 
-            num_iter=num_iter
+            end_lr=end_lr,
+            num_iter=num_iter,
         )
         for param in optimizer.param_groups:
-            param['lr'] = lr
+            param["lr"] = lr
 
     if scheduler_type == "StepLR":
         scheduler = lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=gamma)
     elif scheduler_type == "ReduceLROnPlateau":
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, factor=0.1, patience=patience, mode='min'
+            optimizer, factor=0.1, patience=patience, mode="min"
         )
 
     return model, criterion, optimizer, scheduler
 
 
-def run_lr_finder(data_loader, model, optimizer, criterion, device, start_lr, end_lr, num_iter, plot=False):
+def run_lr_finder(
+    data_loader,
+    model,
+    optimizer,
+    criterion,
+    device,
+    start_lr,
+    end_lr,
+    num_iter,
+    plot=False,
+):
     lr_finder = LRFinder(model, optimizer, criterion, device=device)
     lr_finder.range_test(
-        data_loader["val"], start_lr=start_lr, end_lr=end_lr, num_iter=num_iter, step_mode='exp'
+        data_loader["val"],
+        start_lr=start_lr,
+        end_lr=end_lr,
+        num_iter=num_iter,
+        step_mode="exp",
     )
-    if plot: 
-        lr_finder.plot() 
-        
+    if plot:
+        lr_finder.plot()
+
     lrs = np.array(lr_finder.history["lr"])
     losses = np.array(lr_finder.history["loss"])
     min_grad_idx = None
     min_grad_idx = (np.gradient(np.array(losses))).argmin()
     if min_grad_idx is not None:
         best_lr = lrs[min_grad_idx]
-    
+
     logging.info(f"Best lr: {best_lr}")
     lr_finder.reset()
     return best_lr
