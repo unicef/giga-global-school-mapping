@@ -92,7 +92,7 @@ def generate_cam_points(data, config, in_dir, model, cam_extractor, buffer_size=
     for index in tqdm(list(data.index), total=len(data)):
         _, point = generate_cam(config, filepaths[index], model, cam_extractor, show=False)
         with rio.open(filepaths[index]) as map_layer:
-            coord = [map_layer.xy(point[0], point[1])]
+            coord = [map_layer.xy(point[1], point[0])]
             coord = geometry.Point(coord)
             crs = map_layer.crs
             results.append(coord)
