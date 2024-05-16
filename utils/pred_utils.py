@@ -72,11 +72,12 @@ def cam_predict(iso_code, config, data, geotiff_dir, out_file, buffer_size=50):
         config,
         geotiff_dir, 
         model, 
-        cam_extractor
+        cam_extractor,
+        buffer_size
     )
     results = filter_by_buildings(iso_code, config, results)
     if len(results) > 0:
-        results = data_utils._connect_components(results, buffer_size=buffer_size)
+        results = data_utils._connect_components(results, buffer_size=0)
         #results = results.sort_values("prob", ascending=False).drop_duplicates(["group"])
         results = results.dissolve(by='group', aggfunc='max')
         #results["geometry"] = results["geometry"].centroid
@@ -84,7 +85,7 @@ def cam_predict(iso_code, config, data, geotiff_dir, out_file, buffer_size=50):
     return results
 
 
-def generate_cam_points(data, config, in_dir, model, cam_extractor, show=False):    
+def generate_cam_points(data, config, in_dir, model, cam_extractor, buffer_size=50, show=False):    
     results = []
     data = data.reset_index(drop=True)
     filepaths = data_utils.get_image_filepaths(config, data, in_dir, ext=".tif")
@@ -103,6 +104,9 @@ def generate_cam_points(data, config, in_dir, model, cam_extractor, show=False):
                 geom.plot(facecolor='none', edgecolor='blue', ax=ax)
                 
     results = gpd.GeoDataFrame(geometry=results, crs=crs)
+    results = results.to_crs("EPSG:3857")
+    results["geometry"] = results["geometry"].buffer(buffer_size, cap_style=3)
+    results = results.to_crs(crs)
     results["prob"] = data.prob
     results["UID"] = data.UID
     return results
