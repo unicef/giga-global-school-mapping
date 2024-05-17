@@ -68,11 +68,9 @@ def cam_predict(iso_code, config, data, geotiff_dir, out_file, buffer_size=75):
 
     if config["type"] == "cnn":
         from torchcam.methods import LayerCAM
-
         cam_extractor = LayerCAM(model)
     elif config["type"] == "vit":
         from pytorch_grad_cam import LayerCAM
-
         target_layers = [model.module.model.backbone.backbone.features[-1][-2].norm1]
         cam_extractor = LayerCAM(
             model=model,
@@ -167,8 +165,7 @@ def georeference_images(data, config, in_dir, out_dir):
 def compare_cams(filepath, model, model_config, classes, model_file):
     if model_config["type"] == "cnn":
         from torchcam.methods import LayerCAM, GradCAM, GradCAMpp, SmoothGradCAMpp
-
-        for cam_extractor in GradCAM, GradCAMpp, SmoothGradCAMpp, LayerCAM:
+        for cam_extractor in LayerCAM, GradCAM, GradCAMpp, SmoothGradCAMpp:
             model = load_cnn(model_config, classes, model_file, verbose=False).eval()
             cam_extractor = cam_extractor(model)
             title = str(cam_extractor.__class__.__name__)
@@ -180,7 +177,7 @@ def compare_cams(filepath, model, model_config, classes, model_file):
         for cam_extractor in LayerCAM, GradCAM, GradCAMPlusPlus:
             model = load_cnn(model_config, classes, model_file, verbose=False).eval()
             target_layers = [
-                model.module.model.backbone.backbone.features[-1][-1].norm1
+                model.module.model.backbone.backbone.features[-1][-2].norm1
             ]
             cam_extractor = cam_extractor(
                 model=model,
