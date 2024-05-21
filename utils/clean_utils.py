@@ -267,65 +267,6 @@ def _filter_pois_within_object_proximity(config, proximity, sname="clean"):
     return data
 
 
-def _filter_pois_with_matching_names(data, proximity, threshold, priority):
-    # Get connected components within a given buffer size and get groups with size > 1
-    data = data_utils._connect_components(data, buffer_size=proximity / 2)
-    group_count = data.group.value_counts()
-    groups = group_count[group_count > 1].index
-
-    uid_network = []
-    for index in range(len(groups)):
-        # Get pairwise combination of names within a group
-        subdata = data[data.group == groups[index]][["UID", "name"]]
-        subdata = list(subdata.itertuples(index=False, name=None))
-        combs = itertools.combinations(subdata, 2)
-
-        # Compute rapidfuzz partial ratio score
-        uid_edge_list = []
-        for comb in combs:
-            # Compute the partial ratio score between cleaned names
-            score = fuzz.partial_ratio(
-                data_utils._clean_text(comb[0][1]), data_utils._clean_text(comb[1][1])
-            )
-            uid_edge_list.append(
-                (comb[0][0], comb[0][1], comb[1][0], comb[1][1], score)
-            )
-        columns = ["source", "name_1", "target", "name_2", "score"]
-        uid_edge_list = pd.DataFrame(uid_edge_list, columns=columns)
-        uid_network.append(uid_edge_list)
-
-    # Generate graph and get connected components
-    if len(uid_network) > 0:
-        uid_network = pd.concat(uid_network)
-        uid_network = uid_network[uid_network.score >= threshold]
-
-        columns = ["source", "target", "score"]
-        graph = nx.from_pandas_edgelist(uid_network[columns])
-        connected_components = nx.connected_components(graph)
-        groups = {
-            num: index
-            for index, group in enumerate(connected_components, start=1)
-            for num in group
-        }
-
-        if len(groups) > 0:
-            # Assign groups to data points based on connected components
-            data["group"] = np.nan
-            for uid, value in groups.items():
-                data.loc[data["UID"] == uid, "group"] = value
-            max_group = int(data["group"].max()) + 1
-            fillna = list(range(max_group, len(data) + max_group))
-            data["group"] = data.apply(
-                lambda x: (
-                    x["group"] if not np.isnan(x["group"]) else fillna[int(x.name)]
-                ),
-                axis=1,
-            )
-            data = data_utils._drop_duplicates(data, priority)
-
-    return data
-
-
 def clean_data(config, category, name="clean", id="UID", sources=[], name_col="clean"):
     def _get_condition(data, name_col, id, ids, shape_name):
         return (
@@ -397,24 +338,13 @@ def clean_data(config, category, name="clean", id="UID", sources=[], name_col="c
                 condition = _get_condition(subdata, name_col, id, ids, shape_name)
                 subdata.loc[condition, name_col] = 2
 
-                # Remove POIs with matching names within proximity of each other
-                subsubdata = _filter_pois_with_matching_names(
-                    subsubdata,
-                    priority=config["priority"],
-                    threshold=config["name_match_threshold"],
-                    proximity=config["name_match_proximity"],
-                )
-                ids = subsubdata[id].values
-                condition = _get_condition(subdata, name_col, id, ids, shape_name)
-                subdata.loc[condition, name_col] = 3
-
                 # Filter uninhabited locations based on specified buffer size
                 subsubdata = _filter_uninhabited_locations(
                     subsubdata, config, pbar=pbar
                 )[config["columns"]]
                 ids = subsubdata[id].values
                 condition = _get_condition(subdata, name_col, id, ids, shape_name)
-                subdata.loc[condition, name_col] = 4
+                subdata.loc[condition, name_col] = 3
 
             # Save cleaned file as a GeoJSON
             subdata = subdata[config["columns"] + [name_col]].reset_index(drop=True)
