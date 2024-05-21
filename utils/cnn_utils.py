@@ -292,7 +292,7 @@ def get_transforms(size, normalize="imagenet"):
     return transformations
 
 
-def get_model(model_type, n_classes, dropout=0):
+def get_model(model_type, n_classes, dropout=None):
     if "resnet" in model_type:
         if model_type == "resnet18":
             model = models.resnet18(weights=ResNet18_Weights.DEFAULT)
@@ -308,12 +308,7 @@ def get_model(model_type, n_classes, dropout=0):
             model.load_state_dict(weights.get_state_dict(progress=True), strict=False)
 
         num_ftrs = model.fc.in_features
-        if dropout > 0:
-            model.fc = nn.Sequential(
-                nn.Dropout(dropout), nn.Linear(num_ftrs, n_classes)
-            )
-        else:
-            model.fc = nn.Linear(num_ftrs, n_classes)
+        model.fc = nn.Linear(num_ftrs, n_classes)
 
     if "inception" in model_type:
         model = models.inception_v3(weights=Inception_V3_Weights.IMAGENET1K_V1)
