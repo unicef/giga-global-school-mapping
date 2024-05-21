@@ -68,11 +68,9 @@ def cam_predict(iso_code, config, data, geotiff_dir, out_file, buffer_size=75):
 
     if config["type"] == "cnn":
         from torchcam.methods import LayerCAM
-
         cam_extractor = LayerCAM(model)
     elif config["type"] == "vit":
         from pytorch_grad_cam import LayerCAM
-
         target_layers = [model.module.model.backbone.backbone.features[-1][-2].norm1]
         cam_extractor = LayerCAM(
             model=model,
@@ -166,9 +164,8 @@ def georeference_images(data, config, in_dir, out_dir):
 
 def compare_cams(filepath, model, model_config, classes, model_file):
     if model_config["type"] == "cnn":
-        from torchcam.methods import GradCAM, GradCAMpp, SmoothGradCAMpp, LayerCAM
-
-        for cam_extractor in GradCAM, GradCAMpp, SmoothGradCAMpp, LayerCAM:
+        from torchcam.methods import LayerCAM, GradCAM, GradCAMpp, SmoothGradCAMpp
+        for cam_extractor in LayerCAM, GradCAM, GradCAMpp, SmoothGradCAMpp:
             model = load_cnn(model_config, classes, model_file, verbose=False).eval()
             cam_extractor = cam_extractor(model)
             title = str(cam_extractor.__class__.__name__)
@@ -177,7 +174,7 @@ def compare_cams(filepath, model, model_config, classes, model_file):
     elif model_config["type"] == "vit":
         from pytorch_grad_cam import GradCAM, GradCAMPlusPlus, LayerCAM
 
-        for cam_extractor in GradCAM, GradCAMPlusPlus, LayerCAM:
+        for cam_extractor in LayerCAM, GradCAM, GradCAMPlusPlus:
             model = load_cnn(model_config, classes, model_file, verbose=False).eval()
             target_layers = [
                 model.module.model.backbone.backbone.features[-1][-2].norm1
@@ -204,8 +201,7 @@ def generate_cam(
     input_image = np.clip(
         np.array(cnn_utils.imagenet_std) * input_image
         + np.array(cnn_utils.imagenet_mean),
-        0,
-        1,
+        0, 1,
     )
     output = model(input)
 
@@ -215,7 +211,9 @@ def generate_cam(
             cam_map = cam.squeeze(0)
             result = overlay_mask(image, to_pil_image(cam_map, mode="F"), alpha=0.5)
     elif config["type"] == "vit":
-        cam_map = cam_extractor(input_tensor=input, targets=None)[0, :]
+        from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
+        targets = [ClassifierOutputTarget(1)]
+        cam_map = cam_extractor(input_tensor=input, targets=targets)[0, :]
         result = show_cam_on_image(input_image, cam_map, use_rgb=True)
     point = generate_point_from_cam(config, cam_map, image)
 
