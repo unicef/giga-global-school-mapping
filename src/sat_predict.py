@@ -95,8 +95,10 @@ def main(args):
                 cam_model_config["config_name"],
             )
             out_dir = data_utils._makedir(out_dir)
-            out_file = os.path.join(out_dir, out_file)
-            out_file = f"{iso_code}_{shapename}_{cam_model_config['config_name']}_cam.gpkg"
+            out_file = os.path.join(
+                out_dir, 
+                f"{iso_code}_{shapename}_{cam_model_config['config_name']}_cam.gpkg"
+            )
             pred_utils.cam_predict(iso_code, cam_model_config, subdata, geotiff_dir, out_file)
         else:
             results = pred_utils.vit_pred(
