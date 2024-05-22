@@ -45,18 +45,6 @@ def reshape_transform(tensor):
 def cam_predict(iso_code, config, data, geotiff_dir, out_file, buffer_size=75):
     cwd = os.path.dirname(os.getcwd())
     classes = {1: config["pos_class"], 0: config["neg_class"]}
-
-    out_dir = os.path.join(
-        cwd,
-        "output",
-        iso_code,
-        "results",
-        config["project"],
-        "cams",
-        config["config_name"],
-    )
-    out_dir = data_utils._makedir(out_dir)
-    out_file = os.path.join(out_dir, out_file)
     if os.path.exists(out_file):
         return gpd.read_file(out_file)
 

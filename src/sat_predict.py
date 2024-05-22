@@ -84,6 +84,18 @@ def main(args):
             pred_utils.georeference_images(subdata, sat_config, sat_dir, geotiff_dir)
 
             print(f"Generating CAMs for {shapename}...")
+            out_dir = os.path.join(
+                cwd,
+                "output",
+                iso_code,
+                "results",
+                model_config["project"],
+                "cams",
+                model_config["config_name"],
+                cam_model_config["config_name"],
+            )
+            out_dir = data_utils._makedir(out_dir)
+            out_file = os.path.join(out_dir, out_file)
             out_file = f"{iso_code}_{shapename}_{cam_model_config['config_name']}_cam.gpkg"
             pred_utils.cam_predict(iso_code, cam_model_config, subdata, geotiff_dir, out_file)
         else:
