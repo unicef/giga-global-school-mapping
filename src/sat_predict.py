@@ -25,6 +25,7 @@ def main(args):
     cwd = os.path.dirname(os.getcwd())
     iso_code = args.iso
     threshold = args.threshold
+    calibrated = args.calibrated
     
     data_config_file = os.path.join(cwd, args.data_config)
     data_config = config_utils.load_config(data_config_file)
@@ -48,28 +49,29 @@ def main(args):
         data_config, args.iso, adm_level="ADM2"
     )
     shapenames = [args.shapename] if args.shapename else geoboundary.shapeName.unique()
+    model_config["iso_codes"] = [iso_code]
     
     for shapename in shapenames:
-        print(f"Processing {shapename}...")
+        logging.info(f"Processing {shapename}...")
         tiles = pred_utils.generate_pred_tiles(
             data_config, iso_code, args.spacing, args.buffer_size, args.adm_level, shapename
         ).reset_index(drop=True)
         tiles["points"] = tiles["geometry"].centroid
         if 'sum' in tiles.columns:
             tiles = tiles[tiles["sum"] > args.sum_threshold].reset_index(drop=True)
-        print(f"Total tiles: {tiles.shape}")
+        logging.info(f"Total tiles: {tiles.shape}")
         
         data = tiles.copy()
         data["geometry"] = data["points"]
         sat_dir = os.path.join(cwd, "output", iso_code, "images", shapename)
-        print(f"Downloading satellite images for {shapename}...")
+        logging.info(f"Downloading satellite images for {shapename}...")
         sat_download.download_sat_images(sat_creds, sat_config, data=data, out_dir=sat_dir)
     
         geotiff_dir = data_utils._makedir(
             os.path.join("output", iso_code, "geotiff", shapename)
         )
         if "cnn" in model_config_file:
-            print(f"Generating predictions for {shapename}...")
+            logging.info(f"Generating predictions for {shapename}...")
             results = pred_utils.cnn_predict(
                 tiles, 
                 iso_code, 
@@ -77,13 +79,20 @@ def main(args):
                 model_config, 
                 sat_dir, 
                 n_classes=2, 
-                threshold=threshold
+                threshold=threshold,
+                calibrated=calibrated
             )
             subdata = results[results["pred"] == model_config["pos_class"]]
-            print(f"Generating GeoTIFFs for {shapename}...")
+            logging.info(f"Generating GeoTIFFs for {shapename}...")
             pred_utils.georeference_images(subdata, sat_config, sat_dir, geotiff_dir)
 
-            print(f"Generating CAMs for {shapename}...")
+            logging.info(f"Generating CAMs for {shapename}...")
+            config_name = model_config["config_name"]
+            cam_config_name = cam_model_config["config_name"]
+            if calibrated: 
+                config_name = + "_calibrated"
+                cam_config_name = cam_config_name + "_calibrated"
+                
             out_dir = os.path.join(
                 cwd,
                 "output",
@@ -91,8 +100,8 @@ def main(args):
                 "results",
                 model_config["project"],
                 "cams",
-                model_config["config_name"],
-                cam_model_config["config_name"],
+                config_name,
+                cam_config_name
             )
             out_dir = data_utils._makedir(out_dir)
             out_file = os.path.join(
@@ -122,8 +131,10 @@ if __name__ == "__main__":
     parser.add_argument("--buffer_size", help="Buffer size", default=150)
     parser.add_argument("--threshold", type=float, help="Probability threhsold", default=0.5)
     parser.add_argument("--sum_threshold", help="Pixel sum threshold", default=5)
+    parser.add_argument("--calibrated", help="Model calibration", default="False")
     parser.add_argument("--iso", help="ISO code")
     args = parser.parse_args()
+    args.calibrated = bool(eval(args.calibrated))
     logging.info(args)
 
     main(args)

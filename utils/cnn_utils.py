@@ -105,8 +105,8 @@ def visualize_data(data, data_loader, phase="test", n=4, normalize="imagenet"):
             axes[i, j].axis("off")
 
 
-def load_dataset(config, phases):
-    dataset = model_utils.load_data(config, attributes=["rurban", "iso"], verbose=True)
+def load_dataset(config, phases, verbose=True):
+    dataset = model_utils.load_data(config, attributes=["rurban", "iso"], verbose=verbose)
     dataset["filepath"] = data_utils.get_image_filepaths(config, dataset)
     classes_dict = {config["pos_class"]: 1, config["neg_class"]: 0}
 

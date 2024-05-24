@@ -8,7 +8,7 @@ wandb/
 data/
 outputs/
 exp/
-*temp*
+*_temp*
 archive
 output
 models/

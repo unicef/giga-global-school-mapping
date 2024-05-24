@@ -33,6 +33,8 @@ import rasterio.plot
 from pytorch_grad_cam.utils.image import show_cam_on_image
 import torch.nn.functional as nnf
 
+from temperature_scaling import ModelWithTemperature
+
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 logging.basicConfig(level=logging.INFO)
 
@@ -263,8 +265,12 @@ def cnn_predict(
     out_dir=None,
     n_classes=None,
     threshold=0.5,
+    calibrated=False
 ):
     cwd = os.path.dirname(os.getcwd())
+    config_name = config["config_name"]
+    if calibrated: 
+        config_name = config_name + "_calibrated"
     if not out_dir:
         out_dir = os.path.join(
             "output",
@@ -272,7 +278,7 @@ def cnn_predict(
             "results",
             config["project"],
             "tiles",
-            config["config_name"],
+            config_name
         )
         out_dir = data_utils._makedir(out_dir)
 
@@ -287,7 +293,10 @@ def cnn_predict(
         cwd, config["exp_dir"], config["project"], f"{iso_code}_{config['config_name']}"
     )
     model_file = os.path.join(exp_dir, f"{iso_code}_{config['config_name']}.pth")
-    model = load_cnn(config, classes, model_file)
+    model_calibrated_file = os.path.join(
+        exp_dir, f"{iso_code}_{config['config_name']}_calibrated.pth"
+    )
+    model = load_cnn(config, classes, model_file, model_calibrated_file, calibrated)
 
     results = cnn_predict_images(data, model, config, in_dir, classes, threshold)
     results = results[["UID", "geometry", "pred", "prob"]]
@@ -296,13 +305,28 @@ def cnn_predict(
     return results
 
 
-def load_cnn(c, classes, model_file=None, verbose=True):
+def load_cnn(c, classes, model_file=None, model_calibrated_file=None, calibrated=False, verbose=True):
     n_classes = len(classes)
     model = cnn_utils.get_model(c["model"], n_classes, c["dropout"])
     model = torch.nn.DataParallel(model)
     model.load_state_dict(torch.load(model_file, map_location=device))
     model = model.to(device)
     model.eval()
+
+    if calibrated:
+        logging.info("Calibrating the model...")
+        _, data_loader, _ = cnn_utils.load_dataset(
+            c, phases=["train", "val", "test"], verbose=False
+        )
+        model = ModelWithTemperature(model)
+        if os.path.exists(model_calibrated_file):
+            model.load_state_dict(
+                torch.load(model_calibrated_file, map_location=device)
+            )
+            model = model.to(device)
+        elif model_calibrated_file:
+            model.set_temperature(data_loader["val"])
+            torch.save(model.state_dict(), model_calibrated_file)
 
     if verbose:
         logging.info(f"Device: {device}")
