@@ -90,7 +90,7 @@ def main(args):
             config_name = model_config["config_name"]
             cam_config_name = cam_model_config["config_name"]
             if calibrated: 
-                config_name = + "_calibrated"
+                config_name = config_name + "_calibrated"
                 cam_config_name = cam_config_name + "_calibrated"
                 
             out_dir = os.path.join(
