@@ -314,9 +314,9 @@ def load_cnn(
     classes, 
     model_file=None, 
     calibrated=False, 
-    verbose=True, 
     temp_lr=0.01,
-    max_iter=100
+    max_iter=100,
+    verbose=True, 
 ):
     n_classes = len(classes)
     model = cnn_utils.get_model(c["model"], n_classes, c["dropout"])

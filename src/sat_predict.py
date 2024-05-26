@@ -68,6 +68,7 @@ def main(args):
         sat_download.download_sat_images(sat_creds, sat_config, data=data, out_dir=sat_dir)
     
         logging.info(f"Generating predictions for {shapename}...")
+        print(args.temp_lr, type(args.temp_lr))
         results = pred_utils.cnn_predict(
             tiles, 
             args.iso, 
