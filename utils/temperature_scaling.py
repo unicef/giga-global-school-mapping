@@ -15,7 +15,7 @@ class ModelWithTemperature(nn.Module):
             NOT the softmax (or log softmax)!
     """
     def __init__(self, model):
-        super(ModelWithTemperature, self).__init__()
+        super().__init__()
         self.model = model
         self.temperature = nn.Parameter(torch.ones(1) * 1.5)
 
