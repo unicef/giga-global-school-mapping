@@ -271,22 +271,20 @@ def cnn_predict(
     max_iter=100
 ):
     cwd = os.path.dirname(os.getcwd())
+    config_name = config['config_name']
     config_name = config_name+"_calibrated" if calibrated else config_name 
     
-    if not out_dir:
-        out_dir = os.path.join(
-            "output",
-            iso_code,
-            "results",
-            config["project"],
-            "tiles",
-            config_name
-        )
-        out_dir = data_utils._makedir(out_dir)
+    out_dir = data_utils._makedir(os.path.join(
+        "output",
+        iso_code,
+        "results",
+        config["project"],
+        "tiles",
+        config_name
+    ))
 
     name = f"{iso_code}_{shapename}"
     out_file = os.path.join(out_dir, f"{name}_{config['config_name']}_results.gpkg")
-
     if os.path.exists(out_file):
         return gpd.read_file(out_file)
 
