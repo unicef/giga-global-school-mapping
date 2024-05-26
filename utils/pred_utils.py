@@ -327,7 +327,7 @@ def load_cnn(
                 torch.load(model_calibrated_file, map_location=device)
             )
             model = model.to(device)
-        elif model_calibrated_file:
+        else:
             model.set_temperature(data_loader["val"], data_loader["test"], lr=temp_lr)
             torch.save(model.state_dict(), model_calibrated_file)
 
@@ -459,12 +459,14 @@ def generate_pred_tiles(
 def temperature_check(iso, config, lr=0.01, max_iter=100):
     cwd = os.path.dirname(os.getcwd())
     config["iso_codes"] = [iso]
-    data, data_loader, classes = cnn_utils.load_dataset(config, phases=["train", "val", "test"], verbose=False)
+    data, data_loader, classes = cnn_utils.load_dataset(
+        config, phases=["train", "val", "test"], verbose=False
+    )
     exp_dir = os.path.join(
         cwd, config["exp_dir"], config["project"], f"{iso}_{config['config_name']}"
     )
     model_file = os.path.join(exp_dir, f"{iso}_{config['config_name']}.pth")
-    model = load_cnn(config, classes, model_file, verbose=False).eval()
+    model = load_cnn(config, classes, model_file, verbose=True).eval()
 
     scaled_model = ModelWithTemperature(model)
     scaled_model.set_temperature(data_loader["val"], data_loader["test"], lr=lr, max_iter=max_iter)
