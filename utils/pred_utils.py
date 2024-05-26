@@ -266,7 +266,7 @@ def cnn_predict(
     n_classes=None,
     threshold=0.5,
     calibrated=False,
-    temperature_lr=0.01
+    temp_lr=0.01
 ):
     cwd = os.path.dirname(os.getcwd())
     config_name = config["config_name"]
@@ -297,7 +297,7 @@ def cnn_predict(
     model_calibrated_file = os.path.join(
         exp_dir, f"{iso_code}_{config['config_name']}_calibrated.pth"
     )
-    model = load_cnn(config, classes, model_file, model_calibrated_file, calibrated, temperature_lr)
+    model = load_cnn(config, classes, model_file, model_calibrated_file, calibrated, temp_lr)
 
     results = cnn_predict_images(data, model, config, in_dir, classes, threshold)
     results = results[["UID", "geometry", "pred", "prob"]]
@@ -306,7 +306,9 @@ def cnn_predict(
     return results
 
 
-def load_cnn(c, classes, model_file=None, model_calibrated_file=None, calibrated=False, verbose=True, temperature_lr=0.01):
+def load_cnn(
+    c, classes, model_file=None, model_calibrated_file=None, calibrated=False, verbose=True, temp_lr=0.01
+):
     n_classes = len(classes)
     model = cnn_utils.get_model(c["model"], n_classes, c["dropout"])
     model = torch.nn.DataParallel(model)
@@ -326,7 +328,7 @@ def load_cnn(c, classes, model_file=None, model_calibrated_file=None, calibrated
             )
             model = model.to(device)
         elif model_calibrated_file:
-            model.set_temperature(data_loader["val"], data_loader["test"], lr=temperature_lr)
+            model.set_temperature(data_loader["val"], data_loader["test"], lr=temp_lr)
             torch.save(model.state_dict(), model_calibrated_file)
 
     if verbose:
