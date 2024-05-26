@@ -113,7 +113,8 @@ def load_dataset(config, phases, verbose=True):
     normalize = config["normalize"]
     transforms = get_transforms(size=config["img_size"], normalize=normalize)
     classes = list(dataset["class"].unique())
-    logging.info(f" Classes: {classes}")
+    if verbose:
+        logging.info(f" Classes: {classes}")
 
     data = {
         phase: SchoolDataset(
