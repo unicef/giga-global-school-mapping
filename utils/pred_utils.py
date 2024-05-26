@@ -316,36 +316,32 @@ def load_cnn(
     calibrated=False, 
     temp_lr=0.01,
     max_iter=100,
-    verbose=True, 
+    verbose=True
 ):
     n_classes = len(classes)
     model = cnn_utils.get_model(c["model"], n_classes, c["dropout"])
     model = torch.nn.DataParallel(model)
     model.load_state_dict(torch.load(model_file, map_location=device))
-    model = model.to(device)
-    model.eval()
-
-    if calibrated:
-        logging.info("Calibrating the model...")
-        model_file = model_file.split('.')[0] + "_calibrated.pth"
-        _, data_loader, _ = cnn_utils.load_dataset(
-            c, phases=["train", "val", "test"], verbose=False
-        )
-        model = ModelWithTemperature(model)
-        if os.path.exists(model_file):
-            model.load_state_dict(
-                torch.load(model_file, map_location=device)
-            )
-            model = model.to(device)
-        else:
-            model.set_temperature(
-                data_loader["val"], data_loader["test"], lr=temp_lr, max_iter=max_iter
-            )
-            torch.save(model.state_dict(), model_file)
+    model = model.eval()
 
     if verbose:
         logging.info(f"Device: {device}")
         logging.info("Model file {} successfully loaded.".format(model_file))
+
+    if calibrated:
+        logging.info("Calibrating the model...")
+        _, data_loader, _ = cnn_utils.load_dataset(
+            c, phases=["train", "val", "test"], verbose=False
+        )
+        scaled_model = ModelWithTemperature(model)
+        scaled_model.set_temperature(
+            data_loader["val"], data_loader["test"], lr=temp_lr, max_iter=max_iter
+        )
+        scaled_model_file = model_file[:-4] + "_calibrated.pth"
+        torch.save(scaled_model.state_dict(), scaled_model_file)
+        if verbose:
+            logging.info(f"Model successfully saved to {scaled_model_file}")
+
     return model
 
 
@@ -468,19 +464,27 @@ def generate_pred_tiles(
     return filtered
 
 
-def temperature_check(iso, config, lr=0.01, max_iter=100, beta=2, evaluate=False):
+def temperature_check(iso_code, config, lr=0.01, max_iter=100, beta=2, evaluate=False):
     cwd = os.path.dirname(os.getcwd())
-    config["iso_codes"] = [iso]
-    data, data_loader, classes = cnn_utils.load_dataset(
+    config["iso_codes"] = [iso_code]
+
+    classes = {1: config["pos_class"], 0: config["neg_class"]}
+    _, data_loader, _ = cnn_utils.load_dataset(
         config, phases=["train", "val", "test"], verbose=False
     )
     exp_dir = os.path.join(
-        cwd, config["exp_dir"], config["project"], f"{iso}_{config['config_name']}"
+        cwd, config["exp_dir"], config["project"], f"{iso_code}_{config['config_name']}"
     )
-    model_file = os.path.join(exp_dir, f"{iso}_{config['config_name']}.pth")
-    model = load_cnn(config, classes, model_file, verbose=True).eval()
-    model = ModelWithTemperature(model)
-    model.set_temperature(data_loader["val"], data_loader["test"], lr=lr, max_iter=max_iter)
+    model_file = os.path.join(exp_dir, f"{iso_code}_{config['config_name']}.pth")
+    model = load_cnn(
+        config, 
+        classes, 
+        model_file, 
+        calibrated=True, 
+        temp_lr=lr, 
+        max_iter=max_iter, 
+        verbose=True
+    ).eval()
 
     if evaluate:
         criterion = torch.nn.CrossEntropyLoss(label_smoothing=config["label_smoothing"])
@@ -501,7 +505,7 @@ def temperature_check(iso, config, lr=0.01, max_iter=100, beta=2, evaluate=False
             dataset = dataset[dataset.dataset == phase]
             preds = pd.merge(dataset, preds, on='UID', how='inner')
             preds.to_csv(
-                os.path.join(exp_dir, f"{iso}_{config['config_name']}_{phase}_calibrated.csv"), 
+                os.path.join(exp_dir, f"{iso_code}_{config['config_name']}_{phase}_calibrated.csv"), 
                 index=False
             )
             
