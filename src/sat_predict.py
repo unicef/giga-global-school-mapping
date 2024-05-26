@@ -82,6 +82,7 @@ def main(args):
         )
         subdata = results[results["pred"] == model_config["pos_class"]]
         logging.info(f"Generating GeoTIFFs for {shapename}...")
+        geotiff_dir = data_utils._makedir(os.path.join("output", args.iso, "geotiff", shapename))
         pred_utils.georeference_images(subdata, sat_config, sat_dir, geotiff_dir)
 
         logging.info(f"Generating CAMs for {shapename}...")
@@ -104,7 +105,6 @@ def main(args):
             out_dir, 
             f"{args.iso}_{shapename}_{cam_model_config['config_name']}_cam.gpkg"
         )
-        geotiff_dir = data_utils._makedir(os.path.join("output", args.iso, "geotiff", shapename))
         pred_utils.cam_predict(args.iso, cam_model_config, subdata, geotiff_dir, out_file)
             
     return results
