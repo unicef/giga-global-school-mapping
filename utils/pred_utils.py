@@ -13,6 +13,7 @@ import cnn_utils
 import data_utils
 import config_utils
 import embed_utils
+import model_utils
 
 import torch
 import matplotlib.pyplot as plt
@@ -266,12 +267,12 @@ def cnn_predict(
     n_classes=None,
     threshold=0.5,
     calibrated=False,
-    temp_lr=0.01
+    temp_lr=0.01,
+    max_iter=100
 ):
     cwd = os.path.dirname(os.getcwd())
-    config_name = config["config_name"]
-    if calibrated: 
-        config_name = config_name + "_calibrated"
+    config_name = config_name+"_calibrated" if calibrated else config_name 
+    
     if not out_dir:
         out_dir = os.path.join(
             "output",
@@ -294,10 +295,14 @@ def cnn_predict(
         cwd, config["exp_dir"], config["project"], f"{iso_code}_{config['config_name']}"
     )
     model_file = os.path.join(exp_dir, f"{iso_code}_{config['config_name']}.pth")
-    model_calibrated_file = os.path.join(
-        exp_dir, f"{iso_code}_{config['config_name']}_calibrated.pth"
+    model = load_cnn(
+        c=config, 
+        classes=classes, 
+        model_file=model_file, 
+        calibrated=calibrated, 
+        temp_lr=temp_lr,
+        max_iter=max_iter
     )
-    model = load_cnn(config, classes, model_file, model_calibrated_file, calibrated, temp_lr)
 
     results = cnn_predict_images(data, model, config, in_dir, classes, threshold)
     results = results[["UID", "geometry", "pred", "prob"]]
@@ -307,7 +312,13 @@ def cnn_predict(
 
 
 def load_cnn(
-    c, classes, model_file=None, model_calibrated_file=None, calibrated=False, verbose=True, temp_lr=0.01
+    c, 
+    classes, 
+    model_file=None, 
+    calibrated=False, 
+    verbose=True, 
+    temp_lr=0.01,
+    max_iter=100
 ):
     n_classes = len(classes)
     model = cnn_utils.get_model(c["model"], n_classes, c["dropout"])
@@ -318,18 +329,21 @@ def load_cnn(
 
     if calibrated:
         logging.info("Calibrating the model...")
+        model_file = model_file.split('.')[0] + "_calibrated.pth"
         _, data_loader, _ = cnn_utils.load_dataset(
             c, phases=["train", "val", "test"], verbose=False
         )
         model = ModelWithTemperature(model)
-        if os.path.exists(model_calibrated_file):
+        if os.path.exists(model_file):
             model.load_state_dict(
-                torch.load(model_calibrated_file, map_location=device)
+                torch.load(model_file, map_location=device)
             )
             model = model.to(device)
         else:
-            model.set_temperature(data_loader["val"], data_loader["test"], lr=temp_lr)
-            torch.save(model.state_dict(), model_calibrated_file)
+            model.set_temperature(
+                data_loader["val"], data_loader["test"], lr=temp_lr, max_iter=max_iter
+            )
+            torch.save(model.state_dict(), model_file)
 
     if verbose:
         logging.info(f"Device: {device}")
@@ -456,7 +470,7 @@ def generate_pred_tiles(
     return filtered
 
 
-def temperature_check(iso, config, lr=0.01, max_iter=100):
+def temperature_check(iso, config, lr=0.01, max_iter=100, beta=2, evaluate=False):
     cwd = os.path.dirname(os.getcwd())
     config["iso_codes"] = [iso]
     data, data_loader, classes = cnn_utils.load_dataset(
@@ -467,7 +481,30 @@ def temperature_check(iso, config, lr=0.01, max_iter=100):
     )
     model_file = os.path.join(exp_dir, f"{iso}_{config['config_name']}.pth")
     model = load_cnn(config, classes, model_file, verbose=True).eval()
+    model = ModelWithTemperature(model)
+    model.set_temperature(data_loader["val"], data_loader["test"], lr=lr, max_iter=max_iter)
 
-    scaled_model = ModelWithTemperature(model)
-    scaled_model.set_temperature(data_loader["val"], data_loader["test"], lr=lr, max_iter=max_iter)
-    return scaled_model
+    if evaluate:
+        criterion = torch.nn.CrossEntropyLoss(label_smoothing=config["label_smoothing"])
+        for phase in ['val', 'test']:   
+            _, _, preds = cnn_utils.evaluate(
+                data_loader[phase],  
+                model=model, 
+                criterion=criterion, 
+                device=device, 
+                pos_label=1,
+                class_names=[1, 0],
+                beta=beta,
+                phase=phase,
+                logging=logging
+            )
+            
+            dataset = model_utils.load_data(config=config, attributes=["rurban", "iso"], verbose=False)
+            dataset = dataset[dataset.dataset == phase]
+            preds = pd.merge(dataset, preds, on='UID', how='inner')
+            preds.to_csv(
+                os.path.join(exp_dir, f"{iso}_{config['config_name']}_{phase}_calibrated.csv"), 
+                index=False
+            )
+            
+    return model
