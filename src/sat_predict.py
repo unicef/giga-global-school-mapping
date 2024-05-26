@@ -68,7 +68,6 @@ def main(args):
         sat_download.download_sat_images(sat_creds, sat_config, data=data, out_dir=sat_dir)
     
         logging.info(f"Generating predictions for {shapename}...")
-        print(args.temp_lr, type(args.temp_lr))
         results = pred_utils.cnn_predict(
             tiles, 
             args.iso, 
@@ -126,7 +125,7 @@ if __name__ == "__main__":
     parser.add_argument("--threshold", type=float, help="Probability threhsold", default=0.5)
     parser.add_argument("--sum_threshold", help="Pixel sum threshold", default=5)
     parser.add_argument("--calibrated", help="Model calibration", default="False")
-    parser.add_argument("--temp_lr", help="Temperature LR", default=0.01)
+    parser.add_argument("--temp_lr", type=float, help="Temperature LR", default=0.01)
     parser.add_argument("--max_iter", help="Temperature max iterations", default=100)
     parser.add_argument("--iso", help="ISO code")
     args = parser.parse_args()
