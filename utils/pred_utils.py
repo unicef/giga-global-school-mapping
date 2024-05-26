@@ -265,7 +265,8 @@ def cnn_predict(
     out_dir=None,
     n_classes=None,
     threshold=0.5,
-    calibrated=False
+    calibrated=False,
+    temperature_lr=0.01
 ):
     cwd = os.path.dirname(os.getcwd())
     config_name = config["config_name"]
@@ -296,7 +297,7 @@ def cnn_predict(
     model_calibrated_file = os.path.join(
         exp_dir, f"{iso_code}_{config['config_name']}_calibrated.pth"
     )
-    model = load_cnn(config, classes, model_file, model_calibrated_file, calibrated)
+    model = load_cnn(config, classes, model_file, model_calibrated_file, calibrated, temperature_lr)
 
     results = cnn_predict_images(data, model, config, in_dir, classes, threshold)
     results = results[["UID", "geometry", "pred", "prob"]]
@@ -305,7 +306,7 @@ def cnn_predict(
     return results
 
 
-def load_cnn(c, classes, model_file=None, model_calibrated_file=None, calibrated=False, verbose=True):
+def load_cnn(c, classes, model_file=None, model_calibrated_file=None, calibrated=False, verbose=True, temperature_lr=0.01):
     n_classes = len(classes)
     model = cnn_utils.get_model(c["model"], n_classes, c["dropout"])
     model = torch.nn.DataParallel(model)
@@ -325,7 +326,7 @@ def load_cnn(c, classes, model_file=None, model_calibrated_file=None, calibrated
             )
             model = model.to(device)
         elif model_calibrated_file:
-            model.set_temperature(data_loader["val"])
+            model.set_temperature(data_loader["val"], data_loader["test"], lr=temperature_lr)
             torch.save(model.state_dict(), model_calibrated_file)
 
     if verbose:
@@ -451,3 +452,18 @@ def generate_pred_tiles(
     filtered = filtered[["UID", "geometry", "shapeName", "sum"]]
     filtered.to_file(out_file, driver="GPKG", index=False)
     return filtered
+
+
+def temperature_check(iso, config, lr=0.01, max_iter=100):
+    cwd = os.path.dirname(os.getcwd())
+    config["iso_codes"] = [iso]
+    data, data_loader, classes = cnn_utils.load_dataset(config, phases=["train", "val", "test"], verbose=False)
+    exp_dir = os.path.join(
+        cwd, config["exp_dir"], config["project"], f"{iso}_{config['config_name']}"
+    )
+    model_file = os.path.join(exp_dir, f"{iso}_{config['config_name']}.pth")
+    model = load_cnn(config, classes, model_file, verbose=False).eval()
+
+    scaled_model = ModelWithTemperature(model)
+    scaled_model.set_temperature(data_loader["val"], data_loader["test"], lr=lr, max_iter=max_iter)
+    return scaled_model

@@ -24,8 +24,6 @@ logging.basicConfig(level=logging.INFO)
 def main(args):
     cwd = os.path.dirname(os.getcwd())
     iso_code = args.iso
-    threshold = args.threshold
-    calibrated = args.calibrated
     
     data_config_file = os.path.join(cwd, args.data_config)
     data_config = config_utils.load_config(data_config_file)
@@ -79,8 +77,9 @@ def main(args):
                 model_config, 
                 sat_dir, 
                 n_classes=2, 
-                threshold=threshold,
-                calibrated=calibrated
+                threshold=args.threshold,
+                calibrated=args.calibrated,
+                temp_lr=args.temp_lr
             )
             subdata = results[results["pred"] == model_config["pos_class"]]
             logging.info(f"Generating GeoTIFFs for {shapename}...")
@@ -89,7 +88,7 @@ def main(args):
             logging.info(f"Generating CAMs for {shapename}...")
             config_name = model_config["config_name"]
             cam_config_name = cam_model_config["config_name"]
-            if calibrated: 
+            if args.calibrated: 
                 config_name = config_name + "_calibrated"
                 cam_config_name = cam_config_name + "_calibrated"
                 
@@ -132,6 +131,7 @@ if __name__ == "__main__":
     parser.add_argument("--threshold", type=float, help="Probability threhsold", default=0.5)
     parser.add_argument("--sum_threshold", help="Pixel sum threshold", default=5)
     parser.add_argument("--calibrated", help="Model calibration", default="False")
+    parser.add_argument("--temp_lr", help="Temperature LR", default=0.01)
     parser.add_argument("--iso", help="ISO code")
     args = parser.parse_args()
     args.calibrated = bool(eval(args.calibrated))

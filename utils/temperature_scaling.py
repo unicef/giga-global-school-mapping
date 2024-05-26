@@ -1,3 +1,4 @@
+from tqdm import tqdm
 import torch
 from torch import nn, optim
 from torch.nn import functional as F
@@ -31,48 +32,66 @@ class ModelWithTemperature(nn.Module):
         return logits / temperature
 
     # This function probably should live outside of this class, but whatever
-    def set_temperature(self, valid_loader):
+    def set_temperature(self, val_loader, test_loader, lr=0.01, max_iter=100):
         """
         Tune the tempearature of the model (using the validation set).
         We're going to set it to optimize NLL.
-        valid_loader (DataLoader): validation set loader
+        val_loader (DataLoader): validation set loader
         """
         self.to(device)
         nll_criterion = nn.CrossEntropyLoss().to(device)
         ece_criterion = _ECELoss().to(device)
 
         # First: collect all the logits and labels for the validation set
-        logits_list = []
-        labels_list = []
-        with torch.no_grad():
-            for input, label, _ in valid_loader:
-                input = input.to(device)
-                logits = self.model(input)
-                logits_list.append(logits)
-                labels_list.append(label)
-            logits = torch.cat(logits_list).to(device)
-            labels = torch.cat(labels_list).to(device)
+        data = dict()
+        for phase, data_loader in zip(["val", "test"], [val_loader, test_loader]):
+            logits_list = []
+            labels_list = []
+            with torch.no_grad():
+                for input, label, _ in tqdm(data_loader, total=len(data_loader)):
+                    input = input.to(device)
+                    logits = self.model(input)
+                    logits_list.append(logits)
+                    labels_list.append(label)
+                logits = torch.cat(logits_list).to(device)
+                labels = torch.cat(labels_list).to(device)
+            data[phase] = {
+                "logits": logits,
+                "labels": labels
+            }
 
-        # Calculate NLL and ECE before temperature scaling
-        before_temperature_nll = nll_criterion(logits, labels).item()
-        before_temperature_ece = ece_criterion(logits, labels).item()
-        print('Before temperature - NLL: %.3f, ECE: %.3f' % (before_temperature_nll, before_temperature_ece))
+            # Calculate NLL and ECE before temperature scaling
+            before_temperature_nll = nll_criterion(logits, labels).item()
+            before_temperature_ece = ece_criterion(logits, labels).item()
+            print(f'Before temperature ({phase}) - NLL: %.3f, ECE: %.3f' % (
+                before_temperature_nll, before_temperature_ece
+            ))
 
         # Next: optimize the temperature w.r.t. NLL
-        optimizer = optim.LBFGS([self.temperature], lr=0.1, max_iter=100)
+        optimizer = optim.LBFGS([self.temperature], lr=lr, max_iter=max_iter)
 
         def eval():
             optimizer.zero_grad()
-            loss = nll_criterion(self.temperature_scale(logits), labels)
+            loss = nll_criterion(
+                self.temperature_scale(data["val"]["logits"]), 
+                data["val"]["labels"]
+            )
             loss.backward()
             return loss
         optimizer.step(eval)
 
         # Calculate NLL and ECE after temperature scaling
-        after_temperature_nll = nll_criterion(self.temperature_scale(logits), labels).item()
-        after_temperature_ece = ece_criterion(self.temperature_scale(logits), labels).item()
         print('Optimal temperature: %.3f' % self.temperature.item())
-        print('After temperature - NLL: %.3f, ECE: %.3f' % (after_temperature_nll, after_temperature_ece))
+        for phase in ["val", "test"]:
+            after_temperature_nll = nll_criterion(
+                self.temperature_scale(data[phase]["logits"]), data[phase]["labels"]
+            ).item()
+            after_temperature_ece = ece_criterion(
+                self.temperature_scale(data[phase]["logits"]), data[phase]["labels"]
+            ).item()
+            print(f'After temperature ({phase}) - NLL: %.3f, ECE: %.3f' % (
+                after_temperature_nll, after_temperature_ece
+            ))
 
         return self
 
