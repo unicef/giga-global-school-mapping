@@ -330,6 +330,7 @@ def load_cnn(
     model = torch.nn.DataParallel(model)
     model.load_state_dict(torch.load(model_file, map_location=device))
     model = model.eval()
+    model = model.to(device)
 
     if calibrated:
         model = temperature_scaling.ModelWithTemperature(model)
@@ -340,6 +341,7 @@ def load_cnn(
         if os.path.exists(model_file):
             model.load_state_dict(torch.load(model_file, map_location=device))
             model = model.eval()
+            model = model.to(device)
             data = model.get_logits(data_loader["val"], data_loader["test"])
             model.eval_temp(data)
         else:
