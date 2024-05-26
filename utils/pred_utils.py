@@ -34,7 +34,14 @@ import rasterio.plot
 from pytorch_grad_cam.utils.image import show_cam_on_image
 import torch.nn.functional as nnf
 
-from temperature_scaling import ModelWithTemperature
+import temperature_scaling 
+SEED = 42
+
+np.random.seed(SEED)
+os.environ["PYTHONHASHSEED"] = f"{SEED}"
+torch.manual_seed(SEED)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 logging.basicConfig(level=logging.INFO)
@@ -324,23 +331,29 @@ def load_cnn(
     model.load_state_dict(torch.load(model_file, map_location=device))
     model = model.eval()
 
-    if verbose:
-        logging.info(f"Device: {device}")
-        logging.info("Model file {} successfully loaded.".format(model_file))
-
     if calibrated:
-        logging.info("Calibrating the model...")
+        model = temperature_scaling.ModelWithTemperature(model)
+        model_file = model_file[:-4] + "_calibrated.pth"
         _, data_loader, _ = cnn_utils.load_dataset(
             c, phases=["train", "val", "test"], verbose=False
         )
-        scaled_model = ModelWithTemperature(model)
-        scaled_model.set_temperature(
-            data_loader["val"], data_loader["test"], lr=temp_lr, max_iter=max_iter
-        )
-        scaled_model_file = model_file[:-4] + "_calibrated.pth"
-        torch.save(scaled_model.state_dict(), scaled_model_file)
-        if verbose:
-            logging.info(f"Model successfully saved to {scaled_model_file}")
+        if os.path.exists(model_file):
+            model.load_state_dict(torch.load(model_file, map_location=device))
+            model = model.eval()
+            data = model.get_logits(data_loader["val"], data_loader["test"])
+            model.eval_temp(data)
+        else:
+            logging.info("Calibrating the model...")
+            model.set_temperature(
+                data_loader["val"], data_loader["test"], lr=temp_lr, max_iter=max_iter
+            )
+            torch.save(model.state_dict(), model_file)
+            if verbose:
+                logging.info(f"Model successfully saved to {model_file}")
+                
+    if verbose:
+        logging.info(f"Device: {device}")
+        logging.info("Model file {} successfully loaded.".format(model_file))
 
     return model
 
