@@ -85,11 +85,12 @@ def cam_predict(
         
     elif calibration == "isoreg":
         temp_dir = data_utils._makedir(os.path.join(
+            cwd,
             "output",
             iso_code,
             "results",
             config["project"],
-            "tiles",
+            "cams",
             orig_parent_name,
             config['config_name']
         ))
