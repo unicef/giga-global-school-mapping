@@ -93,7 +93,6 @@ def main(args):
             cam_model_config, 
             subdata, 
             geotiff_dir, 
-            out_file, 
             parent_name=config_name,
             calibration=args.calibration
         )            
