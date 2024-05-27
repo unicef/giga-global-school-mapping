@@ -1,16 +1,22 @@
 import os
+import sys
 from tqdm import tqdm
 import numpy as np
 import torch
 from torch import nn, optim
 from torch.nn import functional as F
-SEED = 42
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 
-np.random.seed(SEED)
-os.environ["PYTHONHASHSEED"] = f"{SEED}"
-torch.manual_seed(SEED)
-torch.backends.cudnn.deterministic = True
-torch.backends.cudnn.benchmark = False
+from sklearn.isotonic import IsotonicRegression
+from sklearn.calibration import calibration_curve
+import joblib
+import post_utils
+
+import logging
+logging.basicConfig(level=logging.INFO)
+
+SEED = 42
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -26,22 +32,25 @@ class ModelWithTemperature(nn.Module):
     def __init__(self, model):
         super().__init__()
         self.model = model.eval()
-        self.temperature = nn.Parameter(torch.ones(1) * 1.5)
+        self.temperature = nn.Parameter(torch.ones(1).to(device))
         self.nll_criterion = nn.CrossEntropyLoss().to(device)
         self.ece_criterion = ECELoss().to(device)
 
+    
     def forward(self, input):
         logits = self.model(input)
         return self.temperature_scale(logits)
 
+    
     def temperature_scale(self, logits):
         """
         Perform temperature scaling on logits
         """
         # Expand temperature to match the size of logits
         temperature = self.temperature.unsqueeze(1).expand(logits.size(0), logits.size(1))
-        return logits / temperature
+        return torch.div(logits, temperature)
 
+    
     def eval_temp(self, data):
         for phase in ["val", "test"]:
             after_temperature_nll = self.nll_criterion(
@@ -82,7 +91,7 @@ class ModelWithTemperature(nn.Module):
             
         return data
 
-
+    
     # This function probably should live outside of this class, but whatever
     def set_temperature(self, val_loader, test_loader, lr=0.01, max_iter=1000):
         """
@@ -112,6 +121,7 @@ class ModelWithTemperature(nn.Module):
             )
             loss.backward()
             return loss
+            
         optimizer.step(eval)
         print('Optimal temperature: %.3f' % self.temperature.item())
 
@@ -170,7 +180,7 @@ class ECELoss(nn.Module):
             MCE = max(MCE, abs_conf_dif)
         return ECE, MCE
 
-    def draw_reliability_graph(self, preds, labels, num_bins=10):
+    def draw_reliability_graph(self, preds, labels):
         ECE, MCE = self.calculate_ece(preds, labels)
         bins, _, bin_accs, _, _ = self.calc_bins(preds, labels)
     
@@ -186,10 +196,10 @@ class ECELoss(nn.Module):
         ax.set_axisbelow(True) 
         ax.grid(color='gray', linestyle='dashed')
     
-        bins = torch.linspace(0, 1, num_bins + 1)
-        width = 1.0 / num_bins
-        bin_centers = np.linspace(0, 1.0 - width, num_bins) + width / 2
-        bin_centers = np.append(bin_centers, 1.05) - 0.1
+        bins = torch.linspace(0, 1, self.n_bins + 1)
+        width = 1.0 / self.n_bins
+        bin_centers = np.linspace(0, 1.0 - width, self.n_bins) + width / 2
+        bin_centers = np.append(bin_centers, 1 + + width / 2) - 0.1
         bin_accs = np.insert(bin_accs, 0, 0)
     
         # Error bars
@@ -206,7 +216,7 @@ class ECELoss(nn.Module):
         plt.bar(
             bin_centers, 
             bin_accs, 
-            width=1/num_bins, 
+            width=1/self.n_bins, 
             alpha=1, 
             edgecolor='black', 
             color='b', 
@@ -219,9 +229,38 @@ class ECELoss(nn.Module):
         ECE_patch = mpatches.Patch(color='green', label='ECE = {:.4f}'.format(ECE))
         MCE_patch = mpatches.Patch(color='red', label='MCE = {:.4f}'.format(MCE))
         plt.legend(handles=[ECE_patch, MCE_patch])
+
     
     def forward(self, logits, labels):
         softmaxes = F.softmax(logits, dim=1)
         preds = softmaxes[:, 1].detach().numpy()
         ECE, MCE = self.calculate_ece(preds, labels)
         return ECE
+
+
+def isotonic_regressor(iso_code, config, output=None, n_bins=10):
+    calibration = "isoreg"
+
+    cwd = os.path.dirname(os.getcwd())
+    exp_dir = os.path.join(
+        cwd, config["exp_dir"], config["project"], f"{iso_code}_{config['config_name']}"
+    )
+    model_file = os.path.join(exp_dir, f"{iso_code}_{config['config_name']}_{calibration}.pkl")
+
+    if os.path.exists(model_file):
+        regressor = joblib.load(model_file)
+        logging.info(f"Model loaded from {model_file}")
+        return regressor
+    
+    if not output:
+        output = post_utils.get_results(iso_code, config, phase="val")
+        
+    prob_true, prob_pred = calibration_curve(
+        output["y_true"], output["y_probs"], n_bins=n_bins
+    )
+    regressor = IsotonicRegression(out_of_bounds="clip")
+    regressor.fit(prob_pred, prob_true)
+    
+    joblib.dump(regressor, model_file) 
+    logging.info(f"Model saved to {model_file}")
+    return regressor

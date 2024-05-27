@@ -33,10 +33,11 @@ from shapely import geometry
 import rasterio.plot
 from pytorch_grad_cam.utils.image import show_cam_on_image
 import torch.nn.functional as nnf
+import copy
 
-from temperature_scaling import ModelWithTemperature
-import matplotlib.patches as mpatches
-from temperature_scaling import ECELoss
+import calibrators
+from calibrators import ModelWithTemperature
+from calibrators import ECELoss
 SEED = 42
 
 np.random.seed(SEED)
@@ -54,12 +55,52 @@ def reshape_transform(tensor):
     return result
 
 
-def cam_predict(iso_code, config, data, geotiff_dir, out_file, buffer_size=50):
+def cam_predict(
+    iso_code, config, data, geotiff_dir, parent_name, buffer_size=50, calibration=None
+):
     cwd = os.path.dirname(os.getcwd())
     classes = {1: config["pos_class"], 0: config["neg_class"]}
+    cam_config_name = config["config_name"]
+    orig_parent_name = parent_name
+
+    if calibration:            
+        parent_name = f"{parent_name}_{calibration}" 
+        cam_config_name = f"{cam_config_name}_{calibration}" 
+                
+    out_dir = data_utils._makedir(os.path.join(
+        cwd,
+        "output",
+        iso_code,
+        "results",
+        config["project"],
+        "cams",
+        parent_name,
+        cam_config_name
+    ))
+    filename = f"{iso_code}_{shapename}_{config['config_name']}_cam.gpkg"
+    out_file = os.path.join(out_dir, filename)
+
     if os.path.exists(out_file):
         return gpd.read_file(out_file)
-
+        
+    elif calibration == "isoreg":
+        temp_dir = data_utils._makedir(os.path.join(
+            "output",
+            iso_code,
+            "results",
+            config["project"],
+            "tiles",
+            orig_parent_name,
+            cam_config_name
+        ))
+        temp_file = os.path.join(temp_dir, filename)
+        if os.path.exists(temp_file):
+            results = gpd.read_file(temp_file)
+            calibrator = calibrators.isotonic_regressor(iso_code, config)
+            results["prob"] = calibrator.predict(results["prob"])
+            results.to_file(out_file, driver="GPKG")
+            return results
+    
     exp_dir = os.path.join(
         cwd, config["exp_dir"], config["project"], f"{iso_code}_{config['config_name']}"
     )
@@ -91,13 +132,12 @@ def cam_predict(iso_code, config, data, geotiff_dir, out_file, buffer_size=50):
         results = results.sort_values("prob", ascending=False).drop_duplicates(
             ["group"]
         )
-        # results["geometry"] = results["geometry"].centroid
         results.to_file(out_file, driver="GPKG")
     return results
 
 
 def generate_cam_points(
-    data, config, in_dir, model, cam_extractor, buffer_size=50, show=False
+    data, config, in_dir, model, cam_extractor, buffer_size=50, show=False, calibration=None
 ):
     results = []
     data = data.reset_index(drop=True)
@@ -124,6 +164,7 @@ def generate_cam_points(
     results = results.to_crs(crs)
     results["prob"] = data.prob
     results["UID"] = data.UID
+        
     return results
 
 
@@ -275,13 +316,13 @@ def cnn_predict(
     out_dir=None,
     n_classes=None,
     threshold=0.5,
-    calibrated=False,
-    temp_lr=0.01,
-    max_iter=100
+    calibration=None,
+    temp_lr=0.01
 ):
     cwd = os.path.dirname(os.getcwd())
     config_name = config['config_name']
-    config_name = config_name+"_calibrated" if calibrated else config_name 
+    if calibration:
+        config_name = f"{config_name}_{calibration}" 
     
     out_dir = data_utils._makedir(os.path.join(
         "output",
@@ -296,6 +337,22 @@ def cnn_predict(
     out_file = os.path.join(out_dir, f"{name}_{config['config_name']}_results.gpkg")
     if os.path.exists(out_file):
         return gpd.read_file(out_file)
+        
+    elif calibration == "isoreg":
+        out_dir = data_utils._makedir(os.path.join(
+            "output",
+            iso_code,
+            "results",
+            config["project"],
+            "tiles",
+            config['config_name']
+        ))
+        out_file = os.path.join(out_dir, f"{name}_{config['config_name']}_results.gpkg")
+        if os.path.exists(out_file):
+            results = gpd.read_file(out_file)
+            calibrator = calibrators.isotonic_regressor(iso_code, config)
+            results["prob"] = calibrator.predict(results["prob"])
+            return results
 
     classes = {1: config["pos_class"], 0: config["neg_class"]}
     exp_dir = os.path.join(
@@ -306,13 +363,15 @@ def cnn_predict(
         c=config, 
         classes=classes, 
         model_file=model_file, 
-        calibrated=calibrated, 
-        temp_lr=temp_lr,
-        max_iter=max_iter
-    )
-
+        calibration=calibration, 
+        temp_lr=temp_lr
+    )        
     results = cnn_predict_images(data, model, config, in_dir, classes, threshold)
     results = results[["UID", "geometry", "pred", "prob"]]
+    if calibration == "isoreg":
+        calibrator = calibrators.isotonic_regressor(iso_code, config)
+        results["prob"] = calibrator.predict(results["prob"])
+    
     results = gpd.GeoDataFrame(results, geometry="geometry")
     results.to_file(out_file, driver="GPKG")
     return results
@@ -322,9 +381,8 @@ def load_cnn(
     c, 
     classes, 
     model_file=None, 
-    calibrated=False, 
+    calibration=None, 
     temp_lr=0.01,
-    max_iter=1000,
     verbose=True,
     save=True
 ):
@@ -335,9 +393,9 @@ def load_cnn(
     model = model.eval()
     model = model.to(device)
 
-    if calibrated:
+    if calibration == "tempscaling":
         model = ModelWithTemperature(model)
-        model_file = model_file[:-4] + "_calibrated.pth"
+        model_file = f"{model_file[:-4]}_{calibration}.pth"
         _, data_loader, _ = cnn_utils.load_dataset(
             c, phases=["train", "val", "test"], verbose=False
         )
@@ -345,12 +403,13 @@ def load_cnn(
             model.load_state_dict(torch.load(model_file, map_location=device))
             model = model.eval()
             model = model.to(device)
-            data = model.get_logits(data_loader["val"], data_loader["test"])
-            model.eval_temp(data)
+            if verbose:
+                data = model.get_logits(data_loader["val"], data_loader["test"])
+                model.eval_temp(data)
         else:
             logging.info("Calibrating the model...")
             model.set_temperature(
-                data_loader["val"], data_loader["test"], lr=temp_lr, max_iter=max_iter
+                data_loader["val"], data_loader["test"], lr=temp_lr
             )
             if save:
                 torch.save(model.state_dict(), model_file)
@@ -481,59 +540,3 @@ def generate_pred_tiles(
     filtered = filtered[["UID", "geometry", "shapeName", "sum"]]
     filtered.to_file(out_file, driver="GPKG", index=False)
     return filtered
-
-
-def save_calibrated_results(model, iso_code, config, exp_dir, beta=2):
-    criterion = torch.nn.CrossEntropyLoss(label_smoothing=config["label_smoothing"])
-    _, data_loader, _ = cnn_utils.load_dataset(
-        config, phases=["train", "val", "test"], verbose=False
-    )
-    for phase in ['val', 'test']:   
-        _, _, preds = cnn_utils.evaluate(
-            data_loader[phase],  
-            model=model, 
-            criterion=criterion, 
-            device=device, 
-            pos_label=1,
-            class_names=[1, 0],
-            beta=beta,
-            phase=phase,
-            logging=logging
-        )
-            
-        dataset = model_utils.load_data(
-            config=config, attributes=["rurban", "iso"], verbose=False
-        )
-        dataset = dataset[dataset.dataset == phase]
-        preds = pd.merge(dataset, preds, on='UID', how='inner')
-        preds.to_csv(
-            os.path.join(exp_dir, f"{iso_code}_{config['config_name']}_{phase}_calibrated.csv"), 
-            index=False
-        )
-
-def temperature_check(
-    iso_code, config, lr=0.01, max_iter=1000, save_results=False, save_model=False
-):
-    cwd = os.path.dirname(os.getcwd())
-    config["iso_codes"] = [iso_code]
-
-    classes = {1: config["pos_class"], 0: config["neg_class"]}
-    exp_dir = os.path.join(
-        cwd, config["exp_dir"], config["project"], f"{iso_code}_{config['config_name']}"
-    )
-    model_file = os.path.join(exp_dir, f"{iso_code}_{config['config_name']}.pth")
-    model = load_cnn(
-        config, 
-        classes, 
-        model_file,  
-        temp_lr=lr, 
-        max_iter=max_iter, 
-        calibrated=True,
-        verbose=True,
-        save=save_model
-    ).eval()
-
-    if save_results:
-        save_calibrated_results(model, iso_code, config, exp_dir, beta=2)
-                
-    return model
