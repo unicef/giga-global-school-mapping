@@ -28,7 +28,7 @@ class ModelWithTemperature(nn.Module):
         self.model = model.eval()
         self.temperature = nn.Parameter(torch.ones(1) * 1.5)
         self.nll_criterion = nn.CrossEntropyLoss().to(device)
-        self.ece_criterion = _ECELoss().to(device)
+        self.ece_criterion = ECELoss().to(device)
 
     def forward(self, input):
         logits = self.model(input)
@@ -50,7 +50,7 @@ class ModelWithTemperature(nn.Module):
             after_temperature_ece = self.ece_criterion(
                 self.temperature_scale(data[phase]["logits"]), data[phase]["labels"]
             ).item()
-            print(f'After temperature ({phase}) - NLL: %.3f, ECE: %.3f' % (
+            print(f'After temperature ({phase}) - NLL: %.4f, ECE: %.4f' % (
                 after_temperature_nll, after_temperature_ece
             ))
 
@@ -76,7 +76,7 @@ class ModelWithTemperature(nn.Module):
             }
             before_temperature_nll = self.nll_criterion(logits, labels).item()
             before_temperature_ece = self.ece_criterion(logits, labels).item()
-            print(f'Before temperature ({phase}) - NLL: %.3f, ECE: %.3f' % (
+            print(f'Before temperature ({phase}) - NLL: %.4f, ECE: %.4f' % (
                 before_temperature_nll, before_temperature_ece
             ))
             
@@ -84,7 +84,7 @@ class ModelWithTemperature(nn.Module):
 
 
     # This function probably should live outside of this class, but whatever
-    def set_temperature(self, val_loader, test_loader, lr=0.01, max_iter=100):
+    def set_temperature(self, val_loader, test_loader, lr=0.01, max_iter=1000):
         """
         Tune the tempearature of the model (using the validation set).
         We're going to set it to optimize NLL.
@@ -97,7 +97,12 @@ class ModelWithTemperature(nn.Module):
         data = self.get_logits(val_loader, test_loader)
 
         # Next: optimize the temperature w.r.t. NLL
-        optimizer = optim.LBFGS([self.temperature], lr=lr, max_iter=max_iter)
+        optimizer = optim.LBFGS(
+            [self.temperature], 
+            lr=lr, 
+            max_iter=max_iter, 
+            line_search_fn='strong_wolfe'
+        )
 
         def eval():
             optimizer.zero_grad()
@@ -114,7 +119,7 @@ class ModelWithTemperature(nn.Module):
         return self
 
 
-class _ECELoss(nn.Module):
+class ECELoss(nn.Module):
     """
     Calculates the Expected Calibration Error of a model.
     (This isn't necessary for temperature scaling, just a cool metric).
@@ -133,28 +138,90 @@ class _ECELoss(nn.Module):
     "Obtaining Well Calibrated Probabilities Using Bayesian Binning." AAAI.
     2015.
     """
-    def __init__(self, n_bins=15):
+    def __init__(self, n_bins=10):
         """
         n_bins (int): number of confidence interval bins
         """
-        super(_ECELoss, self).__init__()
-        bin_boundaries = torch.linspace(0, 1, n_bins + 1)
-        self.bin_lowers = bin_boundaries[:-1]
-        self.bin_uppers = bin_boundaries[1:]
+        super().__init__()
+        self.n_bins = n_bins
 
+    def calc_bins(self, preds, labels):
+        bins = np.linspace(0.1, 1, self.n_bins)
+        binned = np.digitize(preds, bins)
+        
+        bin_accs = np.zeros(self.n_bins)
+        bin_confs = np.zeros(self.n_bins)
+        bin_sizes = np.zeros(self.n_bins)
+
+        for bin in range(self.n_bins):
+            bin_sizes[bin] = len(preds[binned == bin])
+            if bin_sizes[bin] > 0:
+              bin_accs[bin] = (labels[binned==bin]).sum() / bin_sizes[bin]
+              bin_confs[bin] = (preds[binned==bin]).sum() / bin_sizes[bin]
+        
+        return bins, binned, bin_accs, bin_confs, bin_sizes
+
+    def calculate_ece(self, preds, labels):
+        ECE, MCE = 0, 0
+        bins, _, bin_accs, bin_confs, bin_sizes = self.calc_bins(preds, labels)
+        for i in range(len(bins)):
+            abs_conf_dif = abs(bin_accs[i] - bin_confs[i])
+            ECE += (bin_sizes[i] / sum(bin_sizes)) * abs_conf_dif
+            MCE = max(MCE, abs_conf_dif)
+        return ECE, MCE
+
+    def draw_reliability_graph(self, preds, labels, num_bins=10):
+        ECE, MCE = self.calculate_ece(preds, labels)
+        bins, _, bin_accs, _, _ = self.calc_bins(preds, labels)
+    
+        fig = plt.figure(figsize=(4, 6))
+        ax = fig.gca()
+        ax.set_xlim(0, 1)
+        ax.set_xticks(np.arange(0, 1.01, 0.1))
+        ax.set_ylim(0, 1)
+        ax.set_yticks(np.arange(0, 1.01, 0.1))
+        
+        plt.xlabel('Confidence')
+        plt.ylabel('Accuracy')
+        ax.set_axisbelow(True) 
+        ax.grid(color='gray', linestyle='dashed')
+    
+        bins = torch.linspace(0, 1, num_bins + 1)
+        width = 1.0 / num_bins
+        bin_centers = np.linspace(0, 1.0 - width, num_bins) + width / 2
+        bin_centers = np.append(bin_centers, 1.05) - 0.1
+        bin_accs = np.insert(bin_accs, 0, 0)
+    
+        # Error bars
+        plt.bar(
+            bin_centers, 
+            bins,
+            width=width, 
+            alpha=0.3, 
+            edgecolor='black', 
+            color='r', 
+            hatch='\\', 
+            linewidth=0.5
+        )
+        plt.bar(
+            bin_centers, 
+            bin_accs, 
+            width=1/num_bins, 
+            alpha=1, 
+            edgecolor='black', 
+            color='b', 
+            linewidth=0.5
+        )
+        plt.plot([0,1],[0,1], '--', color='gray', linewidth=2)
+        plt.gca().set_aspect('equal', adjustable='box')
+    
+        # ECE and MCE legend
+        ECE_patch = mpatches.Patch(color='green', label='ECE = {:.4f}'.format(ECE))
+        MCE_patch = mpatches.Patch(color='red', label='MCE = {:.4f}'.format(MCE))
+        plt.legend(handles=[ECE_patch, MCE_patch])
+    
     def forward(self, logits, labels):
         softmaxes = F.softmax(logits, dim=1)
-        confidences, predictions = torch.max(softmaxes, 1)
-        accuracies = predictions.eq(labels)
-
-        ece = torch.zeros(1, device=logits.device)
-        for bin_lower, bin_upper in zip(self.bin_lowers, self.bin_uppers):
-            # Calculated |confidence - accuracy| in each bin
-            in_bin = confidences.gt(bin_lower.item()) * confidences.le(bin_upper.item())
-            prop_in_bin = in_bin.float().mean()
-            if prop_in_bin.item() > 0:
-                accuracy_in_bin = accuracies[in_bin].float().mean()
-                avg_confidence_in_bin = confidences[in_bin].mean()
-                ece += torch.abs(avg_confidence_in_bin - accuracy_in_bin) * prop_in_bin
-
-        return ece
+        preds = softmaxes[:, 1].detach().numpy()
+        ECE, MCE = self.calculate_ece(preds, labels)
+        return ECE

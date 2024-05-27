@@ -34,7 +34,9 @@ import rasterio.plot
 from pytorch_grad_cam.utils.image import show_cam_on_image
 import torch.nn.functional as nnf
 
-import temperature_scaling 
+from temperature_scaling import ModelWithTemperature
+import matplotlib.patches as mpatches
+from temperature_scaling import ECELoss
 SEED = 42
 
 np.random.seed(SEED)
@@ -322,8 +324,9 @@ def load_cnn(
     model_file=None, 
     calibrated=False, 
     temp_lr=0.01,
-    max_iter=100,
-    verbose=True
+    max_iter=1000,
+    verbose=True,
+    save=True
 ):
     n_classes = len(classes)
     model = cnn_utils.get_model(c["model"], n_classes, c["dropout"])
@@ -333,7 +336,7 @@ def load_cnn(
     model = model.to(device)
 
     if calibrated:
-        model = temperature_scaling.ModelWithTemperature(model)
+        model = ModelWithTemperature(model)
         model_file = model_file[:-4] + "_calibrated.pth"
         _, data_loader, _ = cnn_utils.load_dataset(
             c, phases=["train", "val", "test"], verbose=False
@@ -349,9 +352,10 @@ def load_cnn(
             model.set_temperature(
                 data_loader["val"], data_loader["test"], lr=temp_lr, max_iter=max_iter
             )
-            torch.save(model.state_dict(), model_file)
-            if verbose:
-                logging.info(f"Model successfully saved to {model_file}")
+            if save:
+                torch.save(model.state_dict(), model_file)
+                if verbose:
+                    logging.info(f"Model successfully saved to {model_file}")
                 
     if verbose:
         logging.info(f"Device: {device}")
@@ -479,14 +483,41 @@ def generate_pred_tiles(
     return filtered
 
 
-def temperature_check(iso_code, config, lr=0.01, max_iter=100, beta=2, evaluate=False):
+def save_calibrated_results(model, iso_code, config, exp_dir, beta=2):
+    criterion = torch.nn.CrossEntropyLoss(label_smoothing=config["label_smoothing"])
+    _, data_loader, _ = cnn_utils.load_dataset(
+        config, phases=["train", "val", "test"], verbose=False
+    )
+    for phase in ['val', 'test']:   
+        _, _, preds = cnn_utils.evaluate(
+            data_loader[phase],  
+            model=model, 
+            criterion=criterion, 
+            device=device, 
+            pos_label=1,
+            class_names=[1, 0],
+            beta=beta,
+            phase=phase,
+            logging=logging
+        )
+            
+        dataset = model_utils.load_data(
+            config=config, attributes=["rurban", "iso"], verbose=False
+        )
+        dataset = dataset[dataset.dataset == phase]
+        preds = pd.merge(dataset, preds, on='UID', how='inner')
+        preds.to_csv(
+            os.path.join(exp_dir, f"{iso_code}_{config['config_name']}_{phase}_calibrated.csv"), 
+            index=False
+        )
+
+def temperature_check(
+    iso_code, config, lr=0.01, max_iter=1000, save_results=False, save_model=False
+):
     cwd = os.path.dirname(os.getcwd())
     config["iso_codes"] = [iso_code]
 
     classes = {1: config["pos_class"], 0: config["neg_class"]}
-    _, data_loader, _ = cnn_utils.load_dataset(
-        config, phases=["train", "val", "test"], verbose=False
-    )
     exp_dir = os.path.join(
         cwd, config["exp_dir"], config["project"], f"{iso_code}_{config['config_name']}"
     )
@@ -494,34 +525,15 @@ def temperature_check(iso_code, config, lr=0.01, max_iter=100, beta=2, evaluate=
     model = load_cnn(
         config, 
         classes, 
-        model_file, 
-        calibrated=True, 
+        model_file,  
         temp_lr=lr, 
         max_iter=max_iter, 
-        verbose=True
+        calibrated=True,
+        verbose=True,
+        save=save_model
     ).eval()
 
-    if evaluate:
-        criterion = torch.nn.CrossEntropyLoss(label_smoothing=config["label_smoothing"])
-        for phase in ['val', 'test']:   
-            _, _, preds = cnn_utils.evaluate(
-                data_loader[phase],  
-                model=model, 
-                criterion=criterion, 
-                device=device, 
-                pos_label=1,
-                class_names=[1, 0],
-                beta=beta,
-                phase=phase,
-                logging=logging
-            )
-            
-            dataset = model_utils.load_data(config=config, attributes=["rurban", "iso"], verbose=False)
-            dataset = dataset[dataset.dataset == phase]
-            preds = pd.merge(dataset, preds, on='UID', how='inner')
-            preds.to_csv(
-                os.path.join(exp_dir, f"{iso_code}_{config['config_name']}_{phase}_calibrated.csv"), 
-                index=False
-            )
-            
+    if save_results:
+        save_calibrated_results(model, iso_code, config, exp_dir, beta=2)
+                
     return model
