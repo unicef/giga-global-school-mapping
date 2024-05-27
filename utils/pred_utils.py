@@ -56,7 +56,7 @@ def reshape_transform(tensor):
 
 
 def cam_predict(
-    iso_code, config, data, geotiff_dir, parent_name, buffer_size=50, calibration=None
+    iso_code, config, data, geotiff_dir, shapename, parent_name, buffer_size=50, calibration=None
 ):
     cwd = os.path.dirname(os.getcwd())
     classes = {1: config["pos_class"], 0: config["neg_class"]}
