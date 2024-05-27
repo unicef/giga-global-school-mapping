@@ -91,7 +91,7 @@ def cam_predict(
             config["project"],
             "tiles",
             orig_parent_name,
-            cam_config_name
+            config['config_name']
         ))
         temp_file = os.path.join(temp_dir, filename)
         if os.path.exists(temp_file):
