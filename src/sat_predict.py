@@ -101,7 +101,6 @@ def main(args):
 
 
 if __name__ == "__main__":
-    # Parser
     parser = argparse.ArgumentParser(description="Model Prediction")
     parser.add_argument("--data_config", help="Data config file")
     parser.add_argument("--model_config", help="Model config file")
@@ -111,7 +110,7 @@ if __name__ == "__main__":
     parser.add_argument("--shapename", help="Model shapename", default=None)
     parser.add_argument("--adm_level", help="Admin level", default="ADM2")
     parser.add_argument("--spacing", help="Tile spacing", default=150)
-    parser.add_argument("--buffer_size", help="Buffer size", default=150)
+    parser.add_argument("--buffer_size", help="Buffer size", default=50)
     parser.add_argument("--threshold", type=float, help="Probability threhsold", default=0.5)
     parser.add_argument("--sum_threshold", help="Pixel sum threshold", default=5)
     parser.add_argument("--calibration", help="Model calibration", default=None)
