@@ -65,13 +65,7 @@ def cam_predict(
         cam_config_name = f"{cam_config_name}_{calibration}" 
                 
     out_dir = data_utils._makedir(os.path.join(
-        cwd,
-        "output",
-        iso_code,
-        "results",
-        config["project"],
-        "cams",
-        cam_config_name
+        cwd, "output", iso_code, "results", config["project"], "cams", cam_config_name
     ))
     filename = f"{iso_code}_{shapename}_{config['config_name']}_cam.gpkg"
     out_file = os.path.join(out_dir, filename)
@@ -220,7 +214,6 @@ def compare_cams_random(data, filepaths, model_config, classes, model_file, verb
             target_layers=target_layers, 
             reshape_transform=pred_utils.reshape_transform
         )
-    
     for index in list(data.sample(5).index):
         _, point = generate_cam(
             model_config, filepaths[index], model, cam_extractor, title="LayerCAM"
@@ -265,9 +258,8 @@ def generate_cam(
         rect = patches.Rectangle(
             (point[0]-75, point[1]-75), 150, 150, linewidth=1, edgecolor='blue', facecolor='none'
         )
-        ax[2].imshow(image)
+        ax[2].imshow(image) #ax[2].scatter([point[0]], [point[1]])
         ax[2].add_patch(rect)
-        #ax[2].scatter([point[0]], [point[1]])
         ax[1].title.set_text(title)
         ax[0].xaxis.set_visible(False)
         ax[1].xaxis.set_visible(False)
@@ -326,7 +318,6 @@ def cnn_predict(
     config,
     threshold,
     in_dir=None,
-    out_dir=None,
     n_classes=None,
     calibration=None,
     temp_lr=0.01
@@ -337,12 +328,7 @@ def cnn_predict(
         config_name = f"{config_name}_{calibration}" 
     
     out_dir = data_utils._makedir(os.path.join(
-        "output",
-        iso_code,
-        "results",
-        config["project"],
-        "tiles",
-        config_name
+        "output", iso_code, "results", config["project"], "tiles", config_name
     ))
 
     name = f"{iso_code}_{shapename}"

@@ -70,13 +70,13 @@ def main(args):
     
         print(f"Generating predictions for {shapename}...")
         results = pred_utils.cnn_predict(
-            tiles, 
-            args.iso, 
-            shapename, 
-            model_config, 
-            sat_dir, 
-            n_classes=2, 
+            data=tiles, 
+            iso_code=args.iso, 
+            shapename=shapename, 
+            config=model_config, 
             threshold=args.threshold,
+            in_dir=sat_dir, 
+            n_classes=2, 
             calibration=args.calibration,
             temp_lr=args.temp_lr
         )
