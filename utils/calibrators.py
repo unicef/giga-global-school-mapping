@@ -12,6 +12,7 @@ from sklearn.isotonic import IsotonicRegression
 from sklearn.calibration import calibration_curve
 import joblib
 import post_utils
+from torch.utils.data import Dataset
 
 import logging
 logging.basicConfig(level=logging.INFO)
@@ -19,6 +20,8 @@ logging.basicConfig(level=logging.INFO)
 SEED = 42
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+from torch_uncertainty.post_processing import TemperatureScaler
+from torch_uncertainty.metrics import CE
 
 
 class ModelWithTemperature(nn.Module):
@@ -29,125 +32,55 @@ class ModelWithTemperature(nn.Module):
         NB: Output of the neural network should be the classification logits,
             NOT the softmax (or log softmax)!
     """
-    def __init__(self, model):
+    def __init__(self, model, lr=0.01):
         super().__init__()
         self.model = model.eval()
-        self.temperature = nn.Parameter(torch.ones(1).to(device))
-        self.nll_criterion = nn.CrossEntropyLoss().to(device)
-        self.ece_criterion = ECELoss().to(device)
+        self.ece = CE(task="multiclass", num_classes=2) #ECELoss().to(device)
+        self.scaler = TemperatureScaler(self.model, lr=lr)
 
     
     def forward(self, input):
-        logits = self.model(input)
-        return self.temperature_scale(logits)
-
-    
-    def temperature_scale(self, logits):
-        """
-        Perform temperature scaling on logits
-        """
-        # Expand temperature to match the size of logits
-        temperature = self.temperature.unsqueeze(1).expand(logits.size(0), logits.size(1))
-        return torch.div(logits, temperature)
-
-    
-    def eval_temp(self, data):
-        for phase in ["val", "test"]:
-            after_temperature_nll = self.nll_criterion(
-                self.temperature_scale(data[phase]["logits"]), data[phase]["labels"]
-            ).item()
-            after_temperature_ece = self.ece_criterion(
-                self.temperature_scale(data[phase]["logits"]), data[phase]["labels"]
-            ).item()
-            print(f'After temperature ({phase}) - NLL: %.4f, ECE: %.4f' % (
-                after_temperature_nll, after_temperature_ece
-            ))
-
-
-    def get_logits(self, val_loader, test_loader):
-        self.to(device)
-
-        data = dict()
-        for phase, data_loader in zip(["val", "test"], [val_loader, test_loader]):
-            logits_list = []
-            labels_list = []
-            with torch.no_grad():
-                for input, label, _ in tqdm(data_loader, total=len(data_loader)):
-                    input = input.to(device)
-                    logits = self.model(input)
-                    logits_list.append(logits)
-                    labels_list.append(label)
-                logits = torch.cat(logits_list).to(device)
-                labels = torch.cat(labels_list).to(device)
-            data[phase] = {
-                "logits": logits,
-                "labels": labels
-            }
-            before_temperature_nll = self.nll_criterion(logits, labels).item()
-            before_temperature_ece = self.ece_criterion(logits, labels).item()
-            print(f'Before temperature ({phase}) - NLL: %.4f, ECE: %.4f' % (
-                before_temperature_nll, before_temperature_ece
-            ))
-            
-        return data
+        return self.scaler(input)
 
     
     # This function probably should live outside of this class, but whatever
-    def set_temperature(self, val_loader, test_loader, lr=0.01, max_iter=1000):
+    def set_temperature(self, val_loader, test_loader):
         """
         Tune the tempearature of the model (using the validation set).
         We're going to set it to optimize NLL.
         val_loader (DataLoader): validation set loader
         """
         self.to(device)
+        val_loader.dataset.set_return_uid(False)
+        test_loader.dataset.set_return_uid(False)
 
         # First: collect all the logits and labels for the validation set
         # Calculate NLL and ECE before temperature scaling
-        data = self.get_logits(val_loader, test_loader)
-
-        # Next: optimize the temperature w.r.t. NLL
-        optimizer = optim.LBFGS(
-            [self.temperature], 
-            lr=lr, 
-            max_iter=max_iter, 
-            line_search_fn='strong_wolfe'
-        )
-
-        def eval():
-            optimizer.zero_grad()
-            loss = self.nll_criterion(
-                self.temperature_scale(data["val"]["logits"]), 
-                data["val"]["labels"]
-            )
-            loss.backward()
-            return loss
+        for phase, data_loader in zip(["val", "test"], [val_loader, test_loader]):
+            with torch.no_grad():
+                for input, label in tqdm(data_loader, total=len(data_loader)):
+                    input = input.to(device)
+                    logits = self.model(input)
+                    self.ece.update(logits.softmax(-1), label)
             
-        optimizer.step(eval)
-        print('Optimal temperature: %.3f' % self.temperature.item())
-
-        self.eval_temp(data)
-        return self
+            cal = self.ece.compute()
+            print(f"{phase} ECE before scaling - {cal:.4f}%.")
+        
+        self.scaler = self.scaler.fit(calibration_set=val_loader.dataset)
+        self.ece.reset()
+        
+        # Iterate on the test dataloader
+        for phase, data_loader in zip(["val", "test"], [val_loader, test_loader]):
+            with torch.no_grad():
+                for input, label in tqdm(data_loader, total=len(data_loader)):
+                    logits = self.scaler(input)
+                    self.ece.update(logits.softmax(-1), label)
+        
+            cal = self.ece.compute()
+            print(f"{phase} ECE after scaling - {cal:.2f}%.")
 
 
 class ECELoss(nn.Module):
-    """
-    Calculates the Expected Calibration Error of a model.
-    (This isn't necessary for temperature scaling, just a cool metric).
-
-    The input to this loss is the logits of a model, NOT the softmax scores.
-
-    This divides the confidence outputs into equally-sized interval bins.
-    In each bin, we compute the confidence gap:
-
-    bin_gap = | avg_confidence_in_bin - accuracy_in_bin |
-
-    We then return a weighted average of the gaps, based on the number
-    of samples in each bin
-
-    See: Naeini, Mahdi Pakdaman, Gregory F. Cooper, and Milos Hauskrecht.
-    "Obtaining Well Calibrated Probabilities Using Bayesian Binning." AAAI.
-    2015.
-    """
     def __init__(self, n_bins=10):
         """
         n_bins (int): number of confidence interval bins
@@ -183,51 +116,42 @@ class ECELoss(nn.Module):
     def draw_reliability_graph(self, preds, labels):
         ECE, MCE = self.calculate_ece(preds, labels)
         bins, _, bin_accs, _, _ = self.calc_bins(preds, labels)
-    
-        fig = plt.figure(figsize=(4, 6))
+
+        fig = plt.figure(figsize=(4, 4))
         ax = fig.gca()
-        ax.set_xlim(0, 1)
-        ax.set_xticks(np.arange(0, 1.01, 0.1))
+
+        # x/y limits
+        ax.set_xlim(-0.05, 1)
+        ax.set_xticks([x*0.1 for x in range(0, 11)])
         ax.set_ylim(0, 1)
-        ax.set_yticks(np.arange(0, 1.01, 0.1))
-        
+        ax.set_yticks([x*0.1 for x in range(0, 11)])
+
+        # x/y labels
         plt.xlabel('Confidence')
         plt.ylabel('Accuracy')
+    
+        # Create grid
         ax.set_axisbelow(True) 
         ax.grid(color='gray', linestyle='dashed')
     
+        # Error bars
         bins = torch.linspace(0, 1, self.n_bins + 1)
         width = 1.0 / self.n_bins
-        bin_centers = np.linspace(0, 1.0 - width, self.n_bins) + width / 2
-        bin_centers = np.append(bin_centers, 1 + + width / 2) - 0.1
+        bin_centers = np.linspace(0, 1.0, self.n_bins+1) - width / 2
+        #bin_centers = np.append(bin_centers, 1 + width) - 0.1
         bin_accs = np.insert(bin_accs, 0, 0)
+        plt.bar(bin_centers, bins, width=width, alpha=0.3, edgecolor='black', color='r', hatch='\\')
     
-        # Error bars
-        plt.bar(
-            bin_centers, 
-            bins,
-            width=width, 
-            alpha=0.3, 
-            edgecolor='black', 
-            color='r', 
-            hatch='\\', 
-            linewidth=0.5
-        )
-        plt.bar(
-            bin_centers, 
-            bin_accs, 
-            width=1/self.n_bins, 
-            alpha=1, 
-            edgecolor='black', 
-            color='b', 
-            linewidth=0.5
-        )
-        plt.plot([0,1],[0,1], '--', color='gray', linewidth=2)
+        # Draw bars and identity line
+        plt.bar(bin_centers, bin_accs, width=width, alpha=1, edgecolor='black', color='b')
+        plt.plot([- width/2,1],[0,1], '--', color='gray', linewidth=2)
+    
+        # Equally spaced axes
         plt.gca().set_aspect('equal', adjustable='box')
     
         # ECE and MCE legend
-        ECE_patch = mpatches.Patch(color='green', label='ECE = {:.4f}'.format(ECE))
-        MCE_patch = mpatches.Patch(color='red', label='MCE = {:.4f}'.format(MCE))
+        ECE_patch = mpatches.Patch(color='green', label='ECE = {:.2f}%'.format(ECE*100))
+        MCE_patch = mpatches.Patch(color='red', label='MCE = {:.2f}%'.format(MCE*100))
         plt.legend(handles=[ECE_patch, MCE_patch])
 
     

@@ -23,7 +23,7 @@ from torchcam.utils import overlay_mask
 
 import numpy as np
 import operator
-from PIL import Image
+from PIL import Image, ImageDraw
 import torchvision
 import torchvision.transforms.functional as F
 import torchvision.transforms as transforms
@@ -82,25 +82,6 @@ def cam_predict(
 
     if os.path.exists(out_file):
         return gpd.read_file(out_file)
-        
-    elif calibration == "isoreg":
-        temp_dir = data_utils._makedir(os.path.join(
-            cwd,
-            "output",
-            iso_code,
-            "results",
-            config["project"],
-            "cams",
-            orig_parent_name,
-            config['config_name']
-        ))
-        temp_file = os.path.join(temp_dir, filename)
-        if os.path.exists(temp_file):
-            results = gpd.read_file(temp_file)
-            calibrator = calibrators.isotonic_regressor(iso_code, config)
-            results["prob"] = calibrator.predict(results["prob"])
-            results.to_file(out_file, driver="GPKG")
-            return results
     
     exp_dir = os.path.join(
         cwd, config["exp_dir"], config["project"], f"{iso_code}_{config['config_name']}"
@@ -229,6 +210,27 @@ def compare_cams(filepath, model, model_config, classes, model_file):
             title = str(cam_extractor.__class__.__name__)
             generate_cam(model_config, filepath, model, cam_extractor, title=title)
 
+def compare_cams_random(data, filepaths, model_config, classes, model_file, verbose=False):
+    if model_config["type"] == "cnn":
+        from torchcam.methods import LayerCAM
+        model = load_cnn(model_config, classes, model_file, verbose=False).eval()
+        cam_extractor = LayerCAM(model)
+        
+    elif model_config["type"] == "vit":
+        from pytorch_grad_cam import GradCAM, GradCAMPlusPlus, LayerCAM
+        model = load_cnn(model_config, classes, model_file, verbose=False).eval()
+        target_layers = [model.module.model.backbone.backbone.features[-1][-2].norm1]
+        cam_extractor = LayerCAM(
+            model=model, 
+            target_layers=target_layers, 
+            reshape_transform=pred_utils.reshape_transform
+        )
+    
+    for index in list(data.sample(5).index):
+        _, point = generate_cam(
+            model_config, filepaths[index], model, cam_extractor, title="LayerCAM"
+        )
+
 
 def generate_cam(
     config, filepath, model, cam_extractor, show=True, title="", figsize=(5, 5)
@@ -260,17 +262,29 @@ def generate_cam(
     point = generate_point_from_cam(config, cam_map, image)
 
     if show:
-        fig, ax = plt.subplots(1, 2, figsize=figsize)
+        import matplotlib.patches as patches
+        fig, ax = plt.subplots(1, 3, figsize=figsize)
         ax[0].imshow(image)
         ax[1].imshow(result)
-        ax[1].scatter([point[0]], [point[1]])
+        rect = patches.Rectangle(
+            (point[0]-75, point[1]-75), 150, 150, linewidth=1, edgecolor='blue', facecolor='none'
+        )
+        ax[2].imshow(image)
+        ax[2].add_patch(rect)
+        #ax[2].scatter([point[0]], [point[1]])
         ax[1].title.set_text(title)
+        ax[0].xaxis.set_visible(False)
+        ax[1].xaxis.set_visible(False)
+        ax[2].xaxis.set_visible(False)
+        ax[0].yaxis.set_visible(False)
+        ax[1].yaxis.set_visible(False)
+        ax[2].yaxis.set_visible(False)
         plt.show()
 
     return cam_map, point
 
 
-def generate_point_from_cam(config, cam_map, image, buffer=100):
+def generate_point_from_cam(config, cam_map, image):
     if torch.is_tensor(cam_map):
         cam_map = np.array(cam_map.cpu())
 
@@ -338,22 +352,6 @@ def cnn_predict(
     out_file = os.path.join(out_dir, f"{name}_{config['config_name']}_results.gpkg")
     if os.path.exists(out_file):
         return gpd.read_file(out_file)
-        
-    elif calibration == "isoreg":
-        out_dir = data_utils._makedir(os.path.join(
-            "output",
-            iso_code,
-            "results",
-            config["project"],
-            "tiles",
-            config['config_name']
-        ))
-        out_file = os.path.join(out_dir, f"{name}_{config['config_name']}_results.gpkg")
-        if os.path.exists(out_file):
-            results = gpd.read_file(out_file)
-            calibrator = calibrators.isotonic_regressor(iso_code, config)
-            results["prob"] = calibrator.predict(results["prob"])
-            return results
 
     classes = {1: config["pos_class"], 0: config["neg_class"]}
     exp_dir = os.path.join(
@@ -409,9 +407,7 @@ def load_cnn(
                 model.eval_temp(data)
         else:
             logging.info("Calibrating the model...")
-            model.set_temperature(
-                data_loader["val"], data_loader["test"], lr=temp_lr
-            )
+            model.set_temperature(data_loader["val"], data_loader["test"])
             if save:
                 torch.save(model.state_dict(), model_file)
                 if verbose:
