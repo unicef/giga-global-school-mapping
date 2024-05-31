@@ -94,7 +94,6 @@ def main(args):
             subdata, 
             geotiff_dir, 
             shapename,
-            parent_name=config_name,
             calibration=args.calibration
         )            
             

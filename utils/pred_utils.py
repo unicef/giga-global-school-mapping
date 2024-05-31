@@ -56,15 +56,12 @@ def reshape_transform(tensor):
 
 
 def cam_predict(
-    iso_code, config, data, geotiff_dir, shapename, parent_name, buffer_size=50, calibration=None
+    iso_code, config, data, geotiff_dir, shapename, buffer_size=50, calibration=None
 ):
     cwd = os.path.dirname(os.getcwd())
     classes = {1: config["pos_class"], 0: config["neg_class"]}
     cam_config_name = config["config_name"]
-    orig_parent_name = parent_name
-
     if calibration:            
-        parent_name = f"{parent_name}_{calibration}" 
         cam_config_name = f"{cam_config_name}_{calibration}" 
                 
     out_dir = data_utils._makedir(os.path.join(
@@ -74,12 +71,10 @@ def cam_predict(
         "results",
         config["project"],
         "cams",
-        parent_name,
         cam_config_name
     ))
     filename = f"{iso_code}_{shapename}_{config['config_name']}_cam.gpkg"
     out_file = os.path.join(out_dir, filename)
-
     if os.path.exists(out_file):
         return gpd.read_file(out_file)
     
@@ -119,7 +114,7 @@ def cam_predict(
 
 
 def generate_cam_points(
-    data, config, in_dir, model, cam_extractor, buffer_size=50, show=False, calibration=None
+    data, config, in_dir, model, cam_extractor, buffer_size=50, show=False
 ):
     results = []
     data = data.reset_index(drop=True)
@@ -254,6 +249,7 @@ def generate_cam(
         for name, cam in zip(cam_extractor.target_names, cams):
             cam_map = cam.squeeze(0)
             result = overlay_mask(image, to_pil_image(cam_map, mode="F"), alpha=0.5)
+            
     elif config["type"] == "vit":
         from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
         targets = [ClassifierOutputTarget(1)]
@@ -303,7 +299,7 @@ def generate_point_from_cam(config, cam_map, image):
     return (x_index, y_index)
 
 
-def cnn_predict_images(data, model, config, in_dir, classes, threshold=0.5):
+def cnn_predict_images(data, model, config, in_dir, classes,  threshold):
     files = data_utils.get_image_filepaths(config, data, in_dir)
     preds, probs = [], []
     pbar = data_utils._create_progress_bar(files)
@@ -315,7 +311,8 @@ def cnn_predict_images(data, model, config, in_dir, classes, threshold=0.5):
         soft_outputs = nnf.softmax(output, dim=1).detach().cpu().numpy()
         probs.append(soft_outputs[:, 1][0])
 
-    preds = np.array(probs) > threshold
+    preds = np.array(probs)    
+    preds = preds > threshold
     preds = [str(classes[int(pred)]) for pred in preds]
     data["pred"] = preds
     data["prob"] = probs
@@ -327,10 +324,10 @@ def cnn_predict(
     iso_code,
     shapename,
     config,
+    threshold,
     in_dir=None,
     out_dir=None,
     n_classes=None,
-    threshold=0.5,
     calibration=None,
     temp_lr=0.01
 ):
@@ -370,7 +367,6 @@ def cnn_predict(
     if calibration == "isoreg":
         calibrator = calibrators.isotonic_regressor(iso_code, config)
         results["prob"] = calibrator.predict(results["prob"])
-    
     results = gpd.GeoDataFrame(results, geometry="geometry")
     results.to_file(out_file, driver="GPKG")
     return results
