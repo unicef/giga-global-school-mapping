@@ -5,7 +5,6 @@ import geopandas as gpd
 import logging
 import joblib
 import torch
-
 import sys
 
 sys.path.insert(0, "../src")
@@ -17,6 +16,7 @@ import config_utils
 import pred_utils
 import embed_utils
 import model_utils
+import eval_utils
 from matplotlib import colors
 
 import matplotlib.pyplot as plt
@@ -34,6 +34,43 @@ LIGHT_BLUE = "#d6e4fd"
 BLUE = "#277aff"
 DARK_BLUE = "#0530ad"
 RED = "#f94b4b"
+
+def get_evaluation(output, beta=2, optim_threshold=None):
+    results = eval_utils.evaluate(
+        y_true=output["y_true"], 
+        y_pred=output["y_preds"], 
+        y_prob=output["y_probs"], 
+        pos_label=1, 
+        neg_label=0,
+        beta=beta,
+        optim_threshold=optim_threshold
+    )
+    return results
+
+def get_results(iso_code, model_config, phase="test", calibration=None):
+    cwd = os.path.dirname(os.getcwd())
+    exp_name = f"{iso_code}_{model_config['config_name']}"
+    
+    if calibration:
+        output_path = os.path.join(
+            cwd,  
+            model_config["exp_dir"], 
+            model_config["project"], 
+            exp_name,
+            f"{exp_name}_{phase}_{calibration}.csv"
+        )
+        output = pd.read_csv(output_path)
+        return output
+
+    output_path = os.path.join(
+        cwd,  
+        model_config["exp_dir"], 
+        model_config["project"], 
+        exp_name, 
+        f"{exp_name}_{phase}.csv"
+    )
+    output = pd.read_csv(output_path)
+    return output
 
 
 def join_with_geoboundaries(
@@ -90,7 +127,7 @@ def show_barplot(master, preds, threshold_dist=250, pad=50):
         master, preds, threshold_dist
     )
     bins = (
-        pd.cut(preds_unvalidated["prob"], [0.5, 0.6, 0.7, 0.8, 0.9, 1], 5)
+        pd.cut(preds_unvalidated["prob"], [i*0.1 for i in range(1, 11)], 10)
         .value_counts()
         .sort_index()
     )
@@ -255,6 +292,8 @@ def load_data(
     adm_level="ADM2",
     source="pred",
     source_col="clean",
+    cam_model_config=False,
+    buffer_size=0
 ):
 
     def join_with_geoboundary(data, adm_level):
@@ -268,7 +307,7 @@ def load_data(
         return data
 
     def clean_data(data, source_col):
-        data.loc[(data[source_col] == 4), source_col] = 1
+        data.loc[(data[source_col] == 3), source_col] = 1
         data.loc[data.duplicated("geometry") & (data[source_col] == 1), source_col] = 1
         data.loc[data.duplicated("geometry") & (data[source_col] != 1), source_col] = 2
         data = join_with_geoboundary(data, adm_level="ADM1")
@@ -302,8 +341,7 @@ def load_data(
             f"{iso_code}_{source}.geojson",
         )
         data = gpd.read_file(filename)
-        data = data[data[source_col] != 1]
-        data = clean_data(data, source_col)
+        data = data[data[source_col] == 0]
         data = data.rename({"UID": "SUID"}, axis=1)
         data = data.drop_duplicates("SUID").reset_index(drop=True)
         logging.info(data[source_col].value_counts())
@@ -311,6 +349,9 @@ def load_data(
         return data
 
     else:
+        if not cam_model_config:
+            cam_model_config = model_config
+            
         model_config["iso_codes"] = [iso_code]
         out_dir = os.path.join(
             cwd,
@@ -320,6 +361,7 @@ def load_data(
             model_config["project"],
             "cams",
             model_config["config_name"],
+            cam_model_config["config_name"],
         )
         geoboundary = data_utils._get_geoboundaries(
             data_config, iso_code, adm_level=adm_level
@@ -346,7 +388,15 @@ def load_data(
         data = data.to_crs("EPSG:3857")
 
         data = data.drop_duplicates("geometry").reset_index(drop=True)
-        data["PUID"] = data["ADM1"] + "_" + data["UID"].astype(str)
+        data = data.reset_index(drop=True)
+        
+        data["PUID"] = data["ADM2"] + "_" + data["UID"].astype(str)
+        data = data[~data.duplicated("PUID")]
+
+        if buffer_size > 0:
+            data = data_utils._connect_components(data, buffer_size=buffer_size)
+            data = data.sort_values("prob", ascending=False).drop_duplicates(["group"])
+        
         logging.info(f"Data dimensions: {data.shape}")
 
     return data

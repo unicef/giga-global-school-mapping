@@ -13,6 +13,7 @@ import cnn_utils
 import data_utils
 import config_utils
 import embed_utils
+import model_utils
 
 import torch
 import matplotlib.pyplot as plt
@@ -22,7 +23,7 @@ from torchcam.utils import overlay_mask
 
 import numpy as np
 import operator
-from PIL import Image
+from PIL import Image, ImageDraw
 import torchvision
 import torchvision.transforms.functional as F
 import torchvision.transforms as transforms
@@ -32,6 +33,18 @@ from shapely import geometry
 import rasterio.plot
 from pytorch_grad_cam.utils.image import show_cam_on_image
 import torch.nn.functional as nnf
+import copy
+
+import calibrators
+from calibrators import ModelWithTemperature
+from calibrators import ECELoss
+SEED = 42
+
+np.random.seed(SEED)
+os.environ["PYTHONHASHSEED"] = f"{SEED}"
+torch.manual_seed(SEED)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 logging.basicConfig(level=logging.INFO)
@@ -42,24 +55,23 @@ def reshape_transform(tensor):
     return result
 
 
-def cam_predict(iso_code, config, data, geotiff_dir, out_file, buffer_size=75):
+def cam_predict(
+    iso_code, config, data, geotiff_dir, shapename, buffer_size=50, calibration=None
+):
     cwd = os.path.dirname(os.getcwd())
     classes = {1: config["pos_class"], 0: config["neg_class"]}
-
-    out_dir = os.path.join(
-        cwd,
-        "output",
-        iso_code,
-        "results",
-        config["project"],
-        "cams",
-        config["config_name"],
-    )
-    out_dir = data_utils._makedir(out_dir)
-    out_file = os.path.join(out_dir, out_file)
+    cam_config_name = config["config_name"]
+    if calibration:            
+        cam_config_name = f"{cam_config_name}_{calibration}" 
+                
+    out_dir = data_utils._makedir(os.path.join(
+        cwd, "output", iso_code, "results", config["project"], "cams", cam_config_name
+    ))
+    filename = f"{iso_code}_{shapename}_{config['config_name']}_cam.gpkg"
+    out_file = os.path.join(out_dir, filename)
     if os.path.exists(out_file):
         return gpd.read_file(out_file)
-
+    
     exp_dir = os.path.join(
         cwd, config["exp_dir"], config["project"], f"{iso_code}_{config['config_name']}"
     )
@@ -91,13 +103,12 @@ def cam_predict(iso_code, config, data, geotiff_dir, out_file, buffer_size=75):
         results = results.sort_values("prob", ascending=False).drop_duplicates(
             ["group"]
         )
-        # results["geometry"] = results["geometry"].centroid
         results.to_file(out_file, driver="GPKG")
     return results
 
 
 def generate_cam_points(
-    data, config, in_dir, model, cam_extractor, buffer_size=75, show=False
+    data, config, in_dir, model, cam_extractor, buffer_size=50, show=False
 ):
     results = []
     data = data.reset_index(drop=True)
@@ -124,6 +135,7 @@ def generate_cam_points(
     results = results.to_crs(crs)
     results["prob"] = data.prob
     results["UID"] = data.UID
+        
     return results
 
 
@@ -187,6 +199,26 @@ def compare_cams(filepath, model, model_config, classes, model_file):
             title = str(cam_extractor.__class__.__name__)
             generate_cam(model_config, filepath, model, cam_extractor, title=title)
 
+def compare_cams_random(data, filepaths, model_config, classes, model_file, verbose=False):
+    if model_config["type"] == "cnn":
+        from torchcam.methods import LayerCAM
+        model = load_cnn(model_config, classes, model_file, verbose=False).eval()
+        cam_extractor = LayerCAM(model)
+        
+    elif model_config["type"] == "vit":
+        from pytorch_grad_cam import GradCAM, GradCAMPlusPlus, LayerCAM
+        model = load_cnn(model_config, classes, model_file, verbose=False).eval()
+        target_layers = [model.module.model.backbone.backbone.features[-1][-2].norm1]
+        cam_extractor = LayerCAM(
+            model=model, 
+            target_layers=target_layers, 
+            reshape_transform=pred_utils.reshape_transform
+        )
+    for index in list(data.sample(5).index):
+        _, point = generate_cam(
+            model_config, filepaths[index], model, cam_extractor, title="LayerCAM"
+        )
+
 
 def generate_cam(
     config, filepath, model, cam_extractor, show=True, title="", figsize=(5, 5)
@@ -210,6 +242,7 @@ def generate_cam(
         for name, cam in zip(cam_extractor.target_names, cams):
             cam_map = cam.squeeze(0)
             result = overlay_mask(image, to_pil_image(cam_map, mode="F"), alpha=0.5)
+            
     elif config["type"] == "vit":
         from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
         targets = [ClassifierOutputTarget(1)]
@@ -218,17 +251,28 @@ def generate_cam(
     point = generate_point_from_cam(config, cam_map, image)
 
     if show:
-        fig, ax = plt.subplots(1, 2, figsize=figsize)
+        import matplotlib.patches as patches
+        fig, ax = plt.subplots(1, 3, figsize=figsize)
         ax[0].imshow(image)
         ax[1].imshow(result)
-        ax[1].scatter([point[0]], [point[1]])
+        rect = patches.Rectangle(
+            (point[0]-75, point[1]-75), 150, 150, linewidth=1, edgecolor='blue', facecolor='none'
+        )
+        ax[2].imshow(image) #ax[2].scatter([point[0]], [point[1]])
+        ax[2].add_patch(rect)
         ax[1].title.set_text(title)
+        ax[0].xaxis.set_visible(False)
+        ax[1].xaxis.set_visible(False)
+        ax[2].xaxis.set_visible(False)
+        ax[0].yaxis.set_visible(False)
+        ax[1].yaxis.set_visible(False)
+        ax[2].yaxis.set_visible(False)
         plt.show()
 
     return cam_map, point
 
 
-def generate_point_from_cam(config, cam_map, image, buffer=100):
+def generate_point_from_cam(config, cam_map, image):
     if torch.is_tensor(cam_map):
         cam_map = np.array(cam_map.cpu())
 
@@ -247,7 +291,7 @@ def generate_point_from_cam(config, cam_map, image, buffer=100):
     return (x_index, y_index)
 
 
-def cnn_predict_images(data, model, config, in_dir, classes, threshold=0.5):
+def cnn_predict_images(data, model, config, in_dir, classes,  threshold):
     files = data_utils.get_image_filepaths(config, data, in_dir)
     preds, probs = [], []
     pbar = data_utils._create_progress_bar(files)
@@ -259,7 +303,8 @@ def cnn_predict_images(data, model, config, in_dir, classes, threshold=0.5):
         soft_outputs = nnf.softmax(output, dim=1).detach().cpu().numpy()
         probs.append(soft_outputs[:, 1][0])
 
-    preds = np.array(probs) > threshold
+    preds = np.array(probs)    
+    preds = preds > threshold
     preds = [str(classes[int(pred)]) for pred in preds]
     data["pred"] = preds
     data["prob"] = probs
@@ -271,26 +316,23 @@ def cnn_predict(
     iso_code,
     shapename,
     config,
+    threshold,
     in_dir=None,
-    out_dir=None,
     n_classes=None,
-    threshold=0.5,
+    calibration=None,
+    temp_lr=0.01
 ):
     cwd = os.path.dirname(os.getcwd())
-    if not out_dir:
-        out_dir = os.path.join(
-            "output",
-            iso_code,
-            "results",
-            config["project"],
-            "tiles",
-            config["config_name"],
-        )
-        out_dir = data_utils._makedir(out_dir)
+    config_name = config['config_name']
+    if calibration:
+        config_name = f"{config_name}_{calibration}" 
+    
+    out_dir = data_utils._makedir(os.path.join(
+        "output", iso_code, "results", config["project"], "tiles", config_name
+    ))
 
     name = f"{iso_code}_{shapename}"
     out_file = os.path.join(out_dir, f"{name}_{config['config_name']}_results.gpkg")
-
     if os.path.exists(out_file):
         return gpd.read_file(out_file)
 
@@ -299,26 +341,64 @@ def cnn_predict(
         cwd, config["exp_dir"], config["project"], f"{iso_code}_{config['config_name']}"
     )
     model_file = os.path.join(exp_dir, f"{iso_code}_{config['config_name']}.pth")
-    model = load_cnn(config, classes, model_file)
-
+    model = load_cnn(
+        c=config, 
+        classes=classes, 
+        model_file=model_file, 
+        calibration=calibration, 
+        temp_lr=temp_lr
+    )        
     results = cnn_predict_images(data, model, config, in_dir, classes, threshold)
     results = results[["UID", "geometry", "pred", "prob"]]
+    if calibration == "isoreg":
+        calibrator = calibrators.isotonic_regressor(iso_code, config)
+        results["prob"] = calibrator.predict(results["prob"])
     results = gpd.GeoDataFrame(results, geometry="geometry")
     results.to_file(out_file, driver="GPKG")
     return results
 
 
-def load_cnn(c, classes, model_file=None, verbose=True):
+def load_cnn(
+    c, 
+    classes, 
+    model_file=None, 
+    calibration=None, 
+    temp_lr=0.01,
+    verbose=True,
+    save=True
+):
     n_classes = len(classes)
     model = cnn_utils.get_model(c["model"], n_classes, c["dropout"])
     model = torch.nn.DataParallel(model)
     model.load_state_dict(torch.load(model_file, map_location=device))
+    model = model.eval()
     model = model.to(device)
-    model.eval()
 
+    if calibration == "tempscaling":
+        model = ModelWithTemperature(model)
+        model_file = f"{model_file[:-4]}_{calibration}.pth"
+        _, data_loader, _ = cnn_utils.load_dataset(
+            c, phases=["train", "val", "test"], verbose=False
+        )
+        if os.path.exists(model_file):
+            model.load_state_dict(torch.load(model_file, map_location=device))
+            model = model.eval()
+            model = model.to(device)
+            if verbose:
+                data = model.get_logits(data_loader["val"], data_loader["test"])
+                model.eval_temp(data)
+        else:
+            logging.info("Calibrating the model...")
+            model.set_temperature(data_loader["val"], data_loader["test"])
+            if save:
+                torch.save(model.state_dict(), model_file)
+                if verbose:
+                    logging.info(f"Model successfully saved to {model_file}")
+                
     if verbose:
         logging.info(f"Device: {device}")
         logging.info("Model file {} successfully loaded.".format(model_file))
+
     return model
 
 

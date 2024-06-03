@@ -171,11 +171,6 @@ def evaluate(
     y_pred_optim = [pos_label if val > optim_threshold else neg_label for val in y_prob]
 
     return {
-        # Performance metrics for probabilities > 0.5 threshold
-        "p_auprc": p_auprc,
-        "p_precision_scores_": precision_partial,
-        "p_recall_scores_": recall_partial,
-        "p_thresholds_": thresholds_partial,
         # Performance metrics for the full range of thresholds
         "ap": average_precision_score(y_true, y_prob, pos_label=pos_label),
         "auprc": auprc(recall, precision),
@@ -184,6 +179,11 @@ def evaluate(
         "precision_scores_": precision,
         "recall_scores_": recall,
         "thresholds_": thresholds,
+        # Performance metrics for probabilities > 0.5 threshold
+        "p_auprc": p_auprc,
+        "p_precision_scores_": precision_partial,
+        "p_recall_scores_": recall_partial,
+        "p_thresholds_": thresholds_partial,
         # Performance metrics at the optimal threshold
         "optim_threshold": optim_threshold,
         "fbeta_score_optim": fbeta_score(

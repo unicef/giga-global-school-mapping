@@ -200,6 +200,7 @@ if __name__ == "__main__":
     # Parser
     parser = argparse.ArgumentParser(description="Model Training")
     parser.add_argument("--cnn_config", help="Config file")
+    parser.add_argument("--lr_finder", help="Config file", default=None)
     parser.add_argument("--iso", help="ISO code", default=[], nargs='+')
     args = parser.parse_args()
 
@@ -210,6 +211,11 @@ if __name__ == "__main__":
     iso = args.iso[0]
     if "name" in c: iso = c["name"]
     c["iso_code"] = iso
+
+    if args.lr_finder:
+        args.lr_finder = bool(eval(args.lr_finder))
+        c["lr_finder"] = args.lr_finder
+    
     log_c = {
         key: val for key, val in c.items() 
         if ('url' not in key) 
