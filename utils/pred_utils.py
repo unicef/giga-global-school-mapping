@@ -352,7 +352,7 @@ def cnn_predict(
     results = results[["UID", "geometry", "pred", "prob"]]
     if calibration == "isoreg":
         calibrator = calibrators.isotonic_regressor(iso_code, config)
-        results["prob"] = calibrator.predict(results["prob"])
+        results["prob_isoreg"] = calibrator.predict(results["prob"])
     results = gpd.GeoDataFrame(results, geometry="geometry")
     results.to_file(out_file, driver="GPKG")
     return results
