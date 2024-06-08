@@ -61,8 +61,6 @@ def cam_predict(
     cwd = os.path.dirname(os.getcwd())
     classes = {1: config["pos_class"], 0: config["neg_class"]}
     cam_config_name = config["config_name"]
-    if calibration:            
-        cam_config_name = f"{cam_config_name}_{calibration}" 
                 
     out_dir = data_utils._makedir(os.path.join(
         cwd, "output", iso_code, "results", config["project"], "cams", cam_config_name
@@ -134,6 +132,8 @@ def generate_cam_points(
     results["geometry"] = results["geometry"].buffer(buffer_size, cap_style=3)
     results = results.to_crs(crs)
     results["prob"] = data.prob
+    if "prob_isoreg" in data.columns:
+        results["prob_isoreg"] = data.prob_isoreg
     results["UID"] = data.UID
         
     return results
