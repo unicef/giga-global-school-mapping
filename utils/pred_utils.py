@@ -88,12 +88,13 @@ def cam_predict(
             reshape_transform=reshape_transform,
         )
     results = generate_cam_points(
-        data.reset_index(drop=True),
+        data,
         config,
         geotiff_dir,
         model,
         cam_extractor,
         buffer_size,
+        calibration=calibration
     )
     results = filter_by_buildings(iso_code, config, results)
     if len(results) > 0:
@@ -106,7 +107,7 @@ def cam_predict(
 
 
 def generate_cam_points(
-    data, config, in_dir, model, cam_extractor, buffer_size=50, show=False
+    data, config, in_dir, model, cam_extractor, buffer_size=50, calibration=None, show=False
 ):
     results = []
     data = data.reset_index(drop=True)
@@ -132,8 +133,8 @@ def generate_cam_points(
     results["geometry"] = results["geometry"].buffer(buffer_size, cap_style=3)
     results = results.to_crs(crs)
     results["prob"] = data.prob
-    if "prob_isoreg" in data.columns:
-        results["prob_isoreg"] = data.prob_isoreg
+    if calibration:
+        results[f"prob_{calibration}"] = data[f"prob_{calibration}"]
     results["UID"] = data.UID
         
     return results
