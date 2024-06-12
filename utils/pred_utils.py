@@ -61,8 +61,6 @@ def cam_predict(
     cwd = os.path.dirname(os.getcwd())
     classes = {1: config["pos_class"], 0: config["neg_class"]}
     cam_config_name = config["config_name"]
-    if calibration:            
-        cam_config_name = f"{cam_config_name}_{calibration}" 
                 
     out_dir = data_utils._makedir(os.path.join(
         cwd, "output", iso_code, "results", config["project"], "cams", cam_config_name
@@ -90,12 +88,13 @@ def cam_predict(
             reshape_transform=reshape_transform,
         )
     results = generate_cam_points(
-        data.reset_index(drop=True),
+        data,
         config,
         geotiff_dir,
         model,
         cam_extractor,
         buffer_size,
+        calibration=calibration
     )
     results = filter_by_buildings(iso_code, config, results)
     if len(results) > 0:
@@ -108,7 +107,7 @@ def cam_predict(
 
 
 def generate_cam_points(
-    data, config, in_dir, model, cam_extractor, buffer_size=50, show=False
+    data, config, in_dir, model, cam_extractor, buffer_size=50, calibration=None, show=False
 ):
     results = []
     data = data.reset_index(drop=True)
@@ -134,6 +133,8 @@ def generate_cam_points(
     results["geometry"] = results["geometry"].buffer(buffer_size, cap_style=3)
     results = results.to_crs(crs)
     results["prob"] = data.prob
+    if calibration:
+        results[f"prob_{calibration}"] = data[f"prob_{calibration}"]
     results["UID"] = data.UID
         
     return results
@@ -352,7 +353,7 @@ def cnn_predict(
     results = results[["UID", "geometry", "pred", "prob"]]
     if calibration == "isoreg":
         calibrator = calibrators.isotonic_regressor(iso_code, config)
-        results["prob"] = calibrator.predict(results["prob"])
+        results["prob_isoreg"] = calibrator.predict(results["prob"])
     results = gpd.GeoDataFrame(results, geometry="geometry")
     results.to_file(out_file, driver="GPKG")
     return results
