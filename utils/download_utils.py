@@ -4,7 +4,6 @@ import time
 import duckdb
 import geojson
 import overpass
-import data_utils
 import logging
 import leafmap
 import pyproj
@@ -15,7 +14,11 @@ from tqdm import tqdm
 import pandas as pd
 import geopandas as gpd
 from rapidfuzz import fuzz
-from country_bounding_boxes import country_subunits_by_iso_code
+from country_bounding_boxes import (
+    country_subunits_by_iso_code
+)
+import data_utils
+import delta_sharing
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -278,20 +281,68 @@ def download_overture(config, category, exclude=None, source="overture"):
                 )
                 subdata = gpd.sjoin(subdata, geoboundary, predicate="within")
 
-            # Prepare and process the data
+                # Prepare and process the data
+                subdata = data_utils._prepare_data(
+                    config=config,
+                    data=subdata,
+                    iso_code=iso_code,
+                    category=category,
+                    source=source,
+                    columns=config["columns"],
+                    out_file=out_subfile,
+                )
+            subdata = gpd.read_file(out_subfile).reset_index(drop=True)
+            data.append(subdata) # Add the processed data to the list
+
+    # Combine all the downloaded and processed data into a single GeoDataFrame
+    data = data_utils._concat_data(data, overture_file)
+    return data
+
+
+def download_unicef(config, profile_file, category="school", source="unicef"):
+    # Generate output directory
+    data_dir = os.path.join(config["vectors_dir"], config["project"], category, source)
+    data_dir = data_utils._makedir(data_dir)
+    
+    # List of ISO codes and columns to process
+    iso_codes = config["iso_codes"]
+    columns = config["columns"]
+
+    data = []
+    for iso_code in (pbar := data_utils._create_progress_bar(iso_codes)):
+        pbar.set_description(f"Processing {iso_code}")
+        
+        filename = f"{iso_code}_{source}.geojson"
+        out_subfile = os.path.join(data_dir, filename)
+
+        if not os.path.exists(out_subfile):
+            client = delta_sharing.SharingClient(profile_file)
+            table_url = f"{profile_file}#gold.school-master.{iso_code}"
+            subdata = delta_sharing.load_as_pandas(table_url)
+
+            subdata["geometry"] = gpd.GeoSeries.from_xy(
+                subdata["longitude"], subdata["latitude"]
+            )
             subdata = data_utils._prepare_data(
                 config=config,
                 data=subdata,
                 iso_code=iso_code,
                 category=category,
                 source=source,
-                columns=config["columns"],
-                out_file=out_subfile,
+                columns=columns,
             )
-            data.append(subdata) # Add the processed data to the list
+            subdata = gpd.GeoDataFrame(
+                subdata, geometry="geometry", crs="EPSG:4326"
+            )
+            subdata.to_file(out_subfile)
+            
+        subdata = gpd.read_file(out_subfile).reset_index(drop=True)
+        data.append(subdata)
 
-    # Combine all the downloaded and processed data into a single GeoDataFrame
-    data = data_utils._concat_data(data, overture_file)
+    # Combine all the processed data into a single GeoDataFrame and save to file
+    out_dir = os.path.dirname(data_dir)
+    out_file = os.path.join(out_dir, f"{source}.geojson")
+    data = data_utils._concat_data(data, out_file)
     return data
 
 
