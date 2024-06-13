@@ -56,7 +56,7 @@ def reshape_transform(tensor):
 
 
 def cam_predict(
-    iso_code, config, data, geotiff_dir, shapename, buffer_size=50, calibration=None
+    iso_code, config, data, geotiff_dir, shapename, buffer_size=50
 ):
     cwd = os.path.dirname(os.getcwd())
     classes = {1: config["pos_class"], 0: config["neg_class"]}
@@ -93,8 +93,7 @@ def cam_predict(
         geotiff_dir,
         model,
         cam_extractor,
-        buffer_size,
-        calibration=calibration
+        buffer_size
     )
     results = filter_by_buildings(iso_code, config, results)
     if len(results) > 0:
@@ -107,7 +106,7 @@ def cam_predict(
 
 
 def generate_cam_points(
-    data, config, in_dir, model, cam_extractor, buffer_size=50, calibration=None, show=False
+    data, config, in_dir, model, cam_extractor, buffer_size=50, show=False
 ):
     results = []
     data = data.reset_index(drop=True)
@@ -133,8 +132,6 @@ def generate_cam_points(
     results["geometry"] = results["geometry"].buffer(buffer_size, cap_style=3)
     results = results.to_crs(crs)
     results["prob"] = data.prob
-    if calibration:
-        results[f"prob_{calibration}"] = data[f"prob_{calibration}"]
     results["UID"] = data.UID
         
     return results
@@ -319,14 +316,10 @@ def cnn_predict(
     config,
     threshold,
     in_dir=None,
-    n_classes=None,
-    calibration=None,
-    temp_lr=0.01
+    n_classes=None
 ):
     cwd = os.path.dirname(os.getcwd())
     config_name = config['config_name']
-    if calibration:
-        config_name = f"{config_name}_{calibration}" 
     
     out_dir = data_utils._makedir(os.path.join(
         "output", iso_code, "results", config["project"], "tiles", config_name
@@ -346,14 +339,10 @@ def cnn_predict(
         c=config, 
         classes=classes, 
         model_file=model_file, 
-        calibration=calibration, 
         temp_lr=temp_lr
     )        
     results = cnn_predict_images(data, model, config, in_dir, classes, threshold)
     results = results[["UID", "geometry", "pred", "prob"]]
-    if calibration == "isoreg":
-        calibrator = calibrators.isotonic_regressor(iso_code, config)
-        results["prob_isoreg"] = calibrator.predict(results["prob"])
     results = gpd.GeoDataFrame(results, geometry="geometry")
     results.to_file(out_file, driver="GPKG")
     return results
@@ -363,7 +352,6 @@ def load_cnn(
     c, 
     classes, 
     model_file=None, 
-    calibration=None, 
     temp_lr=0.01,
     verbose=True,
     save=True
@@ -374,27 +362,6 @@ def load_cnn(
     model.load_state_dict(torch.load(model_file, map_location=device))
     model = model.eval()
     model = model.to(device)
-
-    if calibration == "tempscaling":
-        model = ModelWithTemperature(model)
-        model_file = f"{model_file[:-4]}_{calibration}.pth"
-        _, data_loader, _ = cnn_utils.load_dataset(
-            c, phases=["train", "val", "test"], verbose=False
-        )
-        if os.path.exists(model_file):
-            model.load_state_dict(torch.load(model_file, map_location=device))
-            model = model.eval()
-            model = model.to(device)
-            if verbose:
-                data = model.get_logits(data_loader["val"], data_loader["test"])
-                model.eval_temp(data)
-        else:
-            logging.info("Calibrating the model...")
-            model.set_temperature(data_loader["val"], data_loader["test"])
-            if save:
-                torch.save(model.state_dict(), model_file)
-                if verbose:
-                    logging.info(f"Model successfully saved to {model_file}")
                 
     if verbose:
         logging.info(f"Device: {device}")

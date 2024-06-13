@@ -76,9 +76,7 @@ def main(args):
             config=model_config, 
             threshold=args.threshold,
             in_dir=sat_dir, 
-            n_classes=2, 
-            calibration=args.calibration,
-            temp_lr=args.temp_lr
+            n_classes=2
         )
         
         print(f"Generating GeoTIFFs for {shapename}...")
@@ -93,8 +91,7 @@ def main(args):
             cam_model_config, 
             subdata, 
             geotiff_dir, 
-            shapename,
-            calibration=args.calibration
+            shapename
         )            
             
     return results
@@ -113,8 +110,6 @@ if __name__ == "__main__":
     parser.add_argument("--buffer_size", help="Buffer size", default=50)
     parser.add_argument("--threshold", type=float, help="Probability threhsold", default=0.5)
     parser.add_argument("--sum_threshold", help="Pixel sum threshold", default=5)
-    parser.add_argument("--calibration", help="Model calibration", default=None)
-    parser.add_argument("--temp_lr", type=float, help="Temperature LR", default=0.01)
     parser.add_argument("--iso", help="ISO code")
     args = parser.parse_args()
     logging.info(args)
