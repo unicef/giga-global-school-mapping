@@ -338,8 +338,7 @@ def cnn_predict(
     model = load_cnn(
         c=config, 
         classes=classes, 
-        model_file=model_file, 
-        temp_lr=temp_lr
+        model_file=model_file
     )        
     results = cnn_predict_images(data, model, config, in_dir, classes, threshold)
     results = results[["UID", "geometry", "pred", "prob"]]
@@ -352,7 +351,6 @@ def load_cnn(
     c, 
     classes, 
     model_file=None, 
-    temp_lr=0.01,
     verbose=True,
     save=True
 ):
