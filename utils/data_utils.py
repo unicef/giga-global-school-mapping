@@ -17,7 +17,38 @@ pd.options.mode.chained_assignment = None
 logging.basicConfig(level=logging.INFO)
 
 
-def get_image_filepaths(config, data, in_dir=None, ext=".tiff"):
+def clean_text(text):
+    if text:
+        return re.sub(r"[^\w\s]", "", text).upper()
+    return text
+
+
+def create_progress_bar(items):
+    bar_format = "{l_bar}{bar:20}{r_bar}{bar:-20b}"
+    pbar = tqdm(items, total=len(items), bar_format=bar_format)
+    return pbar
+
+
+def makedir(out_dir):
+    cwd = os.path.dirname(os.getcwd())
+    out_dir = os.path.join(cwd, out_dir)
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+    return out_dir
+
+
+def get_iso_regions(config, iso_code):
+    # Load ISO codes of countries and regions/subregions
+    codes = pd.read_csv(config["iso_codes_url"])
+    subcode = codes.query(f"`alpha-3` == '{iso_code}'")
+    country = subcode["name"].values[0]
+    subregion = subcode["sub-region"].values[0]
+    region = subcode["region"].values[0]
+
+    return country, subregion, region
+
+
+def get_image_filepaths(config, data, in_dir=None, ext=".tiff"):    
     filepaths = []
     cwd = os.path.dirname(os.getcwd())
     for index, row in data.iterrows():
@@ -38,38 +69,7 @@ def get_image_filepaths(config, data, in_dir=None, ext=".tiff"):
     return filepaths
 
 
-def _clean_text(text):
-    if text:
-        return re.sub(r"[^\w\s]", "", text).upper()
-    return text
-
-
-def _create_progress_bar(items):
-    bar_format = "{l_bar}{bar:20}{r_bar}{bar:-20b}"
-    pbar = tqdm(items, total=len(items), bar_format=bar_format)
-    return pbar
-
-
-def _makedir(out_dir):
-    cwd = os.path.dirname(os.getcwd())
-    out_dir = os.path.join(cwd, out_dir)
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir)
-    return out_dir
-
-
-def _get_iso_regions(config, iso_code):
-    # Load ISO codes of countries and regions/subregions
-    codes = pd.read_csv(config["iso_codes_url"])
-    subcode = codes.query(f"`alpha-3` == '{iso_code}'")
-    country = subcode["name"].values[0]
-    subregion = subcode["sub-region"].values[0]
-    region = subcode["region"].values[0]
-
-    return country, subregion, region
-
-
-def _convert_crs(data, src_crs="EPSG:4326", target_crs="EPSG:3857"):
+def convert_crs(data, src_crs="EPSG:4326", target_crs="EPSG:3857"):
     # Convert lat long to the target CRS
     if ("lat" not in data.columns) or ("lon" not in data.columns):
         data["lon"], data["lat"] = data.geometry.x, data.geometry.y
@@ -85,7 +85,7 @@ def _convert_crs(data, src_crs="EPSG:4326", target_crs="EPSG:3857"):
     return data
 
 
-def _concat_data(data, out_file=None, verbose=False):
+def concat_data(data, out_file=None, verbose=False):
     data = pd.concat(data).reset_index(drop=True)
     data = gpd.GeoDataFrame(data, geometry=data["geometry"], crs="EPSG:4326")
     data = data.drop_duplicates()
@@ -99,7 +99,7 @@ def _concat_data(data, out_file=None, verbose=False):
     return data
 
 
-def _generate_uid(data, category):
+def generate_uid(data, category):
     data["index"] = data.index.to_series().apply(lambda x: str(x).zfill(8))
     data["category"] = category
     uids = data[["source", "iso", "category", "index"]].agg("-".join, axis=1)
@@ -108,7 +108,7 @@ def _generate_uid(data, category):
     return data
 
 
-def _prepare_data(config, data, iso_code, category, source, columns, out_file=None):
+def prepare_data(config, data, iso_code, category, source, columns, out_file=None):
     if "giga_id_school" not in data.columns:
         data["giga_id_school"] = data.reset_index().index
 
@@ -133,7 +133,7 @@ def _prepare_data(config, data, iso_code, category, source, columns, out_file=No
     return data
 
 
-def _get_geoboundaries(config, iso_code, out_dir=None, adm_level="ADM0"):
+def get_geoboundaries(config, iso_code, out_dir=None, adm_level="ADM0"):
     # Query geoBoundaries
     if not out_dir:
         cwd = os.path.dirname(os.getcwd())
@@ -141,7 +141,7 @@ def _get_geoboundaries(config, iso_code, out_dir=None, adm_level="ADM0"):
             cwd, config["vectors_dir"], config["project"], "geoboundaries"
         )
     if not os.path.exists(out_dir):
-        out_dir = _makedir(out_dir)
+        out_dir = makedir(out_dir)
 
     # Save the result as a GeoJSON
     filename = f"{iso_code}_{adm_level}_geoboundary.geojson"
@@ -172,7 +172,7 @@ def _get_geoboundaries(config, iso_code, out_dir=None, adm_level="ADM0"):
 
 
 def read_data(data_dir, sources=[], exclude=[]):
-    data_dir = _makedir(data_dir)
+    data_dir = makedir(data_dir)
     if len(sources) > 0:
         files = [f"{source}.geojson" for source in sources]
     else:
@@ -181,7 +181,7 @@ def read_data(data_dir, sources=[], exclude=[]):
     logging.info(files)
 
     data = []
-    for file in (pbar := _create_progress_bar(files)):
+    for file in (pbar := create_progress_bar(files)):
         pbar.set_description(f"Reading {file}")
         filename = os.path.join(data_dir, file)
         subdata = gpd.read_file(filename)
@@ -193,7 +193,7 @@ def read_data(data_dir, sources=[], exclude=[]):
     return data
 
 
-def _connect_components(data, buffer_size):
+def connect_components(data, buffer_size):
     temp = data.copy()
     if data.crs != "EPSG:3857":
         temp = _convert_crs(data, target_crs="EPSG:3857")
@@ -204,7 +204,7 @@ def _connect_components(data, buffer_size):
     return data
 
 
-def _drop_duplicates(data, priority):
+def drop_duplicates(data, priority):
     data["temp_source"] = pd.Categorical(
         data["source"], categories=priority, ordered=True
     )
@@ -213,7 +213,7 @@ def _drop_duplicates(data, priority):
     return data
 
 
-def _generate_samples(
+def generate_samples(
     config, iso_code, buffer_size, spacing, adm_level="ADM0", shapename=None
 ):
     # Get geographical boundaries for the ISO code at the specified administrative level
@@ -248,7 +248,7 @@ def get_counts(config, column="iso", layer="clean"):
     data = {category: [] for category in categories}
 
     iso_codes = config["iso_codes"]
-    for iso_code in (pbar := _create_progress_bar(iso_codes)):
+    for iso_code in (pbar := create_progress_bar(iso_codes)):
         pbar.set_description(f"Reading counts for {iso_code}")
         for category in categories:
             dir = os.path.join(cwd, config["vectors_dir"], config["project"], category)

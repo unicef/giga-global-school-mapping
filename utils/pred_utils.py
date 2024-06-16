@@ -62,7 +62,7 @@ def cam_predict(
     classes = {1: config["pos_class"], 0: config["neg_class"]}
     cam_config_name = config["config_name"]
                 
-    out_dir = data_utils._makedir(os.path.join(
+    out_dir = data_utils.makedir(os.path.join(
         cwd, "output", iso_code, "results", config["project"], "cams", cam_config_name
     ))
     filename = f"{iso_code}_{shapename}_{config['config_name']}_cam.gpkg"
@@ -81,7 +81,10 @@ def cam_predict(
         cam_extractor = LayerCAM(model)
     elif config["type"] == "vit":
         from pytorch_grad_cam import LayerCAM
-        target_layers = [model.module.model.backbone.backbone.features[-1][-2].norm1]
+        try:
+            target_layers = [model.module.model.backbone.backbone.features[-1][-2].norm1]
+        except:
+            target_layers = [model.module.model.backbone.backbone.backbone.features[-1][-1].norm1]
         cam_extractor = LayerCAM(
             model=model,
             target_layers=target_layers,
@@ -97,7 +100,7 @@ def cam_predict(
     )
     results = filter_by_buildings(iso_code, config, results)
     if len(results) > 0:
-        results = data_utils._connect_components(results, buffer_size=0)
+        results = data_utils.connect_components(results, buffer_size=0)
         results = results.sort_values("prob", ascending=False).drop_duplicates(
             ["group"]
         )
@@ -186,9 +189,10 @@ def compare_cams(filepath, model, model_config, classes, model_file):
 
         for cam_extractor in LayerCAM, GradCAM, GradCAMPlusPlus:
             model = load_cnn(model_config, classes, model_file, verbose=False).eval()
-            target_layers = [
-                model.module.model.backbone.backbone.features[-1][-2].norm1
-            ]
+            try:
+                target_layers = [model.module.model.backbone.backbone.features[-1][-2].norm1]
+            except:
+                target_layers = [model.module.model.backbone.backbone.backbone.features[-1][-1].norm1]
             cam_extractor = cam_extractor(
                 model=model,
                 target_layers=target_layers,
@@ -206,16 +210,20 @@ def compare_cams_random(data, filepaths, model_config, classes, model_file, verb
     elif model_config["type"] == "vit":
         from pytorch_grad_cam import GradCAM, GradCAMPlusPlus, LayerCAM
         model = load_cnn(model_config, classes, model_file, verbose=False).eval()
-        target_layers = [model.module.model.backbone.backbone.features[-1][-2].norm1]
+        try:
+            target_layers = [model.module.model.backbone.backbone.features[-1][-2].norm1]
+        except:
+            target_layers = [model.module.model.backbone.backbone.backbone.features[-1][-1].norm1]
         cam_extractor = LayerCAM(
             model=model, 
             target_layers=target_layers, 
-            reshape_transform=pred_utils.reshape_transform
+            reshape_transform=reshape_transform
         )
     for index in list(data.sample(5).index):
         _, point = generate_cam(
             model_config, filepaths[index], model, cam_extractor, title="LayerCAM"
         )
+    return model
 
 
 def generate_cam(
@@ -256,7 +264,7 @@ def generate_cam(
         rect = patches.Rectangle(
             (point[0]-75, point[1]-75), 150, 150, linewidth=1, edgecolor='blue', facecolor='none'
         )
-        ax[2].imshow(image) #ax[2].scatter([point[0]], [point[1]])
+        ax[2].imshow(image) 
         ax[2].add_patch(rect)
         ax[1].title.set_text(title)
         ax[0].xaxis.set_visible(False)
@@ -292,7 +300,7 @@ def generate_point_from_cam(config, cam_map, image):
 def cnn_predict_images(data, model, config, in_dir, classes,  threshold):
     files = data_utils.get_image_filepaths(config, data, in_dir)
     preds, probs = [], []
-    pbar = data_utils._create_progress_bar(files)
+    pbar = data_utils.create_progress_bar(files)
 
     for file in pbar:
         image = Image.open(file).convert("RGB")
@@ -321,7 +329,7 @@ def cnn_predict(
     cwd = os.path.dirname(os.getcwd())
     config_name = config['config_name']
     
-    out_dir = data_utils._makedir(os.path.join(
+    out_dir = data_utils.makedir(os.path.join(
         "output", iso_code, "results", config["project"], "tiles", config_name
     ))
 
@@ -408,7 +416,7 @@ def vit_pred(data, config, iso_code, shapename, sat_dir, id_col="UID"):
 
     # Save results
     out_dir = os.path.join("output", iso_code, "results")
-    out_dir = data_utils._makedir(out_dir)
+    out_dir = data_utils.makedir(out_dir)
     out_file = os.path.join(out_dir, f"{name}_{config['config_name']}_results.gpkg")
     results.to_file(out_file, driver="GPKG")
     logging.info(f"Generated {out_file}")
@@ -460,14 +468,14 @@ def generate_pred_tiles(
     config, iso_code, spacing, buffer_size, adm_level="ADM2", shapename=None
 ):
     cwd = os.path.dirname(os.getcwd())
-    out_dir = data_utils._makedir(os.path.join(cwd, "output", iso_code, "tiles"))
+    out_dir = data_utils.makedir(os.path.join(cwd, "output", iso_code, "tiles"))
     out_file = os.path.join(out_dir, f"{iso_code}_{shapename}.gpkg")
 
     if os.path.exists(out_file):
         data = gpd.read_file(out_file)
         return data
 
-    points = data_utils._generate_samples(
+    points = data_utils.generate_samples(
         config,
         iso_code=iso_code,
         buffer_size=buffer_size,

@@ -42,7 +42,7 @@ def main(args):
         cam_model_config_file = os.path.join(cwd, args.cam_model_config)
         cam_model_config = config_utils.load_config(cam_model_config_file)
 
-    geoboundary = data_utils._get_geoboundaries(
+    geoboundary = data_utils.get_geoboundaries(
         data_config, args.iso, adm_level="ADM2"
     )
     shapenames = [args.shapename] if args.shapename else geoboundary.shapeName.unique()
@@ -81,7 +81,7 @@ def main(args):
         
         print(f"Generating GeoTIFFs for {shapename}...")
         subdata = results[results["pred"] == model_config["pos_class"]]
-        geotiff_dir = data_utils._makedir(os.path.join("output", args.iso, "geotiff", shapename))
+        geotiff_dir = data_utils.makedir(os.path.join("output", args.iso, "geotiff", shapename))
         pred_utils.georeference_images(subdata, sat_config, sat_dir, geotiff_dir)
 
         print(f"Generating CAMs for {shapename}...")
