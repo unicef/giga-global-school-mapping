@@ -37,18 +37,18 @@ def download_sat_images(
     Downloads satellite images based on geographic data points.
 
     Args:
-    - creds (dict): Credentials for accessing the satellite image service.
-    - config (dict): Configuration settings.
-    - category (str): Type of data category.
-    - iso (str, optional): ISO code for the country. Defaults to None.
-    - sample_size (int, optional): Number of samples to consider. Defaults to None.
-    - src_crs (str, optional): Source coordinate reference system. Defaults to "EPSG:4326".
-    - id_col (str, optional): Column name containing unique identifiers. Defaults to "UID".
-    - name (str, optional): Name of the dataset. Defaults to "clean".
-    - filename (str, optional): File name to load the data. Defaults to None.
+        creds (dict): Credentials for accessing the satellite image service.
+        config (dict): Configuration settings.
+        category (str): Type of data category.
+        iso (str, optional): ISO code for the country. Defaults to None.
+        sample_size (int, optional): Number of samples to consider. Defaults to None.
+        src_crs (str, optional): Source coordinate reference system. Defaults to "EPSG:4326".
+        id_col (str, optional): Column name containing unique identifiers. Defaults to "UID".
+        name (str, optional): Name of the dataset. Defaults to "clean".
+        filename (str, optional): File name to load the data. Defaults to None.
 
     Returns:
-    - None
+        None
     """
     cwd = os.path.dirname(os.getcwd())
     project = config["project"]
@@ -69,12 +69,12 @@ def download_sat_images(
     if sample_size:
         data = data.iloc[:sample_size]
 
-    data = data_utils._convert_crs(data, data.crs, config["srs"])
+    data = data_utils.convert_crs(data, data.crs, config["srs"])
     logging.info(f"Data dimensions: {data.shape}, CRS: {data.crs}")
 
     if not out_dir:
         out_dir = os.path.join(cwd, config["rasters_dir"], config["maxar_dir"], project, iso, category)
-    out_dir = data_utils._makedir(out_dir)
+    out_dir = data_utils.makedir(out_dir)
     logging.info(f"Image file directory: {out_dir}")
 
     all_exists = True
@@ -114,7 +114,6 @@ def download_sat_images(
                 with open(image_file, "wb") as file:
                     file.write(img.read())
             except Exception as e: 
-                #logging.info(e)
                 pass
 
 
