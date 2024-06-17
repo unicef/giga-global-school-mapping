@@ -168,7 +168,6 @@ def concat_data(data: list, out_file: str = None, verbose: bool = False) -> gpd.
     """
     data = pd.concat(data).reset_index(drop=True)
     data = gpd.GeoDataFrame(data, geometry=data["geometry"], crs="EPSG:4326")
-    data = data.drop_duplicates()
 
     if out_file:
         data.to_file(out_file, driver="GeoJSON")
@@ -328,15 +327,19 @@ def get_geoboundaries(
     return geoboundary
 
 
-def read_data(data_dir: str, sources: list = [], exclude: list = []) -> gpd.GeoDataFrame:
+def read_data(
+    iso_code: str, 
+    data_dir: str, 
+    sources: list = []
+) -> gpd.GeoDataFrame:
     """
     Read GeoJSON data files from a specified directory.
 
     Args:
+        iso_code (str): ISO code of the country of interest.
         data_dir (str): Directory path containing GeoJSON data files.
         sources (list, optional): List of specific data sources to read. If provided, only files
                                   named after these sources will be read (default is an empty list).
-        exclude (list, optional): List of files to exclude from reading (default is an empty list).
 
     Returns:
         gpd.GeoDataFrame: Concatenated GeoDataFrame containing all read data, with CRS EPSG:4326.
@@ -345,26 +348,42 @@ def read_data(data_dir: str, sources: list = [], exclude: list = []) -> gpd.GeoD
     data_dir = makedir(data_dir)
 
     # Determine files to read based on sources and exclusions
+    files = []
     if len(sources) > 0:
-        files = [f"{source}.geojson" for source in sources]
-    else:
-        files = next(os.walk(data_dir), (None, None, []))[2]
-
-    # Exclude specified files from the list
-    files = [file for file in files if file not in exclude]
-    logging.info(files)
-
+        for source in sources:
+            file = os.path.join(data_dir, source, f"{iso_code}_{source}.geojson")
+            files.append(file)
+            
     data = []
     # Read each file and append to the data list
     for file in (pbar := create_progress_bar(files)):
-        pbar.set_description(f"Reading {file}")
+        pbar.set_description(f"Reading {file.split('/')[-1]}")
         filename = os.path.join(data_dir, file)
         subdata = gpd.read_file(filename)
         data.append(subdata)
 
     # Concatenate all data into a single GeoDataFrame
     data = gpd.GeoDataFrame(pd.concat(data).copy(), crs="EPSG:4326")
-    data = data.drop_duplicates()
+    return data
+
+
+def drop_duplicates(data: gpd.GeoDataFrame, priority: list) -> gpd.GeoDataFrame:
+    """
+    Drops duplicates from a GeoDataFrame based on a specified priority of sources.
+
+    Args:
+        data (gpd.GeoDataFrame): Input GeoDataFrame containing geometries.
+        priority (list): List of source names in descending order of priority.
+
+    Returns:
+        gpd.GeoDataFrame: GeoDataFrame with duplicates dropped based on the specified priority.
+    """
+    
+    data["temp_source"] = pd.Categorical(
+        data["source"], categories=priority, ordered=True
+    )
+    data = data.sort_values("temp_source", ascending=True).drop_duplicates(["group"])
+    data = data.reset_index(drop=True)
     return data
 
 
@@ -396,26 +415,6 @@ def connect_components(data: gpd.GeoDataFrame, buffer_size: float) -> gpd.GeoDat
     n, groups = connected_components(overlap_matrix, directed=False)
     data["group"] = groups
     
-    return data
-
-
-def drop_duplicates(data: gpd.GeoDataFrame, priority: list) -> gpd.GeoDataFrame:
-    """
-    Drops duplicates from a GeoDataFrame based on a specified priority of sources.
-
-    Args:
-        data (gpd.GeoDataFrame): Input GeoDataFrame containing geometries.
-        priority (list): List of source names in descending order of priority.
-
-    Returns:
-        gpd.GeoDataFrame: GeoDataFrame with duplicates dropped based on the specified priority.
-    """
-    
-    data["temp_source"] = pd.Categorical(
-        data["source"], categories=priority, ordered=True
-    )
-    data = data.sort_values("temp_source", ascending=True).drop_duplicates(["group"])
-    data = data.reset_index(drop=True)
     return data
 
 

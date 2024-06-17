@@ -26,7 +26,7 @@ This work leverages deep learning and high-resolution satellite images for autom
 Obtaining complete and accurate information on schools locations is a critical first step to accelerating digital connectivity and driving progress towards SDG4: Quality Education. However, precise GPS coordinate of schools are often inaccurate, incomplete, or even completely non-existent in many developing countries.  In support of the Giga initiative, we leverage machine learning and remote sensing data to accelerate school mapping. This work aims to support government agencies and connectivity providers in improving school location data to better estimate the costs of digitally connecting schools and plan the strategic allocation of their financial resources.
 
 This code accompanies the following paper(s):
-- Doerksen, K.*, Tingzon, I.*, and Kim, D. (2024). AI-powered school mapping and connectivity status prediction using Earth observation. ICLR 2024 Machine Learning for Remote Sensing (ML4RS) Workshop.
+- Doerksen, K., Tingzon, I., and Kim, D. (2024). AI-powered school mapping and connectivity status prediction using Earth observation. ICLR 2024 Machine Learning for Remote Sensing (ML4RS) Workshop.
 
 ## 📂 Dataset
 For each school and non-school location in our dataset, we downloaded 300 x 300 m, 500 x 500 px high-resolution satellite images from Maxar with a spatial resolution of 60 cm/px. 
@@ -52,20 +52,19 @@ To download the relevant datasets, run `python src/data_download.py`:
 usage: data_download.py [-h] [--config CONFIG] [--profile PROFILE]
 
 Data Download
-
 options:
   -h, --help         show this help message and exit
   --config CONFIG    Path to the configuration file
   --profile PROFILE  Path to the profile filele file
 ```
 
-### Satellite Image Download:
+### Satellite Image Download
 To download Maxar satellite images, run `python src/sat_download.py`:
 ```s
-usage: sat_download.py [-h] [--config CONFIG] [--creds CREDS] [--category CATEGORY] [--iso_code ISO_CODE] [--filename FILENAME]
+usage: sat_download.py [-h] [--config CONFIG] [--creds CREDS] 
+[--category CATEGORY] [--iso_code ISO_CODE] [--filename FILENAME]
 
 Satellite Image Download
-
 options:
   -h, --help           show this help message and exit
   --config CONFIG      Path to the configuration file
@@ -76,10 +75,19 @@ options:
 ```
 
 ### Data Preparation
-To run the data cleaning pipeline:
+To run the data cleaning pipeline, run `python src/data_preparation.py`:
 ```s
-python data_preparation.py \
---config="configs/<DATA_CONFIG_FILE_NAME>.yaml"
+usage: data_preparation.py [-h] [--config CONFIG] [--name NAME] 
+[--sources SOURCES [SOURCES ...]] [--clean_pos CLEAN_POS] [--clean_neg CLEAN_NEG]
+
+Data Cleaning Pipeline
+options:
+  -h, --help            show this help message and exit
+  --config CONFIG       Path to the configuration file
+  --name NAME           Folder name
+  --sources SOURCES [SOURCES ...] Sources (e.g. unicef, osm, overture)
+  --clean_pos CLEAN_POS Clean positive samples
+  --clean_neg CLEAN_NEG Clean negative samples
 ```
 
 ### Model Training
