@@ -91,7 +91,7 @@ options:
 ```
 
 ### Model Training
-To train the computer vision models, run:
+To train the computer vision models, run `python src/train_cnn.py`:
 ```s
 usage: train_cnn.py [-h] [--cnn_config CNN_CONFIG] [--lr_finder LR_FINDER] [--iso ISO [ISO ...]]
 
