@@ -1,20 +1,19 @@
 import os
 import shutil
 import time
+import copy
 import argparse
+import logging
 import pandas as pd
 from collections import Counter
-import torch
-import copy
 
-import sys
-sys.path.insert(0, "../utils/")
-import config_utils
-import cnn_utils
-import eval_utils
-import model_utils
+import torch
 import wandb
-import logging
+from utils import config_utils
+from utils import cnn_utils
+from utils import eval_utils
+from utils import model_utils
+
 
 # Get device
 cwd = os.path.dirname(os.getcwd())
@@ -199,9 +198,9 @@ def main(c):
 if __name__ == "__main__":
     # Parser
     parser = argparse.ArgumentParser(description="Model Training")
-    parser.add_argument("--cnn_config", help="Config file")
-    parser.add_argument("--lr_finder", help="Config file", default=None)
-    parser.add_argument("--iso", help="ISO code", default=[], nargs='+')
+    parser.add_argument("--cnn_config", help="Path to the configuration file")
+    parser.add_argument("--lr_finder", help="Learning rate finder (boolean indicator)", default=None)
+    parser.add_argument("--iso", help="ISO 3166-1 alpha-3 code", default=[], nargs='+')
     args = parser.parse_args()
 
     # Load config

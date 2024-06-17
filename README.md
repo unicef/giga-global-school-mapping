@@ -93,9 +93,14 @@ options:
 ### Model Training
 To train the computer vision models, run:
 ```s
-python train_cnn.py \
---cnn_config="configs/cnn_configs/<CNN_CONFIG_FILE_NAME>.yaml" \
---iso="<ISO_CODE>"
+usage: train_cnn.py [-h] [--cnn_config CNN_CONFIG] [--lr_finder LR_FINDER] [--iso ISO [ISO ...]]
+
+Model Training
+options:
+  -h, --help              show this help message and exit
+  --cnn_config CNN_CONFIG Path to the configuration file
+  --lr_finder LR_FINDER   Learning rate finder (boolean indicator)
+  --iso ISO [ISO ...]     ISO 3166-1 alpha-3 codes
 ```
 
 ### Model Prediction

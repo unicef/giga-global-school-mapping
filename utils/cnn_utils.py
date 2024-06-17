@@ -28,22 +28,19 @@ from torchvision.models import (
 import torch.nn.functional as nnf
 import satlaspretrain_models
 
-import sys
-
-sys.path.insert(0, "../utils/")
-import eval_utils
-import clf_utils
-import data_utils
-import model_utils
+from utils import eval_utils
+from utils import clf_utils
+from utils import data_utils
+from utils import model_utils
 
 SEED = 42
 
-# Add temporary fix for hash error: https://github.com/pytorch/vision/issues/7744
+# Add temporary fix for hash error: 
+# https://github.com/pytorch/vision/issues/7744
 from torchvision.models._api import WeightsEnum
 from torch.hub import load_state_dict_from_url
 
 import logging
-
 logging.basicConfig(level=logging.INFO)
 
 imagenet_mean, imagenet_std = [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
@@ -52,8 +49,6 @@ imagenet_mean, imagenet_std = [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
 def get_state_dict(self, *args, **kwargs):
     kwargs.pop("check_hash")
     return load_state_dict_from_url(self.url, *args, **kwargs)
-
-
 WeightsEnum.get_state_dict = get_state_dict
 
 torch.manual_seed(SEED)
@@ -62,11 +57,15 @@ if torch.cuda.is_available():
 
 
 class SchoolDataset(Dataset):
-    def __init__(self, dataset, classes, transform=None, normalize="imagenet"):
+    def __init__(self, dataset, classes, transform=None, normalize="imagenet", return_uid=True):
         self.dataset = dataset
         self.transform = transform
         self.classes = classes
         self.normalize = normalize
+        self.return_uid = return_uid
+
+    def set_return_uid(self, return_uid):
+        self.return_uid = return_uid
 
     def __getitem__(self, index):
         item = self.dataset.iloc[index]
@@ -79,7 +78,11 @@ class SchoolDataset(Dataset):
 
         y = self.classes[item["class"]]
         image.close()
-        return x, y, uid
+
+        if self.return_uid:
+            return x, y, uid
+        else:
+            return x, y
 
     def __len__(self):
         return len(self.dataset)
