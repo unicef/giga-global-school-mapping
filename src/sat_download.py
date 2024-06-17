@@ -4,8 +4,8 @@ import math
 import random
 import logging
 import argparse
-from tqdm import tqdm
 
+from tqdm import tqdm
 import pandas as pd
 import geopandas as gpd
 from owslib.wms import WebMapService
@@ -159,11 +159,11 @@ def download_sat_images(
 def main():
     # Load arguments from parser
     parser = argparse.ArgumentParser(description="Satellite Image Download")
-    parser.add_argument("--config", help="Config file")
-    parser.add_argument("--creds", help="Credentials file")
+    parser.add_argument("--config", help="Path to the configuration file")
+    parser.add_argument("--creds", help="Path to the credentials file")
     parser.add_argument("--category", help="Category (e.g. school or non_school)")
-    parser.add_argument("--iso_code", help="ISO code")
-    parser.add_argument("--filename", help="Data file", default=None)
+    parser.add_argument("--iso_code", help="ISO 3166-1 alpha-3 code")
+    parser.add_argument("--filename", help="Filename of data (optional)", default=None)
     args = parser.parse_args()
 
     # Load config file
