@@ -15,22 +15,22 @@ import pandas as pd
 import geopandas as gpd
 from rapidfuzz import fuzz
 
-from country_bounding_boxes import (
-    country_subunits_by_iso_code
-)
+from country_bounding_boxes import country_subunits_by_iso_code
 from utils import data_utils
 
 import warnings
+
 warnings.filterwarnings("ignore")
 warnings.simplefilter("ignore")
 
 import logging
+
 logging.basicConfig(level=logging.INFO)
 
 
-def _query_osm(iso_code: str, out_file: str , query: str) -> gpd.GeoDataFrame:
+def _query_osm(iso_code: str, out_file: str, query: str) -> gpd.GeoDataFrame:
     """
-    Execute an Overpass API query to download OpenStreetMap (OSM) data for a specific ISO code area.
+    Execute an Overpass API query to download OpenStreetMap (OSM) data for a specific ISO code.
 
     Args:
         iso_code (str): ISO 3166-1 alpha-2 code representing the country or region to query.
@@ -63,7 +63,7 @@ def _query_osm(iso_code: str, out_file: str , query: str) -> gpd.GeoDataFrame:
     return data
 
 
-def download_osm(config: dict, category: str, source: str="osm") -> gpd.GeoDataFrame:
+def download_osm(config: dict, category: str, source: str = "osm") -> gpd.GeoDataFrame:
     """
     Download OpenStreetMap (OSM) data based on the provided configuration and category.
 
@@ -74,9 +74,9 @@ def download_osm(config: dict, category: str, source: str="osm") -> gpd.GeoDataF
             - iso_codes (list): List of ISO codes to process.
             - iso_codes_url (str): URL to fetch ISO code data.
             - columns (list): List of columns to include in the output data.
-            - {category} (dict): 
-                Dictionary of keywords for the OSM query, where the keys are OSM tags 
-                and the values are lists of tag values to match. The {category} key should 
+            - {category} (dict):
+                Dictionary of keywords for the OSM query, where the keys are OSM tags
+                and the values are lists of tag values to match. The {category} key should
                 be replaced with the actual category name.
         category (str): The category of OSM data to download (e.g., "buildings", "roads").
         source (str): Source of the data. Defaults to "osm".
@@ -112,7 +112,7 @@ def download_osm(config: dict, category: str, source: str="osm") -> gpd.GeoDataF
         ]
     )
 
-    data = [] # List to store the downloaded data
+    data = []  # List to store the downloaded data
     for iso_code in (pbar := data_utils.create_progress_bar(iso_codes)):
         pbar.set_description(f"Processing {iso_code}")
         filename = f"{iso_code}_{source}.geojson"
@@ -136,14 +136,16 @@ def download_osm(config: dict, category: str, source: str="osm") -> gpd.GeoDataF
                 columns=config["columns"],
                 out_file=out_subfile,
             )
-            data.append(subdata) # Add the processed data to the list
+            data.append(subdata)  # Add the processed data to the list
 
     # Combine all the downloaded and processed data into a single GeoDataFrame
     data = data_utils.concat_data(data, osm_file)
     return data
 
 
-def _query_overture(config: dict, iso_code: str, out_file: str, query: str) -> gpd.GeoDataFrame:
+def _query_overture(
+    config: dict, iso_code: str, out_file: str, query: str
+) -> gpd.GeoDataFrame:
     """
     Execute a query on the Overture dataset to download geospatial data for a specific ISO code area.
 
@@ -157,7 +159,7 @@ def _query_overture(config: dict, iso_code: str, out_file: str, query: str) -> g
     Returns:
         GeoDataFrame: GeoDataFrame containing the downloaded geospatial data.
     """
-    
+
     # Connect to DuckDB and install necessary extensions
     db = duckdb.connect()
     db.execute("INSTALL spatial")
@@ -203,7 +205,7 @@ def _query_overture(config: dict, iso_code: str, out_file: str, query: str) -> g
 
 
 def download_overture(
-    config: dict, category: str, exclude: str=None, source: str="overture"
+    config: dict, category: str, exclude: str = None, source: str = "overture"
 ) -> gpd.GeoDataFrame:
     """
     Download geospatial data from the Overture dataset based on the provided configuration and category.
@@ -214,11 +216,11 @@ def download_overture(
             - project (str): Name of the project.
             - iso_codes (list): List of ISO codes to process.
             - columns (list): List of columns to include in the output data.
-            - {category} (dict): 
-                Dictionary of keywords for querying Overture data, where the keys are 
+            - {category} (dict):
+                Dictionary of keywords for querying Overture data, where the keys are
                 categories and the values are lists of keywords.
-            - {exclude} (dict): 
-                Dictionary of keywords to exclude from the query, where the keys are 
+            - {exclude} (dict):
+                Dictionary of keywords to exclude from the query, where the keys are
                 categories and the values are lists of keywords.
             - overture_url (str): URL to access the Overture dataset.
         category (str): The category of data to download (e.g., "school", "hospital").
@@ -228,7 +230,7 @@ def download_overture(
     Returns:
         GeoDataFrame: Combined GeoDataFrame containing the downloaded Overture data.
     """
-    
+
     # Generate output directory
     out_dir = os.path.join(config["vectors_dir"], config["project"], category, source)
     out_dir = data_utils.makedir(out_dir)
@@ -263,7 +265,7 @@ def download_overture(
         )
         query = f""" ({query}) and ({exclude_query})"""
 
-    data = [] # List to store the downloaded data
+    data = []  # List to store the downloaded data
     for iso_code in (pbar := data_utils.create_progress_bar(iso_codes)):
         pbar.set_description(f"Processing {iso_code}")
         filename = f"{iso_code}_{source}.geojson"
@@ -295,7 +297,7 @@ def download_overture(
                     out_file=out_subfile,
                 )
             subdata = gpd.read_file(out_subfile).reset_index(drop=True)
-            data.append(subdata) # Add the processed data to the list
+            data.append(subdata)  # Add the processed data to the list
 
     # Combine all the downloaded and processed data into a single GeoDataFrame
     data = data_utils.concat_data(data, overture_file)
@@ -303,7 +305,7 @@ def download_overture(
 
 
 def download_unicef(
-    config: dict, profile_file: str, category: str="school", source: str="unicef"
+    config: dict, profile_file: str, category: str = "school", source: str = "unicef"
 ) -> gpd.GeoDataFrame:
     """
     Downloads and processes UNICEF data for specified ISO codes.
@@ -321,11 +323,11 @@ def download_unicef(
     Returns:
         GeoDataFrame: Combined GeoDataFrame of all processed data.
     """
-    
+
     # Generate output directory
     data_dir = os.path.join(config["vectors_dir"], config["project"], category, source)
-    data_dir = data_utils.makedir(data_dir) 
-    
+    data_dir = data_utils.makedir(data_dir)
+
     # List of ISO codes and columns to process
     iso_codes = config["iso_codes"]
     columns = config["columns"]
@@ -334,7 +336,7 @@ def download_unicef(
     # Create a progress bar for ISO codes processing
     for iso_code in (pbar := data_utils.create_progress_bar(iso_codes)):
         pbar.set_description(f"Processing {iso_code}")
-        
+
         filename = f"{iso_code}_{source}.geojson"
         out_subfile = os.path.join(data_dir, filename)
 
@@ -359,9 +361,7 @@ def download_unicef(
                 columns=columns,
             )
             # Convert to GeoDataFrame with specified CRS
-            subdata = gpd.GeoDataFrame(
-                subdata, geometry="geometry", crs="EPSG:4326"
-            )
+            subdata = gpd.GeoDataFrame(subdata, geometry="geometry", crs="EPSG:4326")
             # Save the processed data to file
             subdata.to_file(out_subfile)
 
@@ -376,9 +376,9 @@ def download_unicef(
     return data
 
 
-def get_country(config: dict, source: str="ms"):
+def get_country(config: dict, source: str = "ms"):
     """
-    Match country names from ISO codes with Microsoft dataset or 
+    Match country names from ISO codes with Microsoft dataset or
     return country names based on configuration.
 
     Args:
@@ -390,18 +390,18 @@ def get_country(config: dict, source: str="ms"):
     Returns:
         dict: A dictionary mapping ISO codes to country names or Microsoft country names.
     """
-    
+
     # List of ISO codes to process
     iso_codes = config["iso_codes"]
 
     # Load Microsoft dataset links
     msf_links = pd.read_csv(config["microsoft_url"])
-    
-    matches = dict() # Dictionary to store the matches
+
+    matches = dict()  # Dictionary to store the matches
     for iso_code in iso_codes:
         # Get the country name and other region info based on the ISO code
         country, _, _ = data_utils.get_iso_regions(config, iso_code)
-        
+
         if source == "ms":
             max_score = 0
             for msf_country in msf_links.Location.unique():
@@ -415,11 +415,11 @@ def get_country(config: dict, source: str="ms"):
                     matches[iso_code] = msf_country
         else:
             matches[iso_code] = country
-            
+
     return matches
 
 
-def download_buildings(config: dict, source: str="ms", verbose: bool=False) -> None:
+def download_buildings(config: dict, source: str = "ms", verbose: bool = False) -> None:
     """
     Download building footprints for the specified ISO codes from either
     Microsoft or Google sources.
@@ -429,7 +429,7 @@ def download_buildings(config: dict, source: str="ms", verbose: bool=False) -> N
             - iso_codes (list): List of ISO codes to process.
             - vectors_dir (str): Directory where vector data is stored.
             - rasters_dir (str): Directory where raster data is stored.
-        source (str): Source of the building data. 
+        source (str): Source of the building data.
             Can be either "ms" (Microsoft) or "google". Defaults to "ms".
         verbose (bool): Flag to indicate verbosity of the download process. Defaults to False.
 
@@ -503,7 +503,7 @@ def download_buildings(config: dict, source: str="ms", verbose: bool=False) -> N
             subprocess.Popen(f"{command1} && {command2}", shell=True)
 
 
-def download_ghsl(config: dict, type: str="built_c") -> None:
+def download_ghsl(config: dict, type: str = "built_c") -> None:
     """
     Download and extract the Global Human Settlement Layer (GHSL) data.
 
@@ -514,9 +514,9 @@ def download_ghsl(config: dict, type: str="built_c") -> None:
             - ghsl_smod_file (str): Filename for the settlement model GHSL data.
             - ghsl_built_c_url (str): URL to download the built-up coverage GHSL data.
             - ghsl_smod_url (str): URL to download the settlement model GHSL data.
-        type (str): Type of GHSL data to download. Can be either 
-            - "built_c" (built-up coverage) or 
-            - "smod" (settlement model). 
+        type (str): Type of GHSL data to download. Can be either
+            - "built_c" (built-up coverage) or
+            - "smod" (settlement model).
             Defaults to "built_c".
 
     Returns:
