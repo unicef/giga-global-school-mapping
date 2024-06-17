@@ -4,30 +4,31 @@ import time
 import duckdb
 import geojson
 import overpass
-import logging
 import leafmap
 import pyproj
 import subprocess
 import operator
-
+import delta_sharing
 from tqdm import tqdm
+
 import pandas as pd
 import geopandas as gpd
 from rapidfuzz import fuzz
+
 from country_bounding_boxes import (
     country_subunits_by_iso_code
 )
-import data_utils
-import delta_sharing
+from utils import data_utils
 
 import warnings
 warnings.filterwarnings("ignore")
 warnings.simplefilter("ignore")
+
+import logging
 logging.basicConfig(level=logging.INFO)
-os.environ["PROJ_LIB"] = pyproj.datadir.get_data_dir()
 
 
-def _query_osm(iso_code, out_file, query):
+def _query_osm(iso_code: str, out_file: str , query: str) -> gpd.GeoDataFrame:
     """
     Execute an Overpass API query to download OpenStreetMap (OSM) data for a specific ISO code area.
 
@@ -62,7 +63,7 @@ def _query_osm(iso_code, out_file, query):
     return data
 
 
-def download_osm(config, category, source="osm"):
+def download_osm(config: dict, category: str, source: str="osm") -> gpd.GeoDataFrame:
     """
     Download OpenStreetMap (OSM) data based on the provided configuration and category.
 
@@ -86,7 +87,7 @@ def download_osm(config, category, source="osm"):
 
     # Construct the output directory path
     out_dir = os.path.join(config["vectors_dir"], config["project"], category, source)
-    out_dir = data_utils._makedir(out_dir)
+    out_dir = data_utils.makedir(out_dir)
 
     # Define the path for the combined OSM file
     osm_file = os.path.join(os.path.dirname(out_dir), f"{source}.geojson")
@@ -112,7 +113,7 @@ def download_osm(config, category, source="osm"):
     )
 
     data = [] # List to store the downloaded data
-    for iso_code in (pbar := data_utils._create_progress_bar(iso_codes)):
+    for iso_code in (pbar := data_utils.create_progress_bar(iso_codes)):
         pbar.set_description(f"Processing {iso_code}")
         filename = f"{iso_code}_{source}.geojson"
         out_subfile = os.path.join(out_dir, filename)
@@ -126,7 +127,7 @@ def download_osm(config, category, source="osm"):
         subdata = gpd.read_file(out_subfile).reset_index(drop=True)
         if len(subdata) > 0:
             # Prepare and process the data
-            subdata = data_utils._prepare_data(
+            subdata = data_utils.prepare_data(
                 config=config,
                 data=subdata,
                 iso_code=iso_code,
@@ -138,11 +139,11 @@ def download_osm(config, category, source="osm"):
             data.append(subdata) # Add the processed data to the list
 
     # Combine all the downloaded and processed data into a single GeoDataFrame
-    data = data_utils._concat_data(data, osm_file)
+    data = data_utils.concat_data(data, osm_file)
     return data
 
 
-def _query_overture(config, iso_code, out_file, query):
+def _query_overture(config: dict, iso_code: str, out_file: str, query: str) -> gpd.GeoDataFrame:
     """
     Execute a query on the Overture dataset to download geospatial data for a specific ISO code area.
 
@@ -201,7 +202,9 @@ def _query_overture(config, iso_code, out_file, query):
     return data
 
 
-def download_overture(config, category, exclude=None, source="overture"):
+def download_overture(
+    config: dict, category: str, exclude: str=None, source: str="overture"
+) -> gpd.GeoDataFrame:
     """
     Download geospatial data from the Overture dataset based on the provided configuration and category.
 
@@ -228,7 +231,7 @@ def download_overture(config, category, exclude=None, source="overture"):
     
     # Generate output directory
     out_dir = os.path.join(config["vectors_dir"], config["project"], category, source)
-    out_dir = data_utils._makedir(out_dir)
+    out_dir = data_utils.makedir(out_dir)
 
     # Define the path for the combined Overture file
     overture_file = os.path.join(os.path.dirname(out_dir), f"{source}.geojson")
@@ -261,7 +264,7 @@ def download_overture(config, category, exclude=None, source="overture"):
         query = f""" ({query}) and ({exclude_query})"""
 
     data = [] # List to store the downloaded data
-    for iso_code in (pbar := data_utils._create_progress_bar(iso_codes)):
+    for iso_code in (pbar := data_utils.create_progress_bar(iso_codes)):
         pbar.set_description(f"Processing {iso_code}")
         filename = f"{iso_code}_{source}.geojson"
         out_subfile = os.path.join(out_dir, filename)
@@ -275,14 +278,14 @@ def download_overture(config, category, exclude=None, source="overture"):
         if len(subdata) > 0:
             # Extract name from Overture data
             if "names" in subdata.columns:
-                geoboundary = data_utils._get_geoboundaries(config, iso_code)
+                geoboundary = data_utils.get_geoboundaries(config, iso_code)
                 subdata["name"] = subdata["names"].apply(
                     lambda x: x["common"][0]["value"]
                 )
                 subdata = gpd.sjoin(subdata, geoboundary, predicate="within")
 
                 # Prepare and process the data
-                subdata = data_utils._prepare_data(
+                subdata = data_utils.prepare_data(
                     config=config,
                     data=subdata,
                     iso_code=iso_code,
@@ -295,35 +298,59 @@ def download_overture(config, category, exclude=None, source="overture"):
             data.append(subdata) # Add the processed data to the list
 
     # Combine all the downloaded and processed data into a single GeoDataFrame
-    data = data_utils._concat_data(data, overture_file)
+    data = data_utils.concat_data(data, overture_file)
     return data
 
 
-def download_unicef(config, profile_file, category="school", source="unicef"):
+def download_unicef(
+    config: dict, profile_file: str, category: str="school", source: str="unicef"
+) -> gpd.GeoDataFrame:
+    """
+    Downloads and processes UNICEF data for specified ISO codes.
+
+    Args:
+        config (dict): Configuration dictionary containing paths and parameters.
+            - vectors_dir (str): Directory where vector data is stored.
+            - project (str): Name of the project.
+            - iso_codes (list of str): List of ISO codes to process.
+            - columns (list of str): List of columns to retain in the data.
+        profile_file (str): Path to the Delta Sharing profile file.
+        category (str, optional): Data category. Defaults to "school".
+        source (str, optional): Data source. Defaults to "unicef".
+
+    Returns:
+        GeoDataFrame: Combined GeoDataFrame of all processed data.
+    """
+    
     # Generate output directory
     data_dir = os.path.join(config["vectors_dir"], config["project"], category, source)
-    data_dir = data_utils._makedir(data_dir)
+    data_dir = data_utils.makedir(data_dir) 
     
     # List of ISO codes and columns to process
     iso_codes = config["iso_codes"]
     columns = config["columns"]
 
     data = []
-    for iso_code in (pbar := data_utils._create_progress_bar(iso_codes)):
+    # Create a progress bar for ISO codes processing
+    for iso_code in (pbar := data_utils.create_progress_bar(iso_codes)):
         pbar.set_description(f"Processing {iso_code}")
         
         filename = f"{iso_code}_{source}.geojson"
         out_subfile = os.path.join(data_dir, filename)
 
+        # Check if the file already exists to avoid redundant processing
         if not os.path.exists(out_subfile):
+            # Initialize Delta Sharing client
             client = delta_sharing.SharingClient(profile_file)
             table_url = f"{profile_file}#gold.school-master.{iso_code}"
             subdata = delta_sharing.load_as_pandas(table_url)
 
+            # Convert latitude and longitude to geometry
             subdata["geometry"] = gpd.GeoSeries.from_xy(
                 subdata["longitude"], subdata["latitude"]
             )
-            subdata = data_utils._prepare_data(
+            # Prepare the data with additional processing
+            subdata = data_utils.prepare_data(
                 config=config,
                 data=subdata,
                 iso_code=iso_code,
@@ -331,78 +358,25 @@ def download_unicef(config, profile_file, category="school", source="unicef"):
                 source=source,
                 columns=columns,
             )
+            # Convert to GeoDataFrame with specified CRS
             subdata = gpd.GeoDataFrame(
                 subdata, geometry="geometry", crs="EPSG:4326"
             )
+            # Save the processed data to file
             subdata.to_file(out_subfile)
-            
+
+        # Read the processed data from file and reset the index
         subdata = gpd.read_file(out_subfile).reset_index(drop=True)
         data.append(subdata)
 
     # Combine all the processed data into a single GeoDataFrame and save to file
     out_dir = os.path.dirname(data_dir)
     out_file = os.path.join(out_dir, f"{source}.geojson")
-    data = data_utils._concat_data(data, out_file)
+    data = data_utils.concat_data(data, out_file)
     return data
 
 
-def load_unicef(config, category="school", source="unicef"):
-    """
-    Load and process UNICEF data based on the provided configuration and category.
-
-    Args:
-        config (dict): Configuration dictionary containing necessary parameters.
-            - vectors_dir (str): Directory where vector data is stored.
-            - project (str): Name of the project.
-            - columns (list): List of columns to include in the output data.
-        category (str): The category of data to load (e.g., "school", "hospital"). 
-            Defaults to "school".
-        source (str): Source of the data. Defaults to "unicef".
-
-    Returns:
-        GeoDataFrame: Combined GeoDataFrame containing the processed UNICEF data.
-    """
-    
-    # Generate the data directory
-    data_dir = os.path.join(config["vectors_dir"], config["project"], category, source)
-    data_dir = data_utils._makedir(data_dir) # Create the directory if it doesn't exist
-
-    # List all files in the data directory
-    files = next(os.walk(data_dir), (None, None, []))[2]
-    logging.info(f"Number of CSV files: {len(files)}")
-
-    data = [] # List to store the processed data
-    for file in (pbar := data_utils._create_progress_bar(files)):
-        iso_code = file.split("_")[0]
-        pbar.set_description(f"Processing {iso_code}")
-        filename = os.path.join(data_dir, file)
-
-        # Load the CSV file into a DataFrame
-        subdata = pd.read_csv(filename).reset_index(drop=True)
-
-        # Create geometry column from longitude and latitude
-        subdata["geometry"] = gpd.GeoSeries.from_xy(subdata["lon"], subdata["lat"])
-        columns = config["columns"]
-
-        # Prepare and process the data
-        subdata = data_utils._prepare_data(
-            config=config,
-            data=subdata,
-            iso_code=iso_code,
-            category=category,
-            source=source,
-            columns=columns,
-        )
-        data.append(subdata) # Add the processed data to the list
-
-    # Combine all the processed data into a single GeoDataFrame and save to file
-    out_dir = os.path.dirname(data_dir)
-    out_file = os.path.join(out_dir, f"{source}.geojson")
-    data = data_utils._concat_data(data, out_file)
-    return data
-
-
-def _get_country(config, source="ms"):
+def get_country(config: dict, source: str="ms"):
     """
     Match country names from ISO codes with Microsoft dataset or 
     return country names based on configuration.
@@ -426,7 +400,7 @@ def _get_country(config, source="ms"):
     matches = dict() # Dictionary to store the matches
     for iso_code in iso_codes:
         # Get the country name and other region info based on the ISO code
-        country, _, _ = data_utils._get_iso_regions(config, iso_code)
+        country, _, _ = data_utils.get_iso_regions(config, iso_code)
         
         if source == "ms":
             max_score = 0
@@ -445,7 +419,7 @@ def _get_country(config, source="ms"):
     return matches
 
 
-def download_buildings(config, source="ms", verbose=False):
+def download_buildings(config: dict, source: str="ms", verbose: bool=False) -> None:
     """
     Download building footprints for the specified ISO codes from either
     Microsoft or Google sources.
@@ -467,16 +441,16 @@ def download_buildings(config, source="ms", verbose=False):
     iso_codes = config["iso_codes"]
 
     # Get country matches based on the source
-    matches = _get_country(config, source)
+    matches = get_country(config, source)
 
-    for iso_code in (pbar := data_utils._create_progress_bar(iso_codes)):
+    for iso_code in (pbar := data_utils.create_progress_bar(iso_codes)):
         pbar.set_description(f"Processing {iso_code}")
 
         # Create output directories
-        out_dir = data_utils._makedir(
+        out_dir = data_utils.makedir(
             os.path.join(config["vectors_dir"], f"{source}_buildings")
         )
-        temp_dir = data_utils._makedir(os.path.join(out_dir, iso_code))
+        temp_dir = data_utils.makedir(os.path.join(out_dir, iso_code))
         country = matches[iso_code]
 
         # Download building data if the output file doesn't already exist
@@ -507,7 +481,7 @@ def download_buildings(config, source="ms", verbose=False):
         out_file_epsg3857 = str(
             os.path.join(out_dir, f"{iso_code}_{source}_EPSG3857.geojson")
         )
-        tif_dir = data_utils._makedir(
+        tif_dir = data_utils.makedir(
             os.path.join(config["rasters_dir"], f"{source}_buildings")
         )
         tif_file = str(os.path.join(tif_dir, f"{iso_code}_{source}.tif"))
@@ -529,7 +503,7 @@ def download_buildings(config, source="ms", verbose=False):
             subprocess.Popen(f"{command1} && {command2}", shell=True)
 
 
-def download_ghsl(config, type="built_c"):
+def download_ghsl(config: dict, type: str="built_c") -> None:
     """
     Download and extract the Global Human Settlement Layer (GHSL) data.
 
@@ -551,7 +525,7 @@ def download_ghsl(config, type="built_c"):
 
     # Create the GHSL folder in the rasters directory
     ghsl_folder = os.path.join(config["rasters_dir"], "ghsl")
-    ghsl_folder = data_utils._makedir(ghsl_folder)
+    ghsl_folder = data_utils.makedir(ghsl_folder)
 
     # Determine the GHSL file path based on the type
     if type == "built_c":
