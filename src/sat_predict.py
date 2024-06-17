@@ -42,7 +42,7 @@ def main(args):
         cam_model_config_file = os.path.join(cwd, args.cam_model_config)
         cam_model_config = config_utils.load_config(cam_model_config_file)
 
-    geoboundary = data_utils._get_geoboundaries(
+    geoboundary = data_utils.get_geoboundaries(
         data_config, args.iso, adm_level="ADM2"
     )
     shapenames = [args.shapename] if args.shapename else geoboundary.shapeName.unique()
@@ -76,14 +76,12 @@ def main(args):
             config=model_config, 
             threshold=args.threshold,
             in_dir=sat_dir, 
-            n_classes=2, 
-            calibration=args.calibration,
-            temp_lr=args.temp_lr
+            n_classes=2
         )
         
         print(f"Generating GeoTIFFs for {shapename}...")
         subdata = results[results["pred"] == model_config["pos_class"]]
-        geotiff_dir = data_utils._makedir(os.path.join("output", args.iso, "geotiff", shapename))
+        geotiff_dir = data_utils.makedir(os.path.join("output", args.iso, "geotiff", shapename))
         pred_utils.georeference_images(subdata, sat_config, sat_dir, geotiff_dir)
 
         print(f"Generating CAMs for {shapename}...")
@@ -93,8 +91,7 @@ def main(args):
             cam_model_config, 
             subdata, 
             geotiff_dir, 
-            shapename,
-            calibration=args.calibration
+            shapename
         )            
             
     return results
@@ -113,8 +110,6 @@ if __name__ == "__main__":
     parser.add_argument("--buffer_size", help="Buffer size", default=50)
     parser.add_argument("--threshold", type=float, help="Probability threhsold", default=0.5)
     parser.add_argument("--sum_threshold", help="Pixel sum threshold", default=5)
-    parser.add_argument("--calibration", help="Model calibration", default=None)
-    parser.add_argument("--temp_lr", type=float, help="Temperature LR", default=0.01)
     parser.add_argument("--iso", help="ISO code")
     args = parser.parse_args()
     logging.info(args)
