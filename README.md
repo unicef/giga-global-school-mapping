@@ -21,15 +21,12 @@
 </div>
 
 ## 📜 Description
-This work leverages deep learning and high-resolution satellite images for automated school mapping. This work is developed under Giga, a global initiative by UNICEF-ITU to connect every school to the internet by 2030.
+This work leverages deep learning and high-resolution satellite images for automated school mapping and is developed under Giga, a global initiative by UNICEF-ITU to connect every school to the internet by 2030.
 
 Obtaining complete and accurate information on schools locations is a critical first step to accelerating digital connectivity and driving progress towards SDG4: Quality Education. However, precise GPS coordinate of schools are often inaccurate, incomplete, or even completely non-existent in many developing countries.  In support of the Giga initiative, we leverage machine learning and remote sensing data to accelerate school mapping. This work aims to support government agencies and connectivity providers in improving school location data to better estimate the costs of digitally connecting schools and plan the strategic allocation of their financial resources.
 
-<p>
-<img src="./assets/workflow.png" width="80%" height="80%" />
-
 This code accompanies the following paper(s):
-- Doerksen, K., Tingzon, I., and Kim, D. (2024). AI-powered school mapping and connectivity status prediction using Earth observation. ICLR 2024 Machine Learning for Remote Sensing (ML4RS) Workshop.
+- Doerksen, K.*, Tingzon, I.*, and Kim, D. (2024). AI-powered school mapping and connectivity status prediction using Earth observation. ICLR 2024 Machine Learning for Remote Sensing (ML4RS) Workshop.
 
 ## 📂 Dataset
 For each school and non-school location in our dataset, we downloaded 300 x 300 m, 500 x 500 px high-resolution satellite images from Maxar with a spatial resolution of 60 cm/px. 
@@ -50,10 +47,32 @@ pip install -r requirements.txt
 ```
 
 ### Data Download 
-To download the relevant datasets, run:
+To download the relevant datasets, run `python src/data_download.py`:
 ```s
-python data_download.py \
---config="configs/<DATA_CONFIG_FILE_NAME>.yaml"
+usage: data_download.py [-h] [--config CONFIG] [--profile PROFILE]
+
+Data Download
+
+options:
+  -h, --help         show this help message and exit
+  --config CONFIG    Path to the configuration file
+  --profile PROFILE  Path to the profile filele file
+```
+
+### Satellite Image Download:
+To download Maxar satellite images, run `python src/sat_download.py`:
+```s
+usage: sat_download.py [-h] [--config CONFIG] [--creds CREDS] [--category CATEGORY] [--iso_code ISO_CODE] [--filename FILENAME]
+
+Satellite Image Download
+
+options:
+  -h, --help           show this help message and exit
+  --config CONFIG      Path to the configuration file
+  --creds CREDS        Path to the credentials file
+  --category CATEGORY  Category (e.g. school or non_school)
+  --iso_code ISO_CODE  ISO 3166-1 alpha-3 code
+  --filename FILENAME  Filename of data (optional)
 ```
 
 ### Data Preparation
@@ -63,27 +82,11 @@ python data_preparation.py \
 --config="configs/<DATA_CONFIG_FILE_NAME>.yaml"
 ```
 
-For example, to clean only the UNICEF datasets, run:
-```s
-python data_preparation.py \
---config configs/master_config.yaml \
---name unicef_clean \
---clean_neg False 
---sources unicef
-```
-
 ### Model Training
-To train the CNN model, run:
+To train the computer vision models, run:
 ```s
 python train_cnn.py \
 --cnn_config="configs/cnn_configs/<CNN_CONFIG_FILE_NAME>.yaml" \
---iso="<ISO_CODE>"
-```
-
-To run the ViT-based models:
-```s
-python train_model.py \
---model_config="configs/model_configs/<MODEL_CONFIG_FILE_NAME>.yaml" \
 --iso="<ISO_CODE>"
 ```
 
