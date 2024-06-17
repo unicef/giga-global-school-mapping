@@ -435,8 +435,8 @@ def generate_samples(
         iso_code (str): ISO code of the country or region of interest.
         buffer_size (float): Buffer size for the geographical boundaries.
         spacing (float): Spacing between sample points.
-        adm_level (str, optional): Administrative level for geographical boundaries (default is "ADM0").
-        shapename (str, optional): Name of the shape within boundaries to filter (default is None).
+        adm_level (str, optional): Administrative level for geographical boundaries. Default is "ADM0".
+        shapename (str, optional): Name of the shape within boundaries to filter. Default is None.
 
     Returns:
         gpd.GeoDataFrame: GeoDataFrame containing generated sample points within the specified boundaries.
