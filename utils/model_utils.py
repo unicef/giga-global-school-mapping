@@ -3,14 +3,9 @@ import pandas as pd
 import geopandas as gpd
 import rasterio as rio
 
-import collections
 import numpy as np
-
-from sklearn.pipeline import Pipeline
-from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
-import clf_utils
-import eval_utils
-import data_utils
+from utils import eval_utils
+from utils import data_utils
 
 import logging
 
@@ -18,154 +13,131 @@ logging.basicConfig(level=logging.INFO)
 SEED = 42
 
 
-def _get_scalers(scalers):
-    scalers_list = [None]
+def load_data(
+    config: dict,
+    attributes: list = ["rurban"],
+    in_dir: str = "clean",
+    out_dir: str = "train",
+    verbose: bool = True,
+) -> gpd.GeoDataFrame:
+    """
+    Load and process geospatial data for training/validation/testing.
 
-    for scaler in scalers:
-        scalers_list.append(clf_utils.get_scaler(scaler))
+    Args:
+        config (Dict[str, Any]): Configuration dictionary with the following keys:
+            - vectors_dir (str): Directory containing vector data.
+            - project (str): Project name.
+            - iso_codes (List[str]): List of ISO country codes.
+            - name (str, optional): Name for the dataset. Defaults to the first ISO code if not provided.
+            - test_size (float): Proportion of the data to include in the test split.
+            - pos_class (str): Label for the positive class.
+            - neg_class (str): Label for the negative class.
+        attributes (List[str], optional): List of attributes to use. Defaults to ["rurban"].
+        in_dir (str, optional): Input directory name. Defaults to "clean".
+        out_dir (str, optional): Output directory name. Defaults to "train".
+        verbose (bool, optional): If True, prints detailed logs. Defaults to True.
 
-    return scalers_list
+    Returns:
+        gpd.GeoDataFrame: Processed geospatial data.
+    """
+    # Construct the directory path for vectors
+    vector_dir = os.path.join(os.getcwd(), config["vectors_dir"], config["project"])
+    iso_codes = config["iso_codes"]
 
+    # Determine the name for the dataset
+    name = config["name"] if "name" in config else iso_codes[0]
 
-def _get_pipeline(model, selector):
-    if model in clf_utils.MODELS:
-        model = clf_utils.get_model(model)
-
-    if selector in clf_utils.SELECTORS:
-        selector = clf_utils.get_selector(selector)
-
-    return Pipeline(
-        [
-            ("scaler", "passthrough"),
-            ("selector", selector),
-            ("model", model),
-        ]
+    # Construct the file path for the output GeoJSON file
+    out_file = os.path.join(
+        os.getcwd(), vector_dir, out_dir, f"{name}_{out_dir}.geojson"
     )
 
-
-def _get_params(scalers, model_params, selector_params):
-    def _get_range(param):
-        if param[0] == "np.linspace":
-            return list(np.linspace(*param[1:]).astype(int))
-        elif param[0] == "range":
-            return list(range(*param[1:]))
-        return param
-
-    scalers = {"scaler": _get_scalers(scalers)}
-
-    if model_params:
-        model_params = {
-            "model__" + name: _get_range(param) for name, param in model_params.items()
-        }
-    else:
-        model_params = {}
-
-    if selector_params:
-        selector_params = {
-            "selector__" + name: _get_range(param)
-            for name, param in selector_params.items()
-        }
-    else:
-        selector_params = {}
-
-    params = [model_params, selector_params, scalers]
-
-    return dict(collections.ChainMap(*params))
-
-
-def get_cv(c):
-    pipe = _get_pipeline(c["model"], c["selector"])
-    params = _get_params(c["scalers"], c["model_params"], c["selector_params"])
-    cv, cv_params = c["cv"], c["cv_params"]
-
-    assert cv in [
-        "RandomizedSearchCV",
-        "GridSearchCV",
-    ]
-
-    scoring = eval_utils.get_scoring(c["pos_class"])
-    if cv == "RandomizedSearchCV":
-        return RandomizedSearchCV(
-            pipe, params, scoring=scoring, random_state=SEED, **cv_params
-        )
-    elif cv == "GridSearchCV":
-        return GridSearchCV(pipe, params, scoring=scoring, **cv_params)
-
-
-def model_trainer(c, data, features, target):
-    logging.info("Features: {}, Target: {}".format(features, target))
-
-    X = data[features]
-    y = data[target].values
-
-    cv = get_cv(c)
-    logging.info(cv)
-    cv.fit(X, y)
-
-    logging.info("Best estimator: {}".format(cv.best_estimator_))
-    return cv
-
-
-def load_data(
-    config, attributes=["rurban"], in_dir="clean", out_dir="train", verbose=True
-):
-    cwd = os.path.dirname(os.getcwd())
-    vector_dir = os.path.join(cwd, config["vectors_dir"], config["project"])
-    iso_codes = config["iso_codes"]
-    name = iso_codes[0]
-    if "name" in config:
-        name = config["name"] if config["name"] else name
-    test_size = config["test_size"]
-
-    filename = f"{name}_{out_dir}.geojson"
-    out_file = os.path.join(cwd, vector_dir, out_dir, filename)
+    # Check if the output file already exists
     if os.path.exists(out_file):
         data = gpd.read_file(out_file)
         if verbose:
-            logging.info(f"Reading file {out_file}")
-            _print_stats(data, attributes, test_size)
+            logging.info(f"Loading existing file: {out_file}")
+            print_stats(data, attributes, config["test_size"])
         return data
 
     data = []
-    data_utils._makedir(os.path.dirname(out_file))
+    data_utils.makedir(out_file)
+
+    # Iterate over the ISO codes to read and process data
     for iso_code in iso_codes:
-        in_file = f"{iso_code}_{in_dir}.geojson"
-        pos_file = os.path.join(vector_dir, config["pos_class"], in_dir, in_file)
-        neg_file = os.path.join(vector_dir, config["neg_class"], in_dir, in_file)
+        # Construct file paths for positive and negative classes
+        positive_file = os.path.join(
+            vector_dir, config["pos_class"], in_dir, f"{iso_code}_{in_dir}.geojson"
+        )
+        negative_file = os.path.join(
+            vector_dir, config["neg_class"], in_dir, f"{iso_code}_{in_dir}.geojson"
+        )
 
-        pos = gpd.read_file(pos_file)
-        pos["class"] = config["pos_class"]
-        if "validated" in pos.columns:
-            pos = pos[pos["validated"] == 0]
+        # Read positive class data
+        positive = gpd.read_file(positive_file)
+        positive["class"] = config["pos_class"]
+        if "validated" in positive.columns:
+            positive = positive[positive["validated"] == 0]
 
-        neg = gpd.read_file(neg_file)
-        neg["class"] = config["neg_class"]
-        if "validated" in neg.columns:
-            neg = neg[neg["validated"] == 0]
-        data.append(pd.concat([pos, neg]))
+        # Read negative class data
+        negative = gpd.read_file(negative_file)
+        negative["class"] = config["neg_class"]
+        if "validated" in negative.columns:
+            negative = negative[negative["validated"] == 0]
 
+        # Combine positive and negative data
+        data.append(pd.concat([positive, negative]))
+
+    # Concatenate all the data into a single GeoDataFrame
     data = gpd.GeoDataFrame(pd.concat(data))
-    data = data[(data["clean"] == 0)]
-    data = _get_rurban_classification(config, data)
-    data = _train_test_split(
-        data, test_size=test_size, attributes=attributes, verbose=verbose
+
+    # Filter dataset by the clean column
+    data = data[data["clean"] == 0]
+
+    # Apply rural-urban classification
+    data = get_rurban_classification(config, data)
+
+    # Split the data into training, validation, and testing sets
+    data = train_val_test_split(
+        data, test_size=config["test_size"], attributes=attributes, verbose=verbose
     )
+
+    # Save the processed data to a GeoJSON file
     data.to_file(out_file, driver="GeoJSON")
     if verbose:
-        _print_stats(data, attributes, test_size)
+        logging.info(f"Generating file: {out_file}")
+        print_stats(data, attributes, test_size=config["test_size"])
 
     return data
 
 
-def _print_stats(data, attributes, test_size):
+def print_stats(data: gpd.GeoDataFrame, attributes: list, test_size: float) -> None:
+    """
+    Print and log various statistics about the dataset.
+
+    Args:
+        data (gpd.GeoDataFrame): The data to analyze.
+        attributes (list): List of attributes to include in the analysis.
+        test_size (float): Proportion of the data to include in the test split.
+
+    Returns:
+        None
+    """
+    # Calculate total size of the dataset
     total_size = len(data)
+    # Calculate the absolute size of the test dataset
     test_size = int((total_size * test_size))
+    # Include 'class' attribute in the attributes list
     attributes = attributes + ["class"]
+
+    # Calculate value counts for each combination of attributes and class
     value_counts = data.groupby(attributes)[attributes[-1]].value_counts()
     value_counts = pd.DataFrame(value_counts).reset_index()
     value_counts["percentage"] = value_counts["count"] / total_size
     logging.info(f"\n{value_counts}")
 
+    # Calculate size and percentage for each combination of
+    # attributes, class, and dataset (train/val/test)
     subcounts = pd.DataFrame(
         data.groupby(attributes + ["dataset"]).size().reset_index()
     )
@@ -176,7 +148,9 @@ def _print_stats(data, attributes, test_size):
     subcounts = subcounts.set_index(attributes + ["dataset"])
     logging.info(f"\n{subcounts.to_string()}")
 
+    # If there are multiple ISO codes in the data, calculate additional statistics
     if len(data.iso.unique()) > 1:
+        # Size and percentage for each combination of ISO, dataset, and class
         subcounts = pd.DataFrame(
             data.groupby(["iso", "dataset", "class"]).size().reset_index()
         )
@@ -184,66 +158,122 @@ def _print_stats(data, attributes, test_size):
         subcounts = subcounts.set_index(["iso", "dataset", "class"])
         logging.info(f"\n{subcounts.to_string()}")
 
+        # Size and percentage for each combination of ISO and dataset
         subcounts = pd.DataFrame(data.groupby(["iso", "dataset"]).size().reset_index())
         subcounts.columns = ["iso", "dataset", "count"]
         subcounts = subcounts.set_index(["iso", "dataset"])
         logging.info(f"\n{subcounts.to_string()}")
 
+    # Size and percentage for each combination of dataset and class
     subcounts = pd.DataFrame(data.groupby(["dataset", "class"]).size().reset_index())
     subcounts.columns = ["dataset", "class", "count"]
     subcounts["percentage"] = subcounts["count"] / total_size
     subcounts = subcounts.set_index(["dataset", "class"])
 
+    # Log value counts and normalized value counts for the 'dataset' column
     logging.info(f"\n{subcounts.to_string()}")
     logging.info(f"\n{data.dataset.value_counts()}")
     logging.info(f"\n{data.dataset.value_counts(normalize=True)}")
+
+    # Log value counts and normalized value counts for each attribute
     for attribute in attributes:
         if attribute != "iso":
             logging.info(f"\n{data[attribute].value_counts()}")
             logging.info(f"\n{data[attribute].value_counts(normalize=True)}")
 
 
-def _get_rurban_classification(config, data):
+def get_rurban_classification(config: dict, data: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """
+    Classify regions as urban or rural based on GHSL SMOD data.
+
+    Args:
+        config (dict): Configuration dictionary containing:
+            - rasters_dir (str): Directory path to raster files.
+            - ghsl_smod_file (str): Filename of the GHSL SMOD raster file.
+        data (GeoDataFrame): Geospatial data containing geometries.
+
+    Returns:
+        GeoDataFrame: Updated geospatial data with a new 'rurban' classification column.
+    """
+    # Convert the coordinate reference system to ESRI:54009
     data = data.to_crs("ESRI:54009")
+
+    # Extract coordinates from geometries
     coord_list = [(x, y) for x, y in zip(data["geometry"].x, data["geometry"].y)]
 
-    cwd = os.path.dirname(os.getcwd())
-    raster_dir = os.path.join(cwd, config["rasters_dir"])
+    # Path to the GHSL SMOD raster file
+    raster_dir = os.path.join(os.getcwd(), config["rasters_dir"])
     ghsl_path = os.path.join(raster_dir, "ghsl", config["ghsl_smod_file"])
+
+    # Sample raster values at the coordinates
     with rio.open(ghsl_path) as src:
         data["ghsl_smod"] = [x[0] for x in src.sample(coord_list)]
 
+    # Define rural class codes
     rural = [10, 11, 12, 13]
+
+    # Classify as 'urban' by default, then set to 'rural' where applicable
     data["rurban"] = "urban"
     data.loc[data["ghsl_smod"].isin(rural), "rurban"] = "rural"
 
     return data
 
 
-def _train_test_split(data, test_size=0.2, attributes=["rurban"], verbose=True):
+def train_val_test_split(
+    data: pd.DataFrame,
+    test_size: float = 0.2,
+    attributes: list = ["rurban"],
+    verbose: bool = True,
+) -> pd.DataFrame:
+    """
+    Split data into training, validation, and test sets.
+
+    Args:
+        data (DataFrame): The dataset to be split.
+        test_size (float, optional): Proportion of the dataset to include in the test split.
+            Defaults to 0.2.
+        attributes (list, optional): List of attributes to group by for stratified splitting.
+            Defaults to ["rurban"].
+        verbose (bool, optional): Whether to print detailed logging info. Defaults to True.
+
+    Returns:
+        DataFrame: The dataset with an additional 'dataset' column indicating
+            train, val, or test split.
+    """
+    # Return if the dataset is already split
     if "dataset" in data.columns:
         return data
 
+    # Initialize dataset column
     data["dataset"] = None
     total_size = len(data)
     test_size = int((total_size * test_size))
     logging.info(f"Data dimensions: {total_size}")
 
+    # Make a copy of the data for manipulation
     test = data.copy()
+
+    # Calculate value counts for stratification
     value_counts = data.groupby(attributes)[attributes[-1]].value_counts()
     value_counts = pd.DataFrame(value_counts).reset_index()
 
     for _, row in value_counts.iterrows():
         subtest = test.copy()
+        # Filter data by stratification attributes
         for i in range(len(attributes)):
             subtest = subtest[subtest[attributes[i]] == row[attributes[i]]]
+
+        # Determine size of the subtest split
         subtest_size = int(test_size * (row["count"] / total_size))
         if subtest_size > len(subtest):
             subtest_size = len(subtest)
+
+        # Sample UIDs for the test split
         subtest_files = subtest.sample(subtest_size, random_state=SEED).UID.values
         in_test = data["UID"].isin(subtest_files)
         data.loc[in_test, "dataset"] = "test"
 
+        # Sample UIDs for the validation split
         subval_files = (
             data[data.dataset != "test"]
             .sample(subtest_size, random_state=SEED)
@@ -252,6 +282,7 @@ def _train_test_split(data, test_size=0.2, attributes=["rurban"], verbose=True):
         in_val = data["UID"].isin(subval_files)
         data.loc[in_val, "dataset"] = "val"
 
+    # Fill remaining data as training split
     data.dataset = data.dataset.fillna("train")
 
     return data

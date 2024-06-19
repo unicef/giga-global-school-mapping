@@ -8,7 +8,7 @@ import yaml
 from easydict import EasyDict
 
 
-def create_config(config_file: str, prefix: str="") -> EasyDict:
+def create_config(config_file: str, prefix: str = "") -> EasyDict:
     """
     Create a configuration dictionary from a YAML file with optional prefixing for directory paths.
 
@@ -35,14 +35,14 @@ def create_config(config_file: str, prefix: str="") -> EasyDict:
     return cfg
 
 
-def load_config(config_file_exp: str, prefix: str="") -> EasyDict:
+def load_config(config_file_exp: str, prefix: str = "") -> EasyDict:
     """
     Load and merge configuration files with optional prefixing for directory paths.
 
     Args:
         config_file_exp (str): Path to the experimental configuration file.
         prefix (str): Optional prefix to add to directory paths. Defaults to "".
-        parent (bool): If True, use the parent directory of the current working directory. 
+        parent (bool): If True, use the parent directory of the current working directory.
             Defaults to False.
 
     Returns:
@@ -66,7 +66,7 @@ def load_config(config_file_exp: str, prefix: str="") -> EasyDict:
     for key, val in sys_config.items():
         if key in config:
             remove.append(key)
-            
+
     # Remove the identified keys from the system configuration
     for key in remove:
         sys_config.pop(key)

@@ -21,12 +21,9 @@
 </div>
 
 ## 📜 Description
-This work leverages deep learning and high-resolution satellite images for automated school mapping. This work is developed under Giga, a global initiative by UNICEF-ITU to connect every school to the internet by 2030.
+This work leverages deep learning and high-resolution satellite images for automated school mapping and is developed under Giga, a global initiative by UNICEF-ITU to connect every school to the internet by 2030.
 
 Obtaining complete and accurate information on schools locations is a critical first step to accelerating digital connectivity and driving progress towards SDG4: Quality Education. However, precise GPS coordinate of schools are often inaccurate, incomplete, or even completely non-existent in many developing countries.  In support of the Giga initiative, we leverage machine learning and remote sensing data to accelerate school mapping. This work aims to support government agencies and connectivity providers in improving school location data to better estimate the costs of digitally connecting schools and plan the strategic allocation of their financial resources.
-
-<p>
-<img src="./assets/workflow.png" width="80%" height="80%" />
 
 This code accompanies the following paper(s):
 - Doerksen, K., Tingzon, I., and Kim, D. (2024). AI-powered school mapping and connectivity status prediction using Earth observation. ICLR 2024 Machine Learning for Remote Sensing (ML4RS) Workshop.
@@ -50,41 +47,60 @@ pip install -r requirements.txt
 ```
 
 ### Data Download 
-To download the relevant datasets, run:
+To download the relevant datasets, run `python src/data_download.py`:
 ```s
-python data_download.py \
---config="configs/<DATA_CONFIG_FILE_NAME>.yaml"
+usage: data_download.py [-h] [--config CONFIG] [--profile PROFILE]
+
+Data Download
+options:
+  -h, --help         show this help message and exit
+  --config CONFIG    Path to the configuration file
+  --profile PROFILE  Path to the profile file
 ```
 
 ### Data Preparation
-To run the data cleaning pipeline:
+To run the data cleaning pipeline, run `python src/data_preparation.py`:
 ```s
-python data_preparation.py \
---config="configs/<DATA_CONFIG_FILE_NAME>.yaml"
+usage: data_preparation.py [-h] [--config CONFIG] [--name NAME] 
+[--sources SOURCES [SOURCES ...]] [--clean_pos CLEAN_POS] [--clean_neg CLEAN_NEG]
+
+Data Cleaning Pipeline
+options:
+  -h, --help            show this help message and exit
+  --config CONFIG       Path to the configuration file
+  --name NAME           Folder name
+  --sources SOURCES [SOURCES ...] Sources (e.g. unicef, osm, overture)
+  --clean_pos CLEAN_POS Clean positive samples (Boolean indicator)
+  --clean_neg CLEAN_NEG Clean negative samples (Boolean indicator)
 ```
 
-For example, to clean only the UNICEF datasets, run:
+### Satellite Image Download
+To download Maxar satellite images, run `python src/sat_download.py`:
 ```s
-python data_preparation.py \
---config configs/master_config.yaml \
---name unicef_clean \
---clean_neg False 
---sources unicef
+usage: sat_download.py [-h] [--config CONFIG] [--creds CREDS] 
+[--category CATEGORY] [--iso_code ISO_CODE] [--filename FILENAME]
+
+Satellite Image Download
+options:
+  -h, --help           show this help message and exit
+  --config CONFIG      Path to the configuration file
+  --creds CREDS        Path to the credentials file
+  --category CATEGORY  Category (e.g. school or non_school)
+  --iso_code ISO_CODE  ISO 3166-1 alpha-3 code
+  --filename FILENAME  Filename of data (optional)
 ```
 
 ### Model Training
-To train the CNN model, run:
+To train the computer vision models, run `python src/train_cnn.py`:
 ```s
-python train_cnn.py \
---cnn_config="configs/cnn_configs/<CNN_CONFIG_FILE_NAME>.yaml" \
---iso="<ISO_CODE>"
-```
+usage: train_cnn.py [-h] [--cnn_config CNN_CONFIG] [--lr_finder LR_FINDER] [--iso ISO [ISO ...]]
 
-To run the ViT-based models:
-```s
-python train_model.py \
---model_config="configs/model_configs/<MODEL_CONFIG_FILE_NAME>.yaml" \
---iso="<ISO_CODE>"
+Model Training
+options:
+  -h, --help              show this help message and exit
+  --cnn_config CNN_CONFIG Path to the configuration file
+  --lr_finder LR_FINDER   Learning rate finder (Boolean indicator)
+  --iso ISO [ISO ...]     ISO 3166-1 alpha-3 codes
 ```
 
 ### Model Prediction
