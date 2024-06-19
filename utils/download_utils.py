@@ -1,15 +1,12 @@
 import re
 import os
-import time
 import duckdb
 import geojson
 import overpass
 import leafmap
-import pyproj
 import subprocess
 import operator
 import delta_sharing
-from tqdm import tqdm
 
 import pandas as pd
 import geopandas as gpd
@@ -18,13 +15,11 @@ from rapidfuzz import fuzz
 from country_bounding_boxes import country_subunits_by_iso_code
 from utils import data_utils
 
+import logging
 import warnings
 
 warnings.filterwarnings("ignore")
 warnings.simplefilter("ignore")
-
-import logging
-
 logging.basicConfig(level=logging.INFO)
 
 
@@ -78,7 +73,7 @@ def download_osm(config: dict, category: str, source: str = "osm") -> gpd.GeoDat
                 Dictionary of keywords for the OSM query, where the keys are OSM tags
                 and the values are lists of tag values to match. The {category} key should
                 be replaced with the actual category name.
-        category (str): The category of OSM data to download (e.g., "buildings", "roads").
+        category (str): The category of OSM data to download (e.g., "school", "hospital").
         source (str): Source of the data. Defaults to "osm".
 
     Returns:
@@ -343,7 +338,7 @@ def download_unicef(
         # Check if the file already exists to avoid redundant processing
         if not os.path.exists(out_subfile):
             # Initialize Delta Sharing client
-            client = delta_sharing.SharingClient(profile_file)
+            delta_sharing.SharingClient(profile_file)
             table_url = f"{profile_file}#gold.school-master.{iso_code}"
             subdata = delta_sharing.load_as_pandas(table_url)
 
@@ -474,7 +469,8 @@ def download_buildings(config: dict, source: str = "ms", verbose: bool = False) 
                         quiet=quiet,
                         overwrite=True,
                     )
-            except:
+            except Exception as e:
+                logging.info(e)
                 continue
 
         # Define paths for reprojected GeoJSON file and rasterized TIFF file

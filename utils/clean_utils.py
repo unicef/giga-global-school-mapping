@@ -1,30 +1,17 @@
-import re
 import os
-import geojson
-import itertools
-
 import numpy as np
-import pandas as pd
 import geopandas as gpd
 import rasterio as rio
-from rasterio.mask import mask
-import translators as ts
-
-import networkx as nx
-from rapidfuzz import fuzz
-from tqdm import tqdm
 
 from utils import data_utils
-import warnings
 import logging
+
 logging.basicConfig(level=logging.INFO)
 SEED = 42
 
 
 def filter_keywords(
-    data: gpd.GeoDataFrame, 
-    exclude: list, 
-    column: str = "name"
+    data: gpd.GeoDataFrame, exclude: list, column: str = "name"
 ) -> gpd.GeoDataFrame:
     """
     Filters data based on keyword exclusion.
@@ -45,11 +32,7 @@ def filter_keywords(
 
 
 def sample_points(
-    iso_code: str, 
-    config: dict, 
-    buffer_size: float, 
-    spacing: float, 
-    name: str = "clean"
+    iso_code: str, config: dict, buffer_size: float, spacing: float, name: str = "clean"
 ) -> gpd.GeoDataFrame:
     """
     Sample points for augmentation, filtering out those overlapping with positive class geometries.
@@ -119,9 +102,7 @@ def sample_points(
 
 
 def augment_negative_samples(
-    iso_code: str, 
-    config: dict, 
-    name: str = "clean"
+    iso_code: str, config: dict, name: str = "clean"
 ) -> gpd.GeoDataFrame:
     """
     Augments negative samples to balance with positive samples.
@@ -142,7 +123,7 @@ def augment_negative_samples(
         GeoDataFrame: Augmented GeoDataFrame of negative samples.
     """
     logging.info(f"Augmenting negative samples for {iso_code}")
-    
+
     # Read positive class file
     pos_file = os.path.join(
         os.getcwd(),
@@ -171,11 +152,11 @@ def augment_negative_samples(
     # Check if negative samples need augmentation to balance with positive samples
     if n_pos * 2 > n_neg:
         points = sample_points(
-            iso_code, 
-            config, 
-            buffer_size=config["object_proximity"] / 2, 
-            spacing=config["sample_spacing"], 
-            name=name
+            iso_code,
+            config,
+            buffer_size=config["object_proximity"] / 2,
+            spacing=config["sample_spacing"],
+            name=name,
         )
 
         # Prepare sampled points as negative class data
@@ -199,19 +180,17 @@ def augment_negative_samples(
         points = points.sample((n_pos * 2 - n_neg), random_state=SEED)
 
         # Concatenate sampled points with existing negatives and save to file
-        negatives = data_utils.concat_data(
-            [points, negatives], neg_file, verbose=False
-        )
+        negatives = data_utils.concat_data([points, negatives], neg_file, verbose=False)
 
     return negatives
 
 
 def filter_uninhabited_locations(
-    iso_code: str, 
-    data: gpd.GeoDataFrame, 
-    config: dict, 
-    shape_name: str, 
-    sum_threshold: int = 0
+    iso_code: str,
+    data: gpd.GeoDataFrame,
+    config: dict,
+    shape_name: str,
+    sum_threshold: int = 0,
 ) -> gpd.GeoDataFrame:
     """
     Filters uninhabited locations based on building footprint raster data.
@@ -256,7 +235,8 @@ def filter_uninhabited_locations(
                 image, transform = rio.mask.mask(src, geometry, crop=True)
                 image[image == 255] = 1
                 pixel_sum = np.sum(image)
-            except:
+            except Exception as e:
+                logging.info(e)
                 pass
 
         # If no building pixels found, attempt with Google Open Buildings
@@ -267,7 +247,8 @@ def filter_uninhabited_locations(
                     image, transform = rio.mask.mask(src, geometry, crop=True)
                     image[image == 255] = 1
                     pixel_sum = np.sum(image)
-                except:
+                except Exception as e:
+                    logging.info(e)
                     pass
 
         # If no building pixels found, attempt with GHSL data
@@ -286,16 +267,12 @@ def filter_uninhabited_locations(
     data["sum"] = pixel_sums
     data = data[data["sum"] > sum_threshold]
     data = data.reset_index(drop=True)
-    
+
     return data
 
 
 def filter_pois_within_object_proximity(
-    iso_code: str, 
-    config: dict, 
-    proximity: float, 
-    sources: list, 
-    name: str = "clean"
+    iso_code: str, config: dict, proximity: float, sources: list, name: str = "clean"
 ) -> gpd.GeoDataFrame:
     """
     Filters points of interest (POIs) within a specified proximity of school locations.
@@ -324,7 +301,9 @@ def filter_pois_within_object_proximity(
     pos_sub = gpd.read_file(pos_file)
 
     # Read negative class data (e.g., non-school POIs)
-    neg_dir = os.path.join(os.getcwd(), config["vectors_dir"], config["project"], config["neg_class"])
+    neg_dir = os.path.join(
+        os.getcwd(), config["vectors_dir"], config["project"], config["neg_class"]
+    )
     neg_sub = data_utils.read_data(iso_code, neg_dir, sources=sources)
 
     # Filter out validated and already cleaned positive samples
@@ -350,12 +329,12 @@ def filter_pois_within_object_proximity(
 
 
 def clean_data(
-    iso_code: str, 
-    config: dict, 
-    category: str, 
-    name: str = "clean", 
-    id: str = "UID", 
-    sources: list = []
+    iso_code: str,
+    config: dict,
+    category: str,
+    name: str = "clean",
+    id: str = "UID",
+    sources: list = [],
 ) -> gpd.GeoDataFrame:
     """
     Cleans and processes data for a specified ISO code and category.
@@ -380,7 +359,7 @@ def clean_data(
     Returns:
         GeoDataFrame: Cleaned and processed GeoDataFrame.
     """
-    
+
     def _get_condition(data, name, id, ids, shape_name):
         """
         Helper function to create a condition for data filtering.
@@ -406,8 +385,8 @@ def clean_data(
     if category == config["pos_class"]:
         data_dir = os.path.join(config["vectors_dir"], config["project"], category)
         data = data_utils.read_data(iso_code, data_dir, sources=sources)
-        
-    elif category == config["neg_class"]:        
+
+    elif category == config["neg_class"]:
         data = filter_pois_within_object_proximity(
             iso_code, config, sources=sources, proximity=config["object_proximity"]
         )
@@ -417,14 +396,12 @@ def clean_data(
     out_file = os.path.join(out_dir, f"{iso_code}_{name}.geojson")
     if not os.path.exists(out_file):
         data[name] = 0
-        geoboundaries = data_utils.get_geoboundaries(
-            config, iso_code, adm_level="ADM1"
-        )
+        geoboundaries = data_utils.get_geoboundaries(config, iso_code, adm_level="ADM1")
         geoboundaries = geoboundaries[["shapeName", "geometry"]].dropna(
             subset=["shapeName"]
         )
         data = data.sjoin(geoboundaries, how="left", predicate="within")
-        data.loc[data["geometry"].duplicated(keep="first"), 'clean'] = 2
+        data.loc[data["geometry"].duplicated(keep="first"), "clean"] = 2
 
         # Split the data into smaller admin boundaries for scalability
         for shape_name in data.shapeName.unique():
@@ -436,20 +413,20 @@ def clean_data(
 
             # Filter objects containing certain keywords
             if category == config["pos_class"]:
-                subdata = filter_keywords(
-                    subdata, exclude=config["exclude"]
-                )[config["columns"]]
+                subdata = filter_keywords(subdata, exclude=config["exclude"])[
+                    config["columns"]
+                ]
                 ids = subdata[id].values
                 condition = _get_condition(data, name, id, ids, shape_name)
                 data.loc[condition, name] = 1
 
             # Remove objects within proximity of each other
             subdata = data_utils.connect_components(
-                subdata, buffer_size=config["proximity"]/2
+                subdata, buffer_size=config["proximity"] / 2
             )
-            subdata = data_utils.drop_duplicates(
-                subdata, priority=config["priority"]
-            )[config["columns"]]
+            subdata = data_utils.drop_duplicates(subdata, priority=config["priority"])[
+                config["columns"]
+            ]
             ids = subdata[id].values
             condition = _get_condition(data, name, id, ids, shape_name)
             data.loc[condition, name] = 2

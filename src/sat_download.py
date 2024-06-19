@@ -1,12 +1,8 @@
 import os
-import time
-import math
-import random
 import logging
 import argparse
 
 from tqdm import tqdm
-import pandas as pd
 import geopandas as gpd
 from owslib.wms import WebMapService
 
@@ -39,7 +35,6 @@ def download_sat_images(
             - connect_id (str): Connection ID for the service.
             - username (str): Username for the service.
             - password (str): Password for the service.
-
         config (dict): Configuration dictionary containing necessary parameters.
             - project (str): Name of the project.
             - vectors_dir (str): Directory where vector data is stored.
@@ -56,7 +51,6 @@ def download_sat_images(
             - exceptions (str): Exceptions parameter for the WMS request.
             - transparent (bool): Transparency parameter for the WMS request.
             - format (str): Format of the requested image.
-
         category (str, optional): Category of the data. Defaults to None.
         iso_code (str, optional): ISO code of the country. Defaults to None.
         sample_size (int, optional): Number of samples to download. Defaults to None.
@@ -89,13 +83,14 @@ def download_sat_images(
         data = data[data["clean"] == 0]
     if "validated" in data.columns and not download_validated:
         data = data[data["validated"] == 0]
-    data = data[data["iso"] == iso_code].reset_index(drop=True)
+    if "iso" in data.columns:
+        data = data[data["iso"] == iso_code].reset_index(drop=True)
     if sample_size:
         data = data.iloc[:sample_size]
 
     # Convert data CRS
     data = data_utils.convert_crs(data, data.crs, config["srs"])
-    logging.info(f"Data dimensions: {data.shape}, CRS: {data.crs}")
+    # logging.info(f"Data dimensions: {data.shape}, CRS: {data.crs}")
 
     # Determine output directory
     if not out_dir:
@@ -108,7 +103,7 @@ def download_sat_images(
             category,
         )
     out_dir = data_utils.makedir(out_dir)
-    logging.info(out_dir)
+    # logging.info(out_dir)
 
     # Check if all images already exist
     all_exists = True
@@ -153,6 +148,7 @@ def download_sat_images(
                 with open(image_file, "wb") as file:
                     file.write(img.read())
             except Exception as e:
+                logging.info(e)
                 pass
 
 
@@ -171,7 +167,7 @@ def main():
     creds = config_utils.create_config(args.creds)
 
     # Download satellite images
-    download_images(
+    download_sat_images(
         creds,
         config,
         iso_code=args.iso_code,

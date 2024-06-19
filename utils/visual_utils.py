@@ -7,18 +7,10 @@ import matplotlib.pyplot as plt
 import translators as ts
 
 from IPython.display import display
-from ipywidgets import (
-    Layout, 
-    GridspecLayout, 
-    Button, 
-    Image, 
-    Tab
-)
-
-from utils import data_utils
-from utils import clean_utils
+from ipywidgets import Layout, GridspecLayout, Button, Image, Tab
 
 import logging
+
 logging.basicConfig(level=logging.INFO)
 
 
@@ -54,12 +46,12 @@ def map_coordinates(
     """
     # Construct the full path to the GeoJSON file
     filename = os.path.join(
-        os.getcwd(), 
-        config["vectors_dir"], 
-        config["project"], 
-        category, 
-        name, 
-        f"{iso_code}_{name}.geojson"
+        os.getcwd(),
+        config["vectors_dir"],
+        config["project"],
+        category,
+        name,
+        f"{iso_code}_{name}.geojson",
     )
 
     # Read GeoJSON file into a GeoDataFrame
@@ -71,7 +63,8 @@ def map_coordinates(
     logging.info(name)
 
     # Translate the feature name if available
-    if name: logging.info(ts.translate_text(name, translator="google"))
+    if name:
+        logging.info(ts.translate_text(name, translator="google"))
 
     # Extract coordinates of the feature
     coords = data.iloc[index].geometry.y, data.iloc[index].geometry.x
@@ -86,7 +79,7 @@ def map_coordinates(
         overlay=True,
         control=True,
     ).add_to(map)
-    
+
     # Add marker at the feature coordinates
     folium.Marker(location=coords, fill_color="#43d9de", radius=8).add_to(map)
 
@@ -130,12 +123,12 @@ def validate_data(
     # Construct the full path to the GeoJSON file if not provided
     if not filename:
         filename = os.path.join(
-            os.getcwd(), 
-            config["vectors_dir"], 
-            config["project"], 
-            category, 
-            name, 
-            f"{iso_code}_{name}.geojson"
+            os.getcwd(),
+            config["vectors_dir"],
+            config["project"],
+            category,
+            name,
+            f"{iso_code}_{name}.geojson",
         )
 
     # Read GeoJSON file into a GeoDataFrame and drop duplicate geometries
@@ -158,12 +151,12 @@ def validate_data(
     def add_image(item):
         # Function to add image to Tab in the grid
         class_dir = os.path.join(
-            os.getcwd(), 
-            config["rasters_dir"], 
-            config["maxar_dir"], 
-            config["project"], 
-            iso_code, 
-            category.lower()
+            os.getcwd(),
+            config["rasters_dir"],
+            config["maxar_dir"],
+            config["project"],
+            iso_code,
+            category.lower(),
         )
         filepath = os.path.join(class_dir, f"{item[col_uid]}.tiff")
         img = open(filepath, "rb").read()
@@ -246,7 +239,7 @@ def inspect_images(
     random: bool = False,
     col_uid: str = "UID",
     col_name: str = "name",
-    figsize: tuple = (15, 15)
+    figsize: tuple = (15, 15),
 ) -> None:
     """
     Inspect and visualize satellite images associated with geographic data.
@@ -267,15 +260,15 @@ def inspect_images(
     Returns:
         None
     """
-    
+
     if not filename:
         filename = os.path.join(
-            os.getcwd(), 
-            config["vectors_dir"], 
-            config["project"], 
-            category, 
-            "clean", 
-            f"{iso_code}_clean.geojson"
+            os.getcwd(),
+            config["vectors_dir"],
+            config["project"],
+            category,
+            "clean",
+            f"{iso_code}_clean.geojson",
         )
 
     # Load geographic data from the file
@@ -300,12 +293,12 @@ def inspect_images(
     # Iterate over the samples to display associated images
     for idx, item in samples.iterrows():
         class_dir = os.path.join(
-            os.getcwd(), 
-            config["rasters_dir"], 
-            config["maxar_dir"], 
-            config["project"], 
-            iso_code, 
-            category.lower()
+            os.getcwd(),
+            config["rasters_dir"],
+            config["maxar_dir"],
+            config["project"],
+            iso_code,
+            category.lower(),
         )
         filepath = os.path.join(class_dir, f"{item[col_uid]}.tiff")
 

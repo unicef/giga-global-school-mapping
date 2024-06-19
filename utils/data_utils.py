@@ -1,5 +1,4 @@
 import os
-import uuid
 import requests
 
 import geojson
@@ -8,10 +7,11 @@ import pandas as pd
 import geopandas as gpd
 
 from tqdm import tqdm
-from pyproj import Proj, Transformer
+from pyproj import Transformer
 from scipy.sparse.csgraph import connected_components
 
 import logging
+
 pd.options.mode.chained_assignment = None
 logging.basicConfig(level=logging.INFO)
 
@@ -57,7 +57,7 @@ def get_iso_regions(config: dict, iso_code: str) -> tuple:
         iso_code (str): The ISO 3166-1 alpha-3 code of the country.
 
     Returns:
-        tuple: A tuple containing the country name (str), sub-region name (str), 
+        tuple: A tuple containing the country name (str), sub-region name (str),
             and region name (str).
     """
     # Read the ISO codes CSV file from the provided URL
@@ -75,15 +75,15 @@ def get_iso_regions(config: dict, iso_code: str) -> tuple:
 
 def get_image_filepaths(
     config: dict, data: gpd.GeoDataFrame, in_dir: str = None, ext: str = ".tiff"
-) -> list:    
+) -> list:
     """
     Generate a list of file paths for images based on the given configuration and data.
 
     Args:
         config (dict): Configuration dictionary containing directory paths.
-        data (gpd.GeoDataFrame): GeoDataFrame containing the image metadata, 
-            including the following columns: 'UID', 'iso', and 'class' 
-        in_dir (str, optional): Optional input directory to override the default path. 
+        data (gpd.GeoDataFrame): GeoDataFrame containing the image metadata,
+            including the following columns: 'UID', 'iso', and 'class'
+        in_dir (str, optional): Optional input directory to override the default path.
             Defaults to None.
         ext (str, optional): File extension for the images. Defaults to ".tiff".
 
@@ -116,18 +116,16 @@ def get_image_filepaths(
 
 
 def convert_crs(
-    data: gpd.GeoDataFrame, 
-    src_crs: str = "EPSG:4326", 
-    target_crs: str = "EPSG:3857"
+    data: gpd.GeoDataFrame, src_crs: str = "EPSG:4326", target_crs: str = "EPSG:3857"
 ) -> gpd.GeoDataFrame:
     """
     Convert the coordinate reference system (CRS) of a GeoDataFrame from source CRS to target CRS.
 
     Args:
         data (gpd.GeoDataFrame): The input GeoDataFrame with geometries to be transformed.
-        src_crs (str, optional): The source CRS of the input geometries. 
+        src_crs (str, optional): The source CRS of the input geometries.
             Defaults to "EPSG:4326".
-        target_crs (str, optional): The target CRS to transform the geometries to. 
+        target_crs (str, optional): The target CRS to transform the geometries to.
             Defaults to "EPSG:3857".
 
     Returns:
@@ -152,14 +150,16 @@ def convert_crs(
     return data
 
 
-def concat_data(data: list, out_file: str = None, verbose: bool = False) -> gpd.GeoDataFrame:
+def concat_data(
+    data: list, out_file: str = None, verbose: bool = False
+) -> gpd.GeoDataFrame:
     """
     Concatenate a list of GeoDataFrames into a single GeoDataFrame, remove duplicates,
     and optionally save it to a GeoJSON file.
 
     Args:
         data (list): A list of GeoDataFrames to concatenate.
-        out_file (str, optional): Output file path to save the concatenated 
+        out_file (str, optional): Output file path to save the concatenated
             GeoDataFrame as GeoJSON. Defaults to None.
         verbose (bool, optional): Whether to log verbose information. Defaults to False.
 
@@ -171,7 +171,7 @@ def concat_data(data: list, out_file: str = None, verbose: bool = False) -> gpd.
 
     if out_file:
         data.to_file(out_file, driver="GeoJSON")
-        
+
     if verbose:
         logging.info(f"Generated {out_file}")
         logging.info(f"Data dimensions: {data.shape}, CRS: {data.crs}")
@@ -194,27 +194,27 @@ def generate_uid(data: gpd.GeoDataFrame, category: str) -> gpd.GeoDataFrame:
     # Add 'index' column with zero-padded index values
     data["index"] = data.index.to_series().apply(lambda x: str(x).zfill(8))
     data["category"] = category
-    
+
     # Concatenate 'source', 'iso', 'category', and 'index' columns to generate UIDs
     uids = data[["source", "iso", "category", "index"]].agg("-".join, axis=1)
-    
+
     # Drop temporary columns 'index' and 'category' from the DataFrame
     data = data.drop(["index", "category"], axis=1)
-    
+
     # Assign generated UIDs to a new column 'UID' in the DataFrame
     data["UID"] = uids.str.upper()
-    
+
     return data
 
 
 def prepare_data(
-    config: dict, 
-    data: gpd.GeoDataFrame, 
-    iso_code: str, 
-    category: str, 
-    source: str, 
-    columns: list, 
-    out_file: str = None
+    config: dict,
+    data: gpd.GeoDataFrame,
+    iso_code: str,
+    category: str,
+    source: str,
+    columns: list,
+    out_file: str = None,
 ) -> gpd.GeoDataFrame:
     """
     Prepare data by adding necessary columns, generating unique identifiers (UIDs),
@@ -227,7 +227,7 @@ def prepare_data(
         category (str): Category name describing the type of data.
         source (str): Source identifier indicating the origin of the data.
         columns (list): List of columns that should be retained in the final processed DataFrame.
-        out_file (str, optional): Output file path to save the processed DataFrame as GeoJSON. 
+        out_file (str, optional): Output file path to save the processed DataFrame as GeoJSON.
             Defaults to None.
 
     Returns:
@@ -255,7 +255,7 @@ def prepare_data(
     # Generate unique identifiers (UIDs) for each row in the DataFrame
     if len(data) > 0:
         data = generate_uid(data, category)
-        
+
     # Select only the specified columns
     data = data[columns]
     # Remove duplicate rows based on selected columns
@@ -268,20 +268,17 @@ def prepare_data(
 
 
 def get_geoboundaries(
-    config: dict, 
-    iso_code: str, 
-    out_dir: str = None, 
-    adm_level: str = "ADM0"
+    config: dict, iso_code: str, out_dir: str = None, adm_level: str = "ADM0"
 ) -> gpd.GeoDataFrame:
     """
     Fetch geoboundaries for a specified ISO code and administrative level.
-    
+
     Args:
         config (dict): Configuration dictionary containing necessary parameters.
         iso_code (str): ISO code of the country for which geoboundaries are requested.
         out_dir (str, optional): Output directory where the geoboundary file will be saved.
         adm_level (str, optional): Administrative level of the geoboundary. Default is "ADM0".
-        
+
     Returns:
         gpd.GeoDataFrame: GeoDataFrame containing the fetched geoboundaries.
     """
@@ -290,7 +287,7 @@ def get_geoboundaries(
         out_dir = os.path.join(
             os.getcwd(), config["vectors_dir"], config["project"], "geoboundaries"
         )
-        
+
     # Ensure the output directory exists
     out_dir = makedir(out_dir)
 
@@ -304,7 +301,9 @@ def get_geoboundaries(
             url = f"{config['gbhumanitarian_url']}{iso_code}/{adm_level}/"
             r = requests.get(url)
             download_path = r.json()["gjDownloadURL"]
-        except:
+        except Exception as e:
+            logging.info(e)
+            logging.info("Defaulting to ADM0...")
             url = f"{config['gbopen_url']}{iso_code}/ADM0/"
             r = requests.get(url)
             download_path = r.json()["gjDownloadURL"]
@@ -327,11 +326,7 @@ def get_geoboundaries(
     return geoboundary
 
 
-def read_data(
-    iso_code: str, 
-    data_dir: str, 
-    sources: list = []
-) -> gpd.GeoDataFrame:
+def read_data(iso_code: str, data_dir: str, sources: list = []) -> gpd.GeoDataFrame:
     """
     Read GeoJSON data files from a specified directory.
 
@@ -353,7 +348,7 @@ def read_data(
         for source in sources:
             file = os.path.join(data_dir, source, f"{iso_code}_{source}.geojson")
             files.append(file)
-            
+
     data = []
     # Read each file and append to the data list
     for file in (pbar := create_progress_bar(files)):
@@ -378,7 +373,7 @@ def drop_duplicates(data: gpd.GeoDataFrame, priority: list) -> gpd.GeoDataFrame:
     Returns:
         gpd.GeoDataFrame: GeoDataFrame with duplicates dropped based on the specified priority.
     """
-    
+
     data["temp_source"] = pd.Categorical(
         data["source"], categories=priority, ordered=True
     )
@@ -396,7 +391,8 @@ def connect_components(data: gpd.GeoDataFrame, buffer_size: float) -> gpd.GeoDat
         buffer_size (float): Buffer size in the units of the GeoDataFrame's CRS.
 
     Returns:
-        gpd.GeoDataFrame: Modified GeoDataFrame with a new 'group' column indicating connected components.
+        gpd.GeoDataFrame: Modified GeoDataFrame with a new 'group' column
+            indicating connected components.
     """
     # Make a copy of the data to avoid modifying the original
     temp = data.copy()
@@ -414,17 +410,17 @@ def connect_components(data: gpd.GeoDataFrame, buffer_size: float) -> gpd.GeoDat
     # Find connected components using scipy.sparse.csgraph.connected_components
     n, groups = connected_components(overlap_matrix, directed=False)
     data["group"] = groups
-    
+
     return data
 
 
 def generate_samples(
-    config: dict, 
-    iso_code: str, 
-    buffer_size: float, 
-    spacing: float, 
-    adm_level: str = "ADM0", 
-    shapename: str = None
+    config: dict,
+    iso_code: str,
+    buffer_size: float,
+    spacing: float,
+    adm_level: str = "ADM0",
+    shapename: str = None,
 ) -> gpd.GeoDataFrame:
     """
     Generate sample points within the geographical boundaries of a specified ISO code.
@@ -438,7 +434,8 @@ def generate_samples(
         shapename (str, optional): Name of the shape within boundaries to filter. Default is None.
 
     Returns:
-        gpd.GeoDataFrame: GeoDataFrame containing generated sample points within the specified boundaries.
+        gpd.GeoDataFrame: GeoDataFrame containing generated sample points within
+            the specified boundaries.
     """
     # Get geographical boundaries for the ISO code at the specified administrative level
     bounds = get_geoboundaries(config, iso_code, adm_level=adm_level)
@@ -457,7 +454,9 @@ def generate_samples(
     geometries = gpd.points_from_xy(coordinate_pairs[:, 0], coordinate_pairs[:, 1])
 
     # Create a GeoDataFrame of points and perform spatial join with bounds
-    points = gpd.GeoDataFrame(geometry=geometries, crs=bounds.crs).reset_index(drop=True)
+    points = gpd.GeoDataFrame(geometry=geometries, crs=bounds.crs).reset_index(
+        drop=True
+    )
     points = gpd.sjoin(points, bounds, predicate="within")
     points = points.drop(["index_right"], axis=1)
 
