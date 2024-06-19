@@ -31,10 +31,10 @@ def download_sat_images(
     Download satellite images based on provided configurations and credentials.
 
     Args:
-        creds (dict): Dictionary containing credentials for accessing the satellite image service.
-            - connect_id (str): Connection ID for the service.
-            - username (str): Username for the service.
-            - password (str): Password for the service.
+        creds (dict): Dictionary containing credentials for accessing the Web Map service.
+            - connect_id (str): Connection ID for the Web Map service.
+            - username (str): Username for the Web Map service.
+            - password (str): Password for the Web Map service.
         config (dict): Configuration dictionary containing necessary parameters.
             - project (str): Name of the project.
             - vectors_dir (str): Directory where vector data is stored.
