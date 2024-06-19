@@ -55,7 +55,23 @@ Data Download
 options:
   -h, --help         show this help message and exit
   --config CONFIG    Path to the configuration file
-  --profile PROFILE  Path to the profile filele file
+  --profile PROFILE  Path to the profile file
+```
+
+### Data Preparation
+To run the data cleaning pipeline, run `python src/data_preparation.py`:
+```s
+usage: data_preparation.py [-h] [--config CONFIG] [--name NAME] 
+[--sources SOURCES [SOURCES ...]] [--clean_pos CLEAN_POS] [--clean_neg CLEAN_NEG]
+
+Data Cleaning Pipeline
+options:
+  -h, --help            show this help message and exit
+  --config CONFIG       Path to the configuration file
+  --name NAME           Folder name
+  --sources SOURCES [SOURCES ...] Sources (e.g. unicef, osm, overture)
+  --clean_pos CLEAN_POS Clean positive samples (Boolean indicator)
+  --clean_neg CLEAN_NEG Clean negative samples (Boolean indicator)
 ```
 
 ### Satellite Image Download
@@ -74,22 +90,6 @@ options:
   --filename FILENAME  Filename of data (optional)
 ```
 
-### Data Preparation
-To run the data cleaning pipeline, run `python src/data_preparation.py`:
-```s
-usage: data_preparation.py [-h] [--config CONFIG] [--name NAME] 
-[--sources SOURCES [SOURCES ...]] [--clean_pos CLEAN_POS] [--clean_neg CLEAN_NEG]
-
-Data Cleaning Pipeline
-options:
-  -h, --help            show this help message and exit
-  --config CONFIG       Path to the configuration file
-  --name NAME           Folder name
-  --sources SOURCES [SOURCES ...] Sources (e.g. unicef, osm, overture)
-  --clean_pos CLEAN_POS Clean positive samples
-  --clean_neg CLEAN_NEG Clean negative samples
-```
-
 ### Model Training
 To train the computer vision models, run `python src/train_cnn.py`:
 ```s
@@ -99,7 +99,7 @@ Model Training
 options:
   -h, --help              show this help message and exit
   --cnn_config CNN_CONFIG Path to the configuration file
-  --lr_finder LR_FINDER   Learning rate finder (boolean indicator)
+  --lr_finder LR_FINDER   Learning rate finder (Boolean indicator)
   --iso ISO [ISO ...]     ISO 3166-1 alpha-3 codes
 ```
 
