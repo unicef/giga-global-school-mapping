@@ -332,7 +332,7 @@ def load_calibrator(iso_code: str, config: dict, calibrator, phase: str = "val")
     """
     # Determine the calibrator name
     calibrator_name = calibrator
-    if isinstance(calibrator, str):
+    if not isinstance(calibrator, str):
         calibrator_name = calibrator.__class__.__name__
 
     # Construct the path to the calibrator file
@@ -379,7 +379,7 @@ def get_calibrator_outputs(
     """
     # Determine the calibrator name
     calibrator_name = calibrator
-    if isinstance(calibrator, str):
+    if not isinstance(calibrator, str):
         calibrator_name = calibrator.__class__.__name__
 
     # Construct the filename and output path
