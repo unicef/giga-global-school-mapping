@@ -57,6 +57,22 @@ def calculate_nearest_distance(refs, source, source_name, source_uid):
     return refs
 
 
+def calculate_nearest_distances(preds, master, osm_overture):
+    preds = calculate_nearest_distance(
+        preds, master, source_name="master", source_uid="MUID"
+    )
+    preds = calculate_nearest_distance(
+        preds, osm_overture, source_name="osm_overture", source_uid="SUID"
+    )
+    master = calculate_nearest_distance(
+        master, preds, source_name="pred", source_uid="PUID"
+    )
+    osm_overture = calculate_nearest_distance(
+        osm_overture, preds, source_name="pred", source_uid="PUID"
+    )
+    return preds, master, osm_overture
+
+
 def join_with_geoboundary(iso_code, data, config, adm_levels=["ADM1", "ADM2", "ADM3"]):
     columns = list(data.columns)
     for adm_level in adm_levels:
@@ -128,7 +144,7 @@ def load_preds(
 
     data = []
     for filename in (pbar := data_utils.create_progress_bar(filenames)):
-        pbar.set_description(f"Reading {filename}...")
+        pbar.set_description(f"Reading files for {iso_code}...")
         subdata = gpd.read_file(os.path.join(out_dir, filename))
         subdata = subdata[subdata["sum"] > sum_threshold]
         data.append(subdata)

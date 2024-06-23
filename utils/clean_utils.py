@@ -2,6 +2,7 @@ import os
 import numpy as np
 import geopandas as gpd
 import rasterio as rio
+from rasterio.mask import mask
 
 from utils import data_utils
 import logging

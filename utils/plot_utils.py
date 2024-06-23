@@ -9,15 +9,10 @@ import sys
 
 from src import sat_download
 from utils import data_utils
-from utils import config_utils
-from utils import pred_utils
 from utils import post_utils
-from utils import model_utils
-from utils import eval_utils
 
 import matplotlib.backends
 import matplotlib.pyplot as plt
-from matplotlib import colors
 from matplotlib_venn import venn2, venn2_circles
 import matplotlib.patches as mpatches
 import matplotlib as mpl
@@ -25,11 +20,11 @@ import matplotlib as mpl
 logging.basicConfig(level=logging.INFO)
 
 LIGHT_YELLOW = "#ffe3c9"
-YELLOW = "#ff9f40"
 DARK_YELLOW = "#f47f20"
+YELLOW = "#ff9f40"
 LIGHT_BLUE = "#d6e4fd"
-BLUE = "#277aff"
 DARK_BLUE = "#0530ad"
+BLUE = "#277aff"
 RED = "#f94b4b"
 
 
@@ -37,9 +32,22 @@ def plot_choropleth(
     master, preds, config, iso_code, threshold_dist=250, adm_level="ADM2"
 ):
     def subplot_choropleth(
-        map, column, ax, cmap="inferno_r", shrink=0.5, vmin=None, vmax=None
+        map,
+        column,
+        ax,
+        cmap="inferno_r",
+        shrink=0.5,
+        vmin=None,
+        vmax=None,
+        title="",
+        label="",
     ):
-        legend_kwds = {"shrink": shrink, "orientation": "horizontal", "loc": "botom"}
+        legend_kwds = {
+            "shrink": shrink,
+            "orientation": "horizontal",
+            "pad": 0.015,
+            "label": label,
+        }
         map.plot(
             column,
             vmin=vmin,
@@ -49,6 +57,9 @@ def plot_choropleth(
             legend_kwds=legend_kwds,
             ax=ax,
         )
+        ax.set_title(title)
+        ax.title.set_size(18)
+        ax.labelcolor = "black"
         ax.spines["right"].set_visible(False)
         ax.spines["left"].set_visible(False)
         ax.spines["top"].set_visible(False)
@@ -62,10 +73,34 @@ def plot_choropleth(
     vmax = np.max(
         [np.nanmax(map.master_counts.values), np.nanmax(map.preds_counts.values)]
     )
-    fig, (ax1, ax2, ax3) = plt.subplots(nrows=1, ncols=3, figsize=(20, 16))
-    ax1 = subplot_choropleth(map, column="master_counts", vmin=0, vmax=vmax, ax=ax1)
-    ax2 = subplot_choropleth(map, column="preds_counts", vmin=0, vmax=vmax, ax=ax2)
-    ax3 = subplot_choropleth(map, column="diff", vmin=0, vmax=vmax, ax=ax3)
+    fig, (ax1, ax2, ax3) = plt.subplots(nrows=1, ncols=3, figsize=(20, 16), dpi=1200)
+    ax1 = subplot_choropleth(
+        map,
+        column="master_counts",
+        vmin=0,
+        vmax=vmax,
+        ax=ax1,
+        title="Government Data",
+        label="Number of schools",
+    )
+    ax2 = subplot_choropleth(
+        map,
+        column="preds_counts",
+        vmin=0,
+        vmax=vmax,
+        ax=ax2,
+        title="Model Predictions",
+        label="Number of school predictions \n(including false positives)",
+    )
+    ax3 = subplot_choropleth(
+        map,
+        column="diff",
+        vmin=0,
+        vmax=vmax,
+        ax=ax3,
+        title="Additional School Predictions",
+        label="Number of additional school predictions \n(including false positives)",
+    )
 
 
 def plot_venn_diagram(master, preds, threshold_dist=250, labels=True):
@@ -149,15 +184,18 @@ def plot_venn_diagram(master, preds, threshold_dist=250, labels=True):
 
 
 def plot_pie_chart(master, source="master", source_col="clean", legend=False):
-    fig = plt.figure(dpi=1200, layout="constrained")
-    counts = master[source_col].value_counts()
-    logging.info(counts)
+    fig = plt.figure(dpi=1200)
+    font = {"family": "serif", "weight": "normal", "size": 12}
+    mpl.rc("font", **font)
 
+    plt.title("Government Data")
+    colors = {0: BLUE, 2: YELLOW, 1: RED}
     code = {
         0: "Valid school \npoints",
         1: "Uninhabited \narea",
         2: "Duplicate school \npoints",
     }
+    counts = master[source_col].value_counts()
     sizes = list(counts.values)
     if legend:
         fig.legend(
@@ -246,3 +284,18 @@ def calculate_stats(
         master_unconfirmed,
         preds_unconfirmed,
     )
+
+
+def read_file(iso_code, config, source="preds"):
+    out_dir = os.path.join(
+        os.getcwd(), "output", iso_code, "results", config["project"]
+    )
+    if source == "master":
+        out_file = os.path.join(out_dir, f"{iso_code}_master.geojson")
+    elif source == "preds":
+        out_dir = os.path.join(out_dir, "cams")
+        filename = f"{iso_code}_{config['config_name']}_cams.geojson"
+        out_file = os.path.join(out_dir, filename)
+
+    data = gpd.read_file(out_file)
+    return data

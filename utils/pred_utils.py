@@ -1,45 +1,39 @@
 import os
+import copy
+import logging
+import operator
+import joblib
+
 from tqdm import tqdm
 import pandas as pd
 import geopandas as gpd
-import logging
-import torch
-from PIL import Image
-import logging
-import joblib
-import torch
-
-import cnn_utils
-import data_utils
-import config_utils
-import embed_utils
-import model_utils
+import numpy as np
 
 import torch
-import matplotlib.pyplot as plt
 import torch.nn.functional as nn
 from torchvision.transforms.functional import to_pil_image
 from torchcam.utils import overlay_mask
 
-import numpy as np
-import operator
-from PIL import Image, ImageDraw
 import torchvision
 import torchvision.transforms.functional as F
 import torchvision.transforms as transforms
-import rasterio as rio
-from rasterio.mask import mask
-from shapely import geometry
-import rasterio.plot
 from pytorch_grad_cam.utils.image import show_cam_on_image
 import torch.nn.functional as nnf
-import copy
 
-import calibrators
-from calibrators import ModelWithTemperature
-from calibrators import ECELoss
+from PIL import Image, ImageDraw
+import matplotlib.pyplot as plt
+from shapely import geometry
+import rasterio as rio
+from rasterio.mask import mask
+import rasterio.plot
+
+from src import sat_download
+from utils import cnn_utils
+from utils import data_utils
+from utils import config_utils
+from utils import model_utils
+
 SEED = 42
-
 np.random.seed(SEED)
 os.environ["PYTHONHASHSEED"] = f"{SEED}"
 torch.manual_seed(SEED)
@@ -55,21 +49,27 @@ def reshape_transform(tensor):
     return result
 
 
-def cam_predict(
-    iso_code, config, data, geotiff_dir, shapename, buffer_size=50
-):
+def cam_predict(iso_code, config, data, geotiff_dir, shapename, buffer_size=50):
     cwd = os.path.dirname(os.getcwd())
     classes = {1: config["pos_class"], 0: config["neg_class"]}
     cam_config_name = config["config_name"]
-                
-    out_dir = data_utils.makedir(os.path.join(
-        cwd, "output", iso_code, "results", config["project"], "cams", cam_config_name
-    ))
+
+    out_dir = data_utils.makedir(
+        os.path.join(
+            cwd,
+            "output",
+            iso_code,
+            "results",
+            config["project"],
+            "cams",
+            cam_config_name,
+        )
+    )
     filename = f"{iso_code}_{shapename}_{config['config_name']}_cam.gpkg"
     out_file = os.path.join(out_dir, filename)
     if os.path.exists(out_file):
         return gpd.read_file(out_file)
-    
+
     exp_dir = os.path.join(
         cwd, config["exp_dir"], config["project"], f"{iso_code}_{config['config_name']}"
     )
@@ -78,25 +78,27 @@ def cam_predict(
 
     if config["type"] == "cnn":
         from torchcam.methods import LayerCAM
+
         cam_extractor = LayerCAM(model)
     elif config["type"] == "vit":
         from pytorch_grad_cam import LayerCAM
+
         try:
-            target_layers = [model.module.model.backbone.backbone.features[-1][-2].norm1]
-        except:
-            target_layers = [model.module.model.backbone.backbone.backbone.features[-1][-1].norm1]
+            target_layers = [
+                model.module.model.backbone.backbone.features[-1][-2].norm1
+            ]
+        except Exception as e:
+            logging.info(e)
+            target_layers = [
+                model.module.model.backbone.backbone.backbone.features[-1][-1].norm1
+            ]
         cam_extractor = LayerCAM(
             model=model,
             target_layers=target_layers,
             reshape_transform=reshape_transform,
         )
     results = generate_cam_points(
-        data,
-        config,
-        geotiff_dir,
-        model,
-        cam_extractor,
-        buffer_size
+        data, config, geotiff_dir, model, cam_extractor, buffer_size
     )
     results = filter_by_buildings(iso_code, config, results)
     if len(results) > 0:
@@ -127,7 +129,7 @@ def generate_cam_points(
             if show:
                 fig, ax = plt.subplots(figsize=(6, 6))
                 rasterio.plot.show(map_layer, ax=ax)
-                geom = gpd.GeoDataFrame(geometry=[polygon], crs=crs)
+                geom = gpd.GeoDataFrame(geometry=[coord], crs=crs)
                 geom.plot(facecolor="none", edgecolor="blue", ax=ax)
 
     results = gpd.GeoDataFrame(geometry=results, crs=crs)
@@ -136,7 +138,7 @@ def generate_cam_points(
     results = results.to_crs(crs)
     results["prob"] = data.prob
     results["UID"] = data.UID
-        
+
     return results
 
 
@@ -178,6 +180,7 @@ def georeference_images(data, config, in_dir, out_dir):
 def compare_cams(filepath, model, model_config, classes, model_file):
     if model_config["type"] == "cnn":
         from torchcam.methods import LayerCAM, GradCAM, GradCAMpp, SmoothGradCAMpp
+
         for cam_extractor in LayerCAM, GradCAM, GradCAMpp, SmoothGradCAMpp:
             model = load_cnn(model_config, classes, model_file, verbose=False).eval()
             cam_extractor = cam_extractor(model)
@@ -190,9 +193,13 @@ def compare_cams(filepath, model, model_config, classes, model_file):
         for cam_extractor in LayerCAM, GradCAM, GradCAMPlusPlus:
             model = load_cnn(model_config, classes, model_file, verbose=False).eval()
             try:
-                target_layers = [model.module.model.backbone.backbone.features[-1][-2].norm1]
+                target_layers = [
+                    model.module.model.backbone.backbone.features[-1][-2].norm1
+                ]
             except:
-                target_layers = [model.module.model.backbone.backbone.backbone.features[-1][-1].norm1]
+                target_layers = [
+                    model.module.model.backbone.backbone.backbone.features[-1][-1].norm1
+                ]
             cam_extractor = cam_extractor(
                 model=model,
                 target_layers=target_layers,
@@ -201,23 +208,32 @@ def compare_cams(filepath, model, model_config, classes, model_file):
             title = str(cam_extractor.__class__.__name__)
             generate_cam(model_config, filepath, model, cam_extractor, title=title)
 
-def compare_cams_random(data, filepaths, model_config, classes, model_file, verbose=False):
+
+def compare_cams_random(
+    data, filepaths, model_config, classes, model_file, verbose=False
+):
     if model_config["type"] == "cnn":
         from torchcam.methods import LayerCAM
+
         model = load_cnn(model_config, classes, model_file, verbose=False).eval()
         cam_extractor = LayerCAM(model)
-        
+
     elif model_config["type"] == "vit":
         from pytorch_grad_cam import GradCAM, GradCAMPlusPlus, LayerCAM
+
         model = load_cnn(model_config, classes, model_file, verbose=False).eval()
         try:
-            target_layers = [model.module.model.backbone.backbone.features[-1][-2].norm1]
+            target_layers = [
+                model.module.model.backbone.backbone.features[-1][-2].norm1
+            ]
         except:
-            target_layers = [model.module.model.backbone.backbone.backbone.features[-1][-1].norm1]
+            target_layers = [
+                model.module.model.backbone.backbone.backbone.features[-1][-1].norm1
+            ]
         cam_extractor = LayerCAM(
-            model=model, 
-            target_layers=target_layers, 
-            reshape_transform=reshape_transform
+            model=model,
+            target_layers=target_layers,
+            reshape_transform=reshape_transform,
         )
     for index in list(data.sample(5).index):
         _, point = generate_cam(
@@ -239,7 +255,8 @@ def generate_cam(
     input_image = np.clip(
         np.array(cnn_utils.imagenet_std) * input_image
         + np.array(cnn_utils.imagenet_mean),
-        0, 1,
+        0,
+        1,
     )
     output = model(input)
 
@@ -248,9 +265,10 @@ def generate_cam(
         for name, cam in zip(cam_extractor.target_names, cams):
             cam_map = cam.squeeze(0)
             result = overlay_mask(image, to_pil_image(cam_map, mode="F"), alpha=0.5)
-            
+
     elif config["type"] == "vit":
         from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
+
         targets = [ClassifierOutputTarget(1)]
         cam_map = cam_extractor(input_tensor=input, targets=targets)[0, :]
         result = show_cam_on_image(input_image, cam_map, use_rgb=True)
@@ -258,13 +276,19 @@ def generate_cam(
 
     if show:
         import matplotlib.patches as patches
+
         fig, ax = plt.subplots(1, 3, figsize=figsize)
         ax[0].imshow(image)
         ax[1].imshow(result)
         rect = patches.Rectangle(
-            (point[0]-75, point[1]-75), 150, 150, linewidth=1, edgecolor='blue', facecolor='none'
+            (point[0] - 75, point[1] - 75),
+            150,
+            150,
+            linewidth=1,
+            edgecolor="blue",
+            facecolor="none",
         )
-        ax[2].imshow(image) 
+        ax[2].imshow(image)
         ax[2].add_patch(rect)
         ax[1].title.set_text(title)
         ax[0].xaxis.set_visible(False)
@@ -297,7 +321,7 @@ def generate_point_from_cam(config, cam_map, image):
     return (x_index, y_index)
 
 
-def cnn_predict_images(data, model, config, in_dir, classes,  threshold):
+def cnn_predict_images(data, model, config, in_dir, classes, threshold):
     files = data_utils.get_image_filepaths(config, data, in_dir)
     preds, probs = [], []
     pbar = data_utils.create_progress_bar(files)
@@ -309,7 +333,7 @@ def cnn_predict_images(data, model, config, in_dir, classes,  threshold):
         soft_outputs = nnf.softmax(output, dim=1).detach().cpu().numpy()
         probs.append(soft_outputs[:, 1][0])
 
-    preds = np.array(probs)    
+    preds = np.array(probs)
     preds = preds > threshold
     preds = [str(classes[int(pred)]) for pred in preds]
     data["pred"] = preds
@@ -318,20 +342,16 @@ def cnn_predict_images(data, model, config, in_dir, classes,  threshold):
 
 
 def cnn_predict(
-    data,
-    iso_code,
-    shapename,
-    config,
-    threshold,
-    in_dir=None,
-    n_classes=None
+    data, iso_code, shapename, config, threshold, in_dir=None, n_classes=None
 ):
     cwd = os.path.dirname(os.getcwd())
-    config_name = config['config_name']
-    
-    out_dir = data_utils.makedir(os.path.join(
-        "output", iso_code, "results", config["project"], "tiles", config_name
-    ))
+    config_name = config["config_name"]
+
+    out_dir = data_utils.makedir(
+        os.path.join(
+            "output", iso_code, "results", config["project"], "tiles", config_name
+        )
+    )
 
     name = f"{iso_code}_{shapename}"
     out_file = os.path.join(out_dir, f"{name}_{config['config_name']}_results.gpkg")
@@ -343,11 +363,7 @@ def cnn_predict(
         cwd, config["exp_dir"], config["project"], f"{iso_code}_{config['config_name']}"
     )
     model_file = os.path.join(exp_dir, f"{iso_code}_{config['config_name']}.pth")
-    model = load_cnn(
-        c=config, 
-        classes=classes, 
-        model_file=model_file
-    )        
+    model = load_cnn(c=config, classes=classes, model_file=model_file)
     results = cnn_predict_images(data, model, config, in_dir, classes, threshold)
     results = results[["UID", "geometry", "pred", "prob"]]
     results = gpd.GeoDataFrame(results, geometry="geometry")
@@ -355,20 +371,14 @@ def cnn_predict(
     return results
 
 
-def load_cnn(
-    c, 
-    classes, 
-    model_file=None, 
-    verbose=True,
-    save=True
-):
+def load_cnn(c, classes, model_file=None, verbose=True, save=True):
     n_classes = len(classes)
     model = cnn_utils.get_model(c["model"], n_classes, c["dropout"])
     model = torch.nn.DataParallel(model)
     model.load_state_dict(torch.load(model_file, map_location=device))
     model = model.eval()
     model = model.to(device)
-                
+
     if verbose:
         logging.info(f"Device: {device}")
         logging.info("Model file {} successfully loaded.".format(model_file))
@@ -386,50 +396,11 @@ def load_vit(config):
     return model
 
 
-def vit_pred(data, config, iso_code, shapename, sat_dir, id_col="UID"):
-    cwd = os.path.dirname(os.getcwd())
-    model = load_vit(config)
-
-    # Generate Embeddings
-    logging.info("Generating embeddings...")
-    out_dir = os.path.join("output", iso_code, "embeddings")
-    name = f"{iso_code}_{shapename}"
-    embeddings = embed_utils.get_image_embeddings(
-        config, data, model, in_dir=sat_dir, out_dir=out_dir, name=name
-    )
-
-    # Load shallow model
-    exp_dir = os.path.join(
-        cwd, config["exp_dir"], config["project"], f"{iso_code}-{config['config_name']}"
-    )
-    model_file = os.path.join(
-        exp_dir, config["project"], f"{iso_code}-{config['config_name']}.pkl"
-    )
-    model = joblib.load(model_file)
-    logging.info(f"Loaded {model_file}")
-
-    # Model prediction
-    preds = model.predict(embeddings)
-    data["pred"] = preds
-    results = data[["UID", "geometry", "shapeName", "pred"]]
-    results = gpd.GeoDataFrame(results, geometry="geometry")
-
-    # Save results
-    out_dir = os.path.join("output", iso_code, "results")
-    out_dir = data_utils.makedir(out_dir)
-    out_file = os.path.join(out_dir, f"{name}_{config['config_name']}_results.gpkg")
-    results.to_file(out_file, driver="GPKG")
-    logging.info(f"Generated {out_file}")
-
-    return results
-
-
 def filter_by_buildings(iso_code, config, data, n_seconds=10):
     cwd = os.path.dirname(os.getcwd())
     raster_dir = os.path.join(cwd, config["rasters_dir"])
     ms_path = os.path.join(raster_dir, "ms_buildings", f"{iso_code}_ms.tif")
     google_path = os.path.join(raster_dir, "google_buildings", f"{iso_code}_google.tif")
-    ghsl_path = os.path.join(raster_dir, "ghsl", config["ghsl_built_c_file"])
 
     pixel_sums = []
     bar_format = "{l_bar}{bar:20}{r_bar}{bar:-20b}"
@@ -465,10 +436,9 @@ def filter_by_buildings(iso_code, config, data, n_seconds=10):
 
 
 def generate_pred_tiles(
-    config, iso_code, spacing, buffer_size, adm_level="ADM2", shapename=None
+    config, iso_code, spacing, buffer_size, shapename, adm_level="ADM2"
 ):
-    cwd = os.path.dirname(os.getcwd())
-    out_dir = data_utils.makedir(os.path.join(cwd, "output", iso_code, "tiles"))
+    out_dir = data_utils.makedir(os.path.join(os.getcwd(), "output", iso_code, "tiles"))
     out_file = os.path.join(out_dir, f"{iso_code}_{shapename}.gpkg")
 
     if os.path.exists(out_file):
@@ -493,3 +463,51 @@ def generate_pred_tiles(
     filtered = filtered[["UID", "geometry", "shapeName", "sum"]]
     filtered.to_file(out_file, driver="GPKG", index=False)
     return filtered
+
+
+def batch_process_tiles(
+    config, iso_code, spacing, buffer_size, sum_threshold, adm_level
+):
+    geoboundary = data_utils.get_geoboundaries(config, iso_code, adm_level=adm_level)
+    for i, shapename in enumerate(geoboundary.shapeName.unique()):
+        logging.info(f"{shapename} {i}/{len(geoboundary.shapeName.unique())}")
+        tiles = generate_pred_tiles(
+            config, iso_code, spacing, buffer_size, shapename, adm_level
+        )
+        tiles = tiles.reset_index(drop=True)
+        tiles["points"] = tiles["geometry"].centroid
+        tiles = tiles[tiles["sum"] > sum_threshold].reset_index(drop=True)
+        logging.info(f"Total tiles: {tiles.shape}")
+    return tiles
+
+
+def batch_download_sat_images(
+    sat_config,
+    sat_creds,
+    data_config,
+    iso_code,
+    spacing,
+    buffer_size,
+    sum_threshold,
+    adm_level,
+):
+    geoboundary = data_utils.get_geoboundaries(
+        data_config, iso_code, adm_level=adm_level
+    )
+    for i, shapename in enumerate(geoboundary.shapeName.unique()[70:]):
+        tiles = generate_pred_tiles(
+            data_config, iso_code, spacing, buffer_size, shapename, adm_level
+        ).reset_index(drop=True)
+
+        tiles["points"] = tiles["geometry"].centroid
+        tiles = tiles[tiles["sum"] > sum_threshold].reset_index(drop=True)
+        print(
+            f"{shapename} {i}/{len(geoboundary.shapeName.unique())} total tiles: {tiles.shape}"
+        )
+
+        data = tiles.copy()
+        data["geometry"] = data["points"]
+        sat_dir = os.path.join(os.getcwd(), "output", iso_code, "images", shapename)
+        sat_download.download_sat_images(
+            sat_creds, sat_config, data=data, out_dir=sat_dir
+        )
