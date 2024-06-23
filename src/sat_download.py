@@ -90,7 +90,7 @@ def download_sat_images(
 
     # Convert data CRS
     data = data_utils.convert_crs(data, data.crs, config["srs"])
-    # logging.info(f"Data dimensions: {data.shape}, CRS: {data.crs}")
+    logging.info(f"Data dimensions: {data.shape}, CRS: {data.crs}")
 
     # Determine output directory
     if not out_dir:
