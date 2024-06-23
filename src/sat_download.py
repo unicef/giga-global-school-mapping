@@ -31,10 +31,10 @@ def download_sat_images(
     Download satellite images based on provided configurations and credentials.
 
     Args:
-        creds (dict): Dictionary containing credentials for accessing the satellite image service.
-            - connect_id (str): Connection ID for the service.
-            - username (str): Username for the service.
-            - password (str): Password for the service.
+        creds (dict): Dictionary containing credentials for accessing the Web Map service.
+            - connect_id (str): Connection ID for the Web Map service.
+            - username (str): Username for the Web Map service.
+            - password (str): Password for the Web Map service.
         config (dict): Configuration dictionary containing necessary parameters.
             - project (str): Name of the project.
             - vectors_dir (str): Directory where vector data is stored.
@@ -90,7 +90,7 @@ def download_sat_images(
 
     # Convert data CRS
     data = data_utils.convert_crs(data, data.crs, config["srs"])
-    # logging.info(f"Data dimensions: {data.shape}, CRS: {data.crs}")
+    logging.info(f"Data dimensions: {data.shape}, CRS: {data.crs}")
 
     # Determine output directory
     if not out_dir:
@@ -147,8 +147,8 @@ def download_sat_images(
                 # Save the image to file
                 with open(image_file, "wb") as file:
                     file.write(img.read())
-            except Exception as e:
-                logging.info(e)
+            except:  # Exception as e:
+                # logging.info(e)
                 pass
 
 

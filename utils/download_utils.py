@@ -338,9 +338,13 @@ def download_unicef(
         # Check if the file already exists to avoid redundant processing
         if not os.path.exists(out_subfile):
             # Initialize Delta Sharing client
-            delta_sharing.SharingClient(profile_file)
-            table_url = f"{profile_file}#gold.school-master.{iso_code}"
-            subdata = delta_sharing.load_as_pandas(table_url)
+            try:
+                delta_sharing.SharingClient(profile_file)
+                table_url = f"{profile_file}#gold.school-master.{iso_code}"
+                subdata = delta_sharing.load_as_pandas(table_url)
+            except Exception as e:
+                logging.info(e)
+                continue
 
             # Convert latitude and longitude to geometry
             subdata["geometry"] = gpd.GeoSeries.from_xy(

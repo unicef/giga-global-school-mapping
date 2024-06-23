@@ -377,7 +377,9 @@ def drop_duplicates(data: gpd.GeoDataFrame, priority: list) -> gpd.GeoDataFrame:
     data["temp_source"] = pd.Categorical(
         data["source"], categories=priority, ordered=True
     )
-    data = data.sort_values("temp_source", ascending=True).drop_duplicates(["group"])
+    data = data.sort_values("temp_source", ascending=True).drop_duplicates(
+        ["group"], keep="first"
+    )
     data = data.reset_index(drop=True)
     return data
 

@@ -116,7 +116,7 @@ def main(c):
             best_score = val_results[f"val_{scorer}"]
             best_results = val_results
 
-            eval_utils._save_files(val_results, val_cm, exp_dir)
+            eval_utils.save_files(val_results, val_cm, exp_dir)
             model_file = os.path.join(exp_dir, f"{exp_name}.pth")
             torch.save(model.state_dict(), model_file)
 

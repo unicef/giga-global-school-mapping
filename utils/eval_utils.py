@@ -27,7 +27,7 @@ json.fallback_table[np.ndarray] = lambda array: array.tolist()
 json.fallback_table[np.integer] = lambda obj: int(obj)
 
 
-def _save_files(results, cm, exp_dir):
+def save_files(results, cm, exp_dir):
     if not os.path.exists(exp_dir):
         os.makedirs(exp_dir)
     with open(os.path.join(exp_dir, "results.json"), "w") as f:
@@ -67,7 +67,7 @@ def save_results(
 
     log_results = {key: val for key, val in results.items() if key[-1] != "_"}
     cm = get_confusion_matrix(test[target], test[pred], classes)
-    _save_files(results, cm, results_dir)
+    save_files(results, cm, results_dir)
 
     if log:
         logging.info(log_results)
@@ -86,14 +86,14 @@ def get_confusion_matrix(y_true, y_pred, class_names):
     cm = confusion_matrix(y_true, y_pred, labels=class_names)
     cm = pd.DataFrame(cm, index=class_names, columns=class_names)
 
-    cm_metrics = _get_metrics(cm, list(cm.columns))
+    cm_metrics = get_metrics(cm, list(cm.columns))
     cm_report = classification_report(
         y_true, y_pred, target_names=class_names, zero_division=0
     )
     return cm, cm_metrics, cm_report
 
 
-def _get_metrics(cm, class_names):
+def get_metrics(cm, class_names):
     metrics = {}
     for i in class_names:
         tp = cm.loc[i, i]
@@ -130,20 +130,6 @@ def auprc(recall, precision, min_precision=0):
     return auc_ - max_area
 
 
-def partial_auprc(precision, recall, thresholds, min_precision):
-    start = np.searchsorted(precision, min_precision, "left")
-    if start < len(precision) - 1:
-        x_interp = [precision[start], precision[start + 1]]
-        y_interp = [recall[start], recall[start + 1]]
-        recall_partial = np.insert(
-            recall[start:], 0, np.interp(min_precision, x_interp, y_interp)
-        )
-        precision_partial = np.insert(precision[start:], 0, min_precision)
-        thresholds_partial = thresholds[start:]
-        return precision_partial, recall_partial, thresholds_partial
-    return [], [], []
-
-
 def evaluate(
     y_true,
     y_pred,
@@ -157,13 +143,6 @@ def evaluate(
     precision, recall, thresholds = precision_recall_curve(
         y_true, y_prob, pos_label=pos_label
     )
-    precision_partial, recall_partial, thresholds_partial = partial_auprc(
-        precision, recall, thresholds, min_precision
-    )
-    p_auprc = 0
-    if len(precision_partial) > 0:
-        p_auprc = auprc(recall_partial, precision_partial, min_precision)
-
     if not optim_threshold:
         optim_threshold, _ = get_optimal_threshold(
             precision[:-1], recall[:-1], thresholds, beta=beta
@@ -179,11 +158,6 @@ def evaluate(
         "precision_scores_": precision,
         "recall_scores_": recall,
         "thresholds_": thresholds,
-        # Performance metrics for probabilities > 0.5 threshold
-        "p_auprc": p_auprc,
-        "p_precision_scores_": precision_partial,
-        "p_recall_scores_": recall_partial,
-        "p_thresholds_": thresholds_partial,
         # Performance metrics at the optimal threshold
         "optim_threshold": optim_threshold,
         "fbeta_score_optim": fbeta_score(
@@ -209,37 +183,4 @@ def evaluate(
         * 100,
         "overall_accuracy_optim": accuracy_score(y_true, y_pred_optim) * 100,
         "balanced_accuracy_optim": balanced_accuracy_score(y_true, y_pred_optim) * 100,
-        # Performance metrics for hard predictions
-        "fbeta_score": fbeta_score(
-            y_true,
-            y_pred,
-            beta=beta,
-            pos_label=pos_label,
-            average="binary",
-            zero_division=0,
-        )
-        * 100,
-        "precision_score": precision_score(
-            y_true, y_pred, pos_label=pos_label, average="binary", zero_division=0
-        )
-        * 100,
-        "recall_score": recall_score(
-            y_true, y_pred, pos_label=pos_label, average="binary", zero_division=0
-        )
-        * 100,
-        "f1_score": f1_score(
-            y_true, y_pred, pos_label=pos_label, average="binary", zero_division=0
-        )
-        * 100,
-        "overall_accuracy": accuracy_score(y_true, y_pred) * 100,
-        "balanced_accuracy": balanced_accuracy_score(y_true, y_pred) * 100,
-    }
-
-
-def get_scoring(pos_label, beta=0.5):
-    """Returns the dictionary of scorer objects."""
-    return {
-        "p_auprc": make_scorer(
-            average_precision_score, needs_proba=True, pos_label=pos_label
-        )
     }

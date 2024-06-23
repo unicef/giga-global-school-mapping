@@ -132,7 +132,7 @@ data
 └── vectors
     ├── school
     │   ├── unicef
-    │   │   ├──ISO_school_geolocation_coverage_master.csv
+    │   │   ├──ISO_unicef.geojson
     │   │   └── ...
     │   ├── osm
     │   │   ├──ISO_osm.geojson
