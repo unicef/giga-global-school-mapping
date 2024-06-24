@@ -136,7 +136,7 @@ def evaluate(
     y_prob,
     pos_label=1,
     neg_label=0,
-    beta=0.5,
+    beta=2,
     optim_threshold=None,
     min_precision=0.9,
 ):
@@ -151,8 +151,8 @@ def evaluate(
 
     return {
         # Performance metrics for the full range of thresholds
-        "ap": average_precision_score(y_true, y_prob, pos_label=pos_label),
         "auprc": auprc(recall, precision),
+        "ap": average_precision_score(y_true, y_prob, pos_label=pos_label),
         "roc_auc": roc_auc_score(y_true, y_prob),
         "brier_score": brier_score_loss(y_true, y_prob, pos_label=pos_label),
         "precision_scores_": precision,
