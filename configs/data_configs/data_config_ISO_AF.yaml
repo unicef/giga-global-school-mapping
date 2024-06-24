@@ -1,6 +1,6 @@
 vectors_dir: 'data/vectors/'
 rasters_dir: 'data/rasters/'
-iso_codes: ['BEN', 'BWA', 'GHA', 'KEN', 'MWI', 'NAM', 'RWA', 'SEN', 'SSD', 'ZWE']
+iso_codes: ['SEN']
 
 proximity: 300
 filter_buffer_size: 150
