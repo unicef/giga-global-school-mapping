@@ -494,9 +494,7 @@ def get_transforms(
     return transformations
 
 
-def get_model(
-    model_type: str, n_classes: int, dropout: Optional[float] = None
-) -> nn.Module:
+def get_model(model_type: str, n_classes: int) -> nn.Module:
     """
     Get a pretrained model with the specified architecture and modify the
     final layer to match the number of classes.
@@ -504,7 +502,6 @@ def get_model(
     Args:
         model_type (str): The type of model to load (e.g., "resnet18", "inception_v3").
         n_classes (int): The number of output classes for the final layer.
-        dropout (Optional[float], optional): Dropout rate to be applied. Defaults to None.
 
     Returns:
         nn.Module: The modified model with the final layer adjusted for the specified number of classes.
@@ -589,11 +586,7 @@ def load_model(
     data_loader: Optional[DataLoader] = None,
     label_smoothing: float = 0.0,
     lr: float = 0.001,
-    momentum: float = 0.9,
-    gamma: float = 0.1,
-    step_size: int = 7,
     patience: int = 7,
-    dropout: float = 0,
     device: str = "cpu",
     start_lr: float = 1e-6,
     end_lr: float = 1e-3,
@@ -614,10 +607,7 @@ def load_model(
         label_smoothing (float, optional): Label smoothing factor. Defaults to 0.0.
         lr (float, optional): Learning rate. Defaults to 0.001.
         momentum (float, optional): Momentum for the SGD optimizer. Defaults to 0.9.
-        gamma (float, optional): Multiplicative factor of learning rate decay. Defaults to 0.1.
-        step_size (int, optional): Period of learning rate decay for StepLR. Defaults to 7.
         patience (int, optional): Number of epochs with no improvement for ReduceLROnPlateau. Defaults to 7.
-        dropout (float, optional): Dropout rate to be applied. Defaults to 0.
         device (str, optional): Device to run the model on ("cpu" or "cuda"). Defaults to "cpu".
         start_lr (float, optional): Initial learning rate for learning rate finder. Defaults to 1e-6.
         end_lr (float, optional): Maximum learning rate for learning rate finder. Defaults to 1e-3.
@@ -634,7 +624,7 @@ def load_model(
                 The learning rate scheduler.
     """
     # Get the model based on the specified type and number of classes
-    model = get_model(model_type, n_classes, dropout)
+    model = get_model(model_type, n_classes)
     model = nn.DataParallel(model)  # Wrap the model for multi-GPU training
     model = model.to(device)  # Move the model to the specified device
 
@@ -642,10 +632,7 @@ def load_model(
     criterion = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
 
     # Set up the optimizer based on the specified type
-    if optimizer_type == "SGD":
-        optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum)
-    elif optimizer_type == "Adam":
-        optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
     # Optionally find the optimal learning rate
     if lr_finder:
@@ -663,12 +650,9 @@ def load_model(
             param["lr"] = lr
 
     # Set up the learning rate scheduler based on the specified type
-    if scheduler_type == "StepLR":
-        scheduler = lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=gamma)
-    elif scheduler_type == "ReduceLROnPlateau":
-        scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, factor=0.1, patience=patience, mode="min"
-        )
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, factor=0.1, patience=patience, mode="min"
+    )
     return model, criterion, optimizer, scheduler
 
 
