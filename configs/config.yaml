@@ -1,5 +1,5 @@
 # Data download URLs
-project: "GIGAv0"
+project: "GIGAv1"
 pos_class: "school"
 neg_class: "non_school"
 
