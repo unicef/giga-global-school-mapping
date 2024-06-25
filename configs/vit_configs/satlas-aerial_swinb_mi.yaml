@@ -1,4 +1,4 @@
-beta: 0.5
+beta: 2
 test_size: 0.1
 batch_size: 32
 n_workers: 4
@@ -13,11 +13,7 @@ optimizer: "Adam"
 label_smoothing: 0.1
 lr: 0.00001
 img_size: 512
-momentum: 
-gamma: 
-step_size: 
 patience: 7
-dropout: 
 lr_min: 0.0000001
 normalize: 
 lr_finder: False

@@ -5,15 +5,15 @@ n_workers: 4
 n_epochs: 60
 scorer: "auprc"
 
-model: "satlas-Aerial_SwinB_MI"
+model: "swin_v2_b"
 type: "vit"
 pretrained: True
 scheduler: "ReduceLROnPlateau"
 optimizer: "Adam"
 label_smoothing: 0.1
 lr: 0.00001
-img_size: 512
+img_size: 224
 patience: 7
 lr_min: 0.0000001
-normalize: 
+normalize: "imagenet"
 lr_finder: False
