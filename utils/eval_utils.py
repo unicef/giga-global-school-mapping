@@ -160,7 +160,7 @@ def evaluate(
         "thresholds_": thresholds,
         # Performance metrics at the optimal threshold
         "optim_threshold": optim_threshold,
-        "fbeta_score_optim": fbeta_score(
+        "fbeta_score": fbeta_score(
             y_true,
             y_pred_optim,
             beta=beta,
@@ -169,18 +169,14 @@ def evaluate(
             zero_division=0,
         )
         * 100,
-        "precision_score_optim": precision_score(
+        "precision_score": precision_score(
             y_true, y_pred_optim, pos_label=pos_label, average="binary", zero_division=0
         )
         * 100,
-        "recall_score_optim": recall_score(
+        "recall_score": recall_score(
             y_true, y_pred_optim, pos_label=pos_label, average="binary", zero_division=0
         )
         * 100,
-        "f1_score_optim": f1_score(
-            y_true, y_pred_optim, pos_label=pos_label, average="binary", zero_division=0
-        )
-        * 100,
-        "overall_accuracy_optim": accuracy_score(y_true, y_pred_optim) * 100,
-        "balanced_accuracy_optim": balanced_accuracy_score(y_true, y_pred_optim) * 100,
+        "overall_accuracy": accuracy_score(y_true, y_pred_optim) * 100,
+        "balanced_accuracy": balanced_accuracy_score(y_true, y_pred_optim) * 100,
     }
