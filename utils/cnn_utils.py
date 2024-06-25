@@ -589,7 +589,7 @@ def get_model(model_type: str, n_classes: int) -> nn.Module:
             model = models.vit_l_16(weights=ViT_L_16_Weights.IMAGENET1K_V1)
             model.heads.head = nn.Linear(model.heads.head.in_features, n_classes)
         elif model_type == "vit_h_14":
-            model = models.vit_h_14(weights=ViT_H_14_Weights.IMAGENET1K_SWAG_E2E_V1)
+            model = models.vit_h_14(weights=ViT_H_14_Weights.IMAGENET1K_SWAG_LINEAR_V1)
             model.heads.head = nn.Linear(model.heads.head.in_features, n_classes)
 
     elif "swin" in model_type:
