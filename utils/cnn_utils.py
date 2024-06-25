@@ -22,6 +22,10 @@ from torchvision.models import (
     VGG16_Weights,
     EfficientNet_B0_Weights,
     ViT_B_16_Weights,
+    ViT_L_16_Weights,
+    ViT_H_14_Weights,
+    Swin_V2_T_Weights,
+    Swin_V2_S_Weights,
     Swin_V2_B_Weights,
 )
 from torch.utils.data import DataLoader
@@ -578,12 +582,26 @@ def get_model(model_type: str, n_classes: int) -> nn.Module:
         model = ModelModified(model)
 
     elif "vit" in model_type:
-        model = models.vit_b_16(weights=ViT_B_16_Weights.IMAGENET1K_V1)
-        model.heads.head = nn.Linear(model.heads.head.in_features, n_classes)
+        if model_type == "vit_b_16":
+            model = models.vit_b_16(weights=ViT_B_16_Weights.IMAGENET1K_V1)
+            model.heads.head = nn.Linear(model.heads.head.in_features, n_classes)
+        elif model_type == "vit_l_16":
+            model = models.vit_l_16(weights=ViT_L_16_Weights.IMAGENET1K_V1)
+            model.heads.head = nn.Linear(model.heads.head.in_features, n_classes)
+        elif model_type == "vit_h_14":
+            model = models.vit_h_14(weights=ViT_H_14_Weights.IMAGENET1K_SWAG_E2E_V1)
+            model.heads.head = nn.Linear(model.heads.head.in_features, n_classes)
 
     elif "swin" in model_type:
-        model = models.swin_v2_b(weights=Swin_V2_B_Weights.IMAGENET1K_V1)
-        model.head = nn.Linear(model.head.in_features, n_classes)
+        if model_type == "swin_v2_t":
+            model = models.swin_v2_t(weights=Swin_V2_T_Weights.IMAGENET1K_V1)
+            model.head = nn.Linear(model.head.in_features, n_classes)
+        elif model_type == "swin_v2_s":
+            model = models.swin_v2_s(weights=Swin_V2_S_Weights.IMAGENET1K_V1)
+            model.head = nn.Linear(model.head.in_features, n_classes)
+        elif model_type == "swin_v2_b":
+            model = models.swin_v2_b(weights=Swin_V2_B_Weights.IMAGENET1K_V1)
+            model.head = nn.Linear(model.head.in_features, n_classes)
 
     return model
 
