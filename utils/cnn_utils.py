@@ -21,6 +21,8 @@ from torchvision.models import (
     Inception_V3_Weights,
     VGG16_Weights,
     EfficientNet_B0_Weights,
+    ViT_B_16_Weights,
+    Swin_V2_B_Weights,
 )
 from torch.utils.data import DataLoader
 import torch.nn.functional as nnf
@@ -524,26 +526,26 @@ def get_model(model_type: str, n_classes: int) -> nn.Module:
         num_ftrs = model.fc.in_features
         model.fc = nn.Linear(num_ftrs, n_classes)
 
-    if "inception" in model_type:
+    elif "inception" in model_type:
         model = models.inception_v3(weights=Inception_V3_Weights.IMAGENET1K_V1)
         model.aux_logits = False
         num_ftrs = model.fc.in_features
         model.fc = nn.Linear(num_ftrs, n_classes)
 
-    if "vgg" in model_type:
+    elif "vgg" in model_type:
         model = models.vgg16(weights=VGG16_Weights.IMAGENET1K_V1)
         num_ftrs = model.classifier[6].in_features
         model.classifier[6] = nn.Linear(num_ftrs, n_classes)
 
-    if "efficientnet" in model_type:
+    elif "efficientnet" in model_type:
         model = models.efficientnet_b0(weights=EfficientNet_B0_Weights.IMAGENET1K_V1)
         num_ftrs = model.classifier[1].in_features
         model.classifier[1] = nn.Linear(num_ftrs, n_classes)
 
-    if "xception" in model_type:
+    elif "xception" in model_type:
         model = timm.create_model("xception", pretrained=True, num_classes=n_classes)
 
-    if "convnext" in model_type:
+    elif "convnext" in model_type:
         if "small" in model_type:
             model = models.convnext_small(weights="IMAGENET1K_V1")
         elif "base" in model_type:
@@ -553,7 +555,7 @@ def get_model(model_type: str, n_classes: int) -> nn.Module:
         num_ftrs = model.classifier[2].in_features
         model.classifier[2] = nn.Linear(num_ftrs, n_classes)
 
-    if "satlas" in model_type:
+    elif "satlas" in model_type:
         device = "cuda" if torch.cuda.is_available() else "cpu"
         weights_manager = satlaspretrain_models.Weights()
         model_identifier = model_type.split("-")[-1]
@@ -574,6 +576,15 @@ def get_model(model_type: str, n_classes: int) -> nn.Module:
                 return self.model(x)[0]
 
         model = ModelModified(model)
+
+    elif "vit" in model_type:
+        model = models.vit_b_16(weights=ViT_B_16_Weights.IMAGENET1K_V1)
+        model.heads.head = nn.Linear(model.heads.head.in_features, n_classes)
+
+    elif "swin" in model_type:
+        model = models.swin_v2_b(weights=Swin_V2_B_Weights.IMAGENET1K_V1)
+        model.head = nn.Linear(model.head.in_features, n_classes)
+
     return model
 
 
