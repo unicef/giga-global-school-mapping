@@ -27,7 +27,7 @@ def main(args):
     )
     results = pd.DataFrame(cam_scores_mean, index=["score"]).T
 
-    exp_name = f"{model_config['iso_code']}_{model_config['config_name']}"
+    exp_name = f"{args.iso_code}_{model_config['config_name']}"
     exp_dir = os.path.join(
         os.getcwd(), model_config["exp_dir"], model_config["project"], exp_name
     )
