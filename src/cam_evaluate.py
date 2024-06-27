@@ -32,7 +32,7 @@ def main(args):
         os.getcwd(), model_config["exp_dir"], model_config["project"], exp_name
     )
     results = results.reset_index()
-    results.to_csv(os.path.join(exp_dir, "cam_results"), index=False)
+    results.to_csv(os.path.join(exp_dir, "cam_results.csv"), index=False)
 
 
 if __name__ == "__main__":
