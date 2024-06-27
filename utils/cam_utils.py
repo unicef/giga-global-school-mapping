@@ -211,14 +211,19 @@ def compare_cams(iso_code, config, filepaths, show=True, verbose=False):
     cam_scores = dict()
     for cam_name, cam in cams.items():
         model = pred_utils.load_model(iso_code, config, verbose=verbose).eval()
+        model = model.to(device)
         cam_scores[cam_name] = []
         with get_cam_extractor(config, model, cam) as cam_extractor:
-            for filepath in (pbar := data_utils.create_progress_bar(filepaths)):
-                pbar.set_description(f"Processing {cam_name}")
+            cam_extractor.batch_size = config["batch_size"]
+            pbar = data_utils.create_progress_bar(filepaths) if not show else filepaths
+            for filepath in pbar:
+                if not show:
+                    pbar.set_description(f"Processing {cam_name}")
                 cam_map, point, score = generate_cam(
                     config, filepath, model, cam_extractor, title=cam_name, show=show
                 )
-            cam_scores[cam_name].append(score)
+                cam_scores[cam_name].append(score)
+
     cam_scores_mean = dict()
     for cam in cam_scores:
         cam_scores_mean[cam] = np.mean(cam_scores[cam])
@@ -296,7 +301,7 @@ def generate_cam(
         ax[2].imshow(image)
         ax[2].add_patch(rect)
         ax[3].imshow(visualization)
-        ax[3].text(5, 20, f"ROAD: {100*score:.3f}", size=6, color="white")
+        ax[3].text(5, 20, f"ROAD: {score:.3f}", size=6, color="white")
         ax[1].title.set_text(title)
 
         for i in range(4):
