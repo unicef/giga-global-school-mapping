@@ -55,7 +55,6 @@ cams = {
     "randomcam": RandomCAM,
     "gradcam": GradCAM,
     "hirescam": HiResCAM,
-    "scorecam": ScoreCAM,
     "gradcam++": GradCAMPlusPlus,
     "xgradcam": XGradCAM,
     "eigencam": EigenCAM,
@@ -208,26 +207,22 @@ def georeference_images(data, config, in_dir, out_dir):
                 dst.write(dataset, indexes=bands)
 
 
-def compare_cams_all(iso_code, config, filepaths, show=True, verbose=False):
-    cam_scores = compare_cams(iso_code, config, filepaths, show=show, verbose=verbose)
-    cam_scores_mean = dict()
-    for cam in cam_scores:
-        cam_scores_mean[cam] = np.mean(cam_scores[cam])
-    return cam_scores, cam_scores_mean
-
-
 def compare_cams(iso_code, config, filepaths, show=True, verbose=False):
     cam_scores = dict()
     for cam_name, cam in cams.items():
         model = pred_utils.load_model(iso_code, config, verbose=verbose).eval()
         cam_scores[cam_name] = []
-        for filepath in (pbar := data_utils.create_progress_bar(filepaths)):
-            pbar.set_description(f"Processing {cam_name}")
-            cam_map, point, score = generate_cam(
-                config, filepath, model, cam, title=cam_name, show=show
-            )
+        with get_cam_extractor(config, model, cam) as cam_extractor:
+            for filepath in (pbar := data_utils.create_progress_bar(filepaths)):
+                pbar.set_description(f"Processing {cam_name}")
+                cam_map, point, score = generate_cam(
+                    config, filepath, model, cam_extractor, title=cam_name, show=show
+                )
             cam_scores[cam_name].append(score)
-    return cam_scores
+    cam_scores_mean = dict()
+    for cam in cam_scores:
+        cam_scores_mean[cam] = np.mean(cam_scores[cam])
+    return cam_scores, cam_scores_mean
 
 
 def compare_random(
@@ -253,7 +248,9 @@ def compare_random(
         )
 
 
-def generate_cam(config, filepath, model, cam, show=True, title="", figsize=(7, 7)):
+def generate_cam(
+    config, filepath, model, cam_extractor, show=True, title="", figsize=(7, 7)
+):
     logger = logging.getLogger()
     logger.disabled = True
 
@@ -268,20 +265,19 @@ def generate_cam(config, filepath, model, cam, show=True, title="", figsize=(7, 
         1,
     )
     targets = [ClassifierOutputTarget(1)]
-    with get_cam_extractor(config, model, cam) as cam_extractor:
-        cam_map = cam_extractor(input_tensor=input_tensor, targets=targets)
-        result = show_cam_on_image(input_image, cam_map[0, :], use_rgb=True)
-        point = generate_point_from_cam(config, cam_map[0, :], image)
+    cam_map = cam_extractor(input_tensor=input_tensor, targets=targets)
+    result = show_cam_on_image(input_image, cam_map[0, :], use_rgb=True)
+    point = generate_point_from_cam(config, cam_map[0, :], image)
 
-    cam_metric = ROADMostRelevantFirst(percentile=90)
-    _, visualizations = cam_metric(
-        input_tensor, cam_map, targets, model, return_visualization=True
-    )
-    cam_metric = ROADCombined(percentiles=[20, 40, 60, 80])
+    cam_metric = ROADCombined(percentiles=[10, 50, 90])
     scores = cam_metric(input_tensor, cam_map, targets, model)
     score = scores[0]
 
     if show:
+        cam_metric = ROADMostRelevantFirst(percentile=90)
+        _, visualizations = cam_metric(
+            input_tensor, cam_map, targets, model, return_visualization=True
+        )
         visualization = visualizations[0].cpu().numpy().transpose((1, 2, 0))
         visualization = deprocess_image(visualization)
         visualization = Image.fromarray(visualization)

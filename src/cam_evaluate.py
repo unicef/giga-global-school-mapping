@@ -22,7 +22,7 @@ def main(args):
     filepaths = data_utils.get_image_filepaths(
         model_config, data[data.dataset == "test"]
     )
-    cam_scores_all, cam_scores_mean = cam_utils.compare_cams_all(
+    cam_scores_all, cam_scores_mean = cam_utils.compare_cams(
         args.iso_code, model_config, filepaths, show=False
     )
     results = pd.DataFrame(cam_scores_mean, index=["score"]).T
