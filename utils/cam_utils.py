@@ -209,34 +209,26 @@ def georeference_images(data, config, in_dir, out_dir):
 
 
 def compare_cams_all(iso_code, config, filepaths, show=True, verbose=False):
-    cam_scores_all = dict()
-    for filepath in (pbar := data_utils.create_progress_bar(filepaths)):
-        cam_scores = compare_cams(
-            iso_code, config, filepath, show=show, verbose=verbose, pbar=pbar
-        )
-        for cam in cam_scores:
-            if cam not in cam_scores_all:
-                cam_scores_all[cam] = []
-            cam_scores_all[cam].append(cam_scores[cam])
-
+    cam_scores = compare_cams(iso_code, config, filepaths, show=show, verbose=verbose)
     cam_scores_mean = dict()
-    for cam in cam_scores_all:
-        cam_scores_mean[cam] = np.mean(cam_scores_all[cam])
-    return cam_scores_all, cam_scores_mean
+    for cam in cam_scores:
+        cam_scores_mean[cam] = np.mean(cam_scores[cam])
+    return cam_scores, cam_scores_mean
 
 
-def compare_cams(iso_code, config, filepath, show=True, verbose=False, pbar=None):
+def compare_cams(iso_code, config, filepaths, show=True, verbose=False):
     cam_scores = dict()
     for cam_name, cam in cams.items():
-        if pbar:
-            pbar.set_description(f"Processing {cam_name}")
         model = pred_utils.load_model(iso_code, config, verbose=verbose).eval()
         cam_extractor = get_cam_extractor(config, model, cam)
         title = str(cam_extractor.__class__.__name__)
-        cam_map, point, score = generate_cam(
-            config, filepath, model, cam_extractor, title=title, show=show
-        )
-        cam_scores[cam_name] = score
+        cam_scores[title] = []
+        for filepath in (pbar := data_utils.create_progress_bar(filepaths)):
+            pbar.set_description(f"Processing {title}")
+            cam_map, point, score = generate_cam(
+                config, filepath, model, cam_extractor, title=title, show=show
+            )
+            cam_scores[title].append(score)
     return cam_scores
 
 
