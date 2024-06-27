@@ -220,15 +220,13 @@ def compare_cams(iso_code, config, filepaths, show=True, verbose=False):
     cam_scores = dict()
     for cam_name, cam in cams.items():
         model = pred_utils.load_model(iso_code, config, verbose=verbose).eval()
-        cam_extractor = get_cam_extractor(config, model, cam)
-        title = str(cam_extractor.__class__.__name__)
-        cam_scores[title] = []
+        cam_scores[cam_name] = []
         for filepath in (pbar := data_utils.create_progress_bar(filepaths)):
-            pbar.set_description(f"Processing {title}")
+            pbar.set_description(f"Processing {cam_name}")
             cam_map, point, score = generate_cam(
-                config, filepath, model, cam_extractor, title=title, show=show
+                config, filepath, model, cam, title=cam_name, show=show
             )
-            cam_scores[title].append(score)
+            cam_scores[cam_name].append(score)
     return cam_scores
 
 
@@ -255,9 +253,7 @@ def compare_random(
         )
 
 
-def generate_cam(
-    config, filepath, model, cam_extractor, show=True, title="", figsize=(7, 7)
-):
+def generate_cam(config, filepath, model, cam, show=True, title="", figsize=(7, 7)):
     logger = logging.getLogger()
     logger.disabled = True
 
@@ -272,9 +268,10 @@ def generate_cam(
         1,
     )
     targets = [ClassifierOutputTarget(1)]
-    cam_map = cam_extractor(input_tensor=input_tensor, targets=targets)
-    result = show_cam_on_image(input_image, cam_map[0, :], use_rgb=True)
-    point = generate_point_from_cam(config, cam_map[0, :], image)
+    with get_cam_extractor(config, model, cam) as cam_extractor:
+        cam_map = cam_extractor(input_tensor=input_tensor, targets=targets)
+        result = show_cam_on_image(input_image, cam_map[0, :], use_rgb=True)
+        point = generate_point_from_cam(config, cam_map[0, :], image)
 
     cam_metric = ROADMostRelevantFirst(percentile=90)
     _, visualizations = cam_metric(
