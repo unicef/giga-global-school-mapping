@@ -136,7 +136,7 @@ def evaluate(
     y_prob,
     pos_label=1,
     neg_label=0,
-    beta=0.5,
+    beta=2,
     optim_threshold=None,
     min_precision=0.9,
 ):
@@ -151,8 +151,8 @@ def evaluate(
 
     return {
         # Performance metrics for the full range of thresholds
-        "ap": average_precision_score(y_true, y_prob, pos_label=pos_label),
         "auprc": auprc(recall, precision),
+        "ap": average_precision_score(y_true, y_prob, pos_label=pos_label),
         "roc_auc": roc_auc_score(y_true, y_prob),
         "brier_score": brier_score_loss(y_true, y_prob, pos_label=pos_label),
         "precision_scores_": precision,
@@ -160,7 +160,7 @@ def evaluate(
         "thresholds_": thresholds,
         # Performance metrics at the optimal threshold
         "optim_threshold": optim_threshold,
-        "fbeta_score_optim": fbeta_score(
+        "fbeta_score": fbeta_score(
             y_true,
             y_pred_optim,
             beta=beta,
@@ -169,18 +169,14 @@ def evaluate(
             zero_division=0,
         )
         * 100,
-        "precision_score_optim": precision_score(
+        "precision_score": precision_score(
             y_true, y_pred_optim, pos_label=pos_label, average="binary", zero_division=0
         )
         * 100,
-        "recall_score_optim": recall_score(
+        "recall_score": recall_score(
             y_true, y_pred_optim, pos_label=pos_label, average="binary", zero_division=0
         )
         * 100,
-        "f1_score_optim": f1_score(
-            y_true, y_pred_optim, pos_label=pos_label, average="binary", zero_division=0
-        )
-        * 100,
-        "overall_accuracy_optim": accuracy_score(y_true, y_pred_optim) * 100,
-        "balanced_accuracy_optim": balanced_accuracy_score(y_true, y_pred_optim) * 100,
+        "overall_accuracy": accuracy_score(y_true, y_pred_optim) * 100,
+        "balanced_accuracy": balanced_accuracy_score(y_true, y_pred_optim) * 100,
     }

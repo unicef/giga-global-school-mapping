@@ -1,23 +1,19 @@
-beta: 0.5
+beta: 2
 test_size: 0.1
 batch_size: 32
 n_workers: 4
 n_epochs: 60
 scorer: "auprc"
 
-model: "vgg16"
-type: "cnn"
+model: "vit_l_16"
+type: "vit"
 pretrained: True
 scheduler: "ReduceLROnPlateau"
 optimizer: "Adam"
 label_smoothing: 0.1
 lr: 0.00001
 img_size: 224
-momentum: 
-gamma: 
-step_size: 
 patience: 7
-dropout:
 lr_min: 0.0000001
 normalize: "imagenet"
-lr_finder: True
+lr_finder: False

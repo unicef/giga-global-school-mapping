@@ -15,6 +15,7 @@ SEED = 42
 
 def load_data(
     config: dict,
+    iso_code: str = None,
     attributes: list = ["rurban"],
     in_dir: str = "clean",
     out_dir: str = "train",
@@ -42,6 +43,8 @@ def load_data(
     """
     # Construct the directory path for vectors
     vector_dir = os.path.join(os.getcwd(), config["vectors_dir"], config["project"])
+    if iso_code:
+        config["iso_codes"] = [iso_code]
     iso_codes = config["iso_codes"]
 
     # Determine the name for the dataset

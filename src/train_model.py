@@ -55,11 +55,7 @@ def main(c):
         optimizer_type=c["optimizer"],
         label_smoothing=c["label_smoothing"],
         lr=c["lr"],
-        momentum=c["momentum"],
-        gamma=c["gamma"],
-        step_size=c["step_size"],
         patience=c["patience"],
-        dropout=c["dropout"],
         data_loader=data_loader,
         device=device,
         lr_finder=c["lr_finder"],
@@ -200,7 +196,7 @@ def main(c):
 if __name__ == "__main__":
     # Parser
     parser = argparse.ArgumentParser(description="Model Training")
-    parser.add_argument("--cnn_config", help="Path to the configuration file")
+    parser.add_argument("--config", help="Path to the configuration file")
     parser.add_argument(
         "--lr_finder", help="Learning rate finder (boolean indicator)", default=None
     )
@@ -208,7 +204,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Load config
-    config_file = os.path.join(cwd, args.cnn_config)
+    config_file = os.path.join(cwd, args.config)
     c = config_utils.load_config(config_file)
     c["iso_codes"] = args.iso
     iso = args.iso[0]

@@ -21,6 +21,12 @@ from torchvision.models import (
     Inception_V3_Weights,
     VGG16_Weights,
     EfficientNet_B0_Weights,
+    ViT_B_16_Weights,
+    ViT_L_16_Weights,
+    ViT_H_14_Weights,
+    Swin_V2_T_Weights,
+    Swin_V2_S_Weights,
+    Swin_V2_B_Weights,
 )
 from torch.utils.data import DataLoader
 import torch.nn.functional as nnf
@@ -494,9 +500,7 @@ def get_transforms(
     return transformations
 
 
-def get_model(
-    model_type: str, n_classes: int, dropout: Optional[float] = None
-) -> nn.Module:
+def get_model(model_type: str, n_classes: int) -> nn.Module:
     """
     Get a pretrained model with the specified architecture and modify the
     final layer to match the number of classes.
@@ -504,7 +508,6 @@ def get_model(
     Args:
         model_type (str): The type of model to load (e.g., "resnet18", "inception_v3").
         n_classes (int): The number of output classes for the final layer.
-        dropout (Optional[float], optional): Dropout rate to be applied. Defaults to None.
 
     Returns:
         nn.Module: The modified model with the final layer adjusted for the specified number of classes.
@@ -527,26 +530,26 @@ def get_model(
         num_ftrs = model.fc.in_features
         model.fc = nn.Linear(num_ftrs, n_classes)
 
-    if "inception" in model_type:
+    elif "inception" in model_type:
         model = models.inception_v3(weights=Inception_V3_Weights.IMAGENET1K_V1)
         model.aux_logits = False
         num_ftrs = model.fc.in_features
         model.fc = nn.Linear(num_ftrs, n_classes)
 
-    if "vgg" in model_type:
+    elif "vgg" in model_type:
         model = models.vgg16(weights=VGG16_Weights.IMAGENET1K_V1)
         num_ftrs = model.classifier[6].in_features
         model.classifier[6] = nn.Linear(num_ftrs, n_classes)
 
-    if "efficientnet" in model_type:
+    elif "efficientnet" in model_type:
         model = models.efficientnet_b0(weights=EfficientNet_B0_Weights.IMAGENET1K_V1)
         num_ftrs = model.classifier[1].in_features
         model.classifier[1] = nn.Linear(num_ftrs, n_classes)
 
-    if "xception" in model_type:
+    elif "xception" in model_type:
         model = timm.create_model("xception", pretrained=True, num_classes=n_classes)
 
-    if "convnext" in model_type:
+    elif "convnext" in model_type:
         if "small" in model_type:
             model = models.convnext_small(weights="IMAGENET1K_V1")
         elif "base" in model_type:
@@ -556,7 +559,7 @@ def get_model(
         num_ftrs = model.classifier[2].in_features
         model.classifier[2] = nn.Linear(num_ftrs, n_classes)
 
-    if "satlas" in model_type:
+    elif "satlas" in model_type:
         device = "cuda" if torch.cuda.is_available() else "cpu"
         weights_manager = satlaspretrain_models.Weights()
         model_identifier = model_type.split("-")[-1]
@@ -577,6 +580,29 @@ def get_model(
                 return self.model(x)[0]
 
         model = ModelModified(model)
+
+    elif "vit" in model_type:
+        if model_type == "vit_b_16":
+            model = models.vit_b_16(weights=ViT_B_16_Weights.IMAGENET1K_V1)
+            model.heads.head = nn.Linear(model.heads.head.in_features, n_classes)
+        elif model_type == "vit_l_16":
+            model = models.vit_l_16(weights=ViT_L_16_Weights.IMAGENET1K_V1)
+            model.heads.head = nn.Linear(model.heads.head.in_features, n_classes)
+        elif model_type == "vit_h_14":
+            model = models.vit_h_14(weights=ViT_H_14_Weights.IMAGENET1K_SWAG_LINEAR_V1)
+            model.heads.head = nn.Linear(model.heads.head.in_features, n_classes)
+
+    elif "swin" in model_type:
+        if model_type == "swin_v2_t":
+            model = models.swin_v2_t(weights=Swin_V2_T_Weights.IMAGENET1K_V1)
+            model.head = nn.Linear(model.head.in_features, n_classes)
+        elif model_type == "swin_v2_s":
+            model = models.swin_v2_s(weights=Swin_V2_S_Weights.IMAGENET1K_V1)
+            model.head = nn.Linear(model.head.in_features, n_classes)
+        elif model_type == "swin_v2_b":
+            model = models.swin_v2_b(weights=Swin_V2_B_Weights.IMAGENET1K_V1)
+            model.head = nn.Linear(model.head.in_features, n_classes)
+
     return model
 
 
@@ -589,11 +615,7 @@ def load_model(
     data_loader: Optional[DataLoader] = None,
     label_smoothing: float = 0.0,
     lr: float = 0.001,
-    momentum: float = 0.9,
-    gamma: float = 0.1,
-    step_size: int = 7,
     patience: int = 7,
-    dropout: float = 0,
     device: str = "cpu",
     start_lr: float = 1e-6,
     end_lr: float = 1e-3,
@@ -614,10 +636,7 @@ def load_model(
         label_smoothing (float, optional): Label smoothing factor. Defaults to 0.0.
         lr (float, optional): Learning rate. Defaults to 0.001.
         momentum (float, optional): Momentum for the SGD optimizer. Defaults to 0.9.
-        gamma (float, optional): Multiplicative factor of learning rate decay. Defaults to 0.1.
-        step_size (int, optional): Period of learning rate decay for StepLR. Defaults to 7.
         patience (int, optional): Number of epochs with no improvement for ReduceLROnPlateau. Defaults to 7.
-        dropout (float, optional): Dropout rate to be applied. Defaults to 0.
         device (str, optional): Device to run the model on ("cpu" or "cuda"). Defaults to "cpu".
         start_lr (float, optional): Initial learning rate for learning rate finder. Defaults to 1e-6.
         end_lr (float, optional): Maximum learning rate for learning rate finder. Defaults to 1e-3.
@@ -634,7 +653,7 @@ def load_model(
                 The learning rate scheduler.
     """
     # Get the model based on the specified type and number of classes
-    model = get_model(model_type, n_classes, dropout)
+    model = get_model(model_type, n_classes)
     model = nn.DataParallel(model)  # Wrap the model for multi-GPU training
     model = model.to(device)  # Move the model to the specified device
 
@@ -642,10 +661,7 @@ def load_model(
     criterion = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
 
     # Set up the optimizer based on the specified type
-    if optimizer_type == "SGD":
-        optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum)
-    elif optimizer_type == "Adam":
-        optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
     # Optionally find the optimal learning rate
     if lr_finder:
@@ -663,12 +679,9 @@ def load_model(
             param["lr"] = lr
 
     # Set up the learning rate scheduler based on the specified type
-    if scheduler_type == "StepLR":
-        scheduler = lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=gamma)
-    elif scheduler_type == "ReduceLROnPlateau":
-        scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, factor=0.1, patience=patience, mode="min"
-        )
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, factor=0.1, patience=patience, mode="min"
+    )
     return model, criterion, optimizer, scheduler
 
 
