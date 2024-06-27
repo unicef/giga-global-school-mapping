@@ -10,8 +10,13 @@ import rasterio as rio
 import rasterio.plot
 
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 from PIL import Image, ImageDraw
-from pytorch_grad_cam.utils.image import show_cam_on_image
+from pytorch_grad_cam.utils.image import (
+    show_cam_on_image,
+    deprocess_image,
+    preprocess_image,
+)
 
 import torch
 import torchvision
@@ -23,43 +28,78 @@ from utils import data_utils
 from utils import pred_utils
 from utils import cnn_utils
 
+from pytorch_grad_cam.metrics.cam_mult_image import CamMultImageConfidenceChange
+from pytorch_grad_cam.metrics.road import ROADCombined
+from pytorch_grad_cam.metrics.road import ROADMostRelevantFirst
+from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
+from pytorch_grad_cam import (
+    GradCAM,
+    HiResCAM,
+    ScoreCAM,
+    GradCAMPlusPlus,
+    AblationCAM,
+    XGradCAM,
+    EigenCAM,
+    EigenGradCAM,
+    LayerCAM,
+    FullGrad,
+    GradCAMElementWise,
+    RandomCAM,
+)
+
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 logging.basicConfig(level=logging.INFO)
 
 
-def get_layer_cam(config):
-    if config["type"] == "cnn":
-        from torchcam.methods import LayerCAM
-    elif config["type"] == "vit":
-        from pytorch_grad_cam import LayerCAM
-    return LayerCAM
+cams = {
+    "randomcam": RandomCAM,
+    "gradcam": GradCAM,
+    "hirescam": HiResCAM,
+    "scorecam": ScoreCAM,
+    "gradcam++": GradCAMPlusPlus,
+    "xgradcam": XGradCAM,
+    "eigencam": EigenCAM,
+    "eigengradcam": EigenGradCAM,
+    "layercam": LayerCAM,
+    "gradcamelementwise": GradCAMElementWise,
+}
 
 
 def get_cam_extractor(config, model, cam_extractor):
-    def reshape_transform(tensor):
-        result = tensor.transpose(2, 3).transpose(1, 2)
-        return result
+    reshape_transform = None
+    if "vit" in config["model"]:
 
-    if config["type"] == "cnn":
-        return cam_extractor(model)
+        def reshape_transform(tensor, height=16, width=16):
+            result = tensor[:, 1:, :].reshape(
+                tensor.size(0), height, width, tensor.size(2)
+            )
+            result = result.transpose(2, 3).transpose(1, 2)
+            return result
 
-    elif config["type"] == "vit":
+        target_layers = [model.module.encoder.layers[-1].ln_1]
+
+    elif "swin" in config["model"].lower():
+
+        def reshape_transform(tensor):
+            result = tensor.transpose(2, 3).transpose(1, 2)
+            return result
+
         if "satlas-aerial_swinb_si" in config["model"].lower():
             target_layers = [
-                model.module.model.backbone.backbone.features[-1][-2].norm1
+                model.module.model.backbone.backbone.features[-1][-1].norm1
             ]
         elif "satlas-aerial_swinb_mi" in config["model"].lower():
             target_layers = [
                 model.module.model.backbone.backbone.backbone.features[-1][-1].norm1
             ]
-        return cam_extractor(
-            model=model,
-            target_layers=target_layers,
-            reshape_transform=reshape_transform,
-        )
+    return cam_extractor(
+        model=model, target_layers=target_layers, reshape_transform=reshape_transform
+    )
 
 
-def cam_predict(iso_code, config, data, geotiff_dir, shapename, buffer_size=50):
+def cam_predict(
+    iso_code, config, data, geotiff_dir, shapename, buffer_size=50, verbose=False
+):
     classes = {1: config["pos_class"], 0: config["neg_class"]}
     out_dir = data_utils.makedir(
         os.path.join(
@@ -85,8 +125,8 @@ def cam_predict(iso_code, config, data, geotiff_dir, shapename, buffer_size=50):
         f"{iso_code}_{config['config_name']}",
     )
     model_file = os.path.join(exp_dir, f"{iso_code}_{config['config_name']}.pth")
-    model = pred_utils.load_cnn(config, classes, model_file, verbose=False).eval()
-    cam_extractor = get_cam_extractor(config, model, get_layer_cam(config))
+    model = pred_utils.load_model(config, classes, model_file, verbose=verbose).eval()
+    cam_extractor = get_cam_extractor(config, model, "gradcam")
 
     results = generate_cam_points(
         data, config, geotiff_dir, model, cam_extractor, buffer_size
@@ -109,7 +149,7 @@ def generate_cam_points(
     filepaths = data_utils.get_image_filepaths(config, data, in_dir, ext=".tif")
     crs = data.crs
     for index in tqdm(list(data.index), total=len(data)):
-        _, point = generate_cam(
+        _, point, _ = generate_cam(
             config, filepaths[index], model, cam_extractor, show=False
         )
         with rio.open(filepaths[index]) as map_layer:
@@ -168,72 +208,96 @@ def georeference_images(data, config, in_dir, out_dir):
                 dst.write(dataset, indexes=bands)
 
 
-def compare_cams(iso_code, config, filepath):
-    if config["type"] == "cnn":
-        from torchcam.methods import LayerCAM, GradCAM, GradCAMpp, SmoothGradCAMpp
+def compare_cams_all(iso_code, config, filepaths, show=True, verbose=False):
+    cam_scores_all = dict()
+    for filepath in (pbar := data_utils.create_progress_bar(filepaths)):
+        cam_scores = compare_cams(
+            iso_code, config, filepath, show=show, verbose=verbose, pbar=pbar
+        )
+        for cam in cam_scores:
+            if cam not in cam_scores_all:
+                cam_scores_all[cam] = []
+            cam_scores_all[cam].append(cam_scores[cam])
 
-        cams = [LayerCAM, GradCAM, GradCAMpp, SmoothGradCAMpp]
-    elif config["type"] == "vit":
-        from pytorch_grad_cam import GradCAM, GradCAMPlusPlus, LayerCAM
+    cam_scores_mean = dict()
+    for cam in cam_scores_all:
+        cam_scores_mean[cam] = np.mean(cam_scores_all[cam])
+    return cam_scores_all, cam_scores_mean
 
-        cams = [LayerCAM, GradCAM, GradCAMPlusPlus]
 
-    for cam in cams:
-        model = pred_utils.load_cnn(iso_code, config, verbose=False).eval()
+def compare_cams(iso_code, config, filepath, show=True, verbose=False, pbar=None):
+    cam_scores = dict()
+    for cam_name, cam in cams.items():
+        if pbar:
+            pbar.set_description(f"Processing {cam_name}")
+        model = pred_utils.load_model(iso_code, config, verbose=verbose).eval()
         cam_extractor = get_cam_extractor(config, model, cam)
         title = str(cam_extractor.__class__.__name__)
-        generate_cam(config, filepath, model, cam_extractor, title=title)
+        cam_map, point, score = generate_cam(
+            config, filepath, model, cam_extractor, title=title, show=show
+        )
+        cam_scores[cam_name] = score
+    return cam_scores
 
 
-def compare_cams_random(iso_code, data, config, filepaths, n_samples=3, verbose=False):
+def compare_random(
+    iso_code,
+    data,
+    config,
+    filepaths,
+    cam="layercam",
+    n_samples=3,
+    show=True,
+    verbose=False,
+):
     if "class" in data.columns:
         data = data[(data["class"] == config["pos_class"])]
 
-    layer_cam = get_layer_cam(config)
-    model = pred_utils.load_cnn(iso_code, config, verbose=False).eval()
-    cam_extractor = get_cam_extractor(config, model, layer_cam)
+    cam = cams[cam]
+    model = pred_utils.load_model(iso_code, config, verbose=verbose).eval()
+    cam_extractor = get_cam_extractor(config, model, cam)
     for index in list(data.sample(n_samples).index):
         title = str(cam_extractor.__class__.__name__)
-        generate_cam(config, filepaths[index], model, cam_extractor, title=title)
+        generate_cam(
+            config, filepaths[index], model, cam_extractor, title=title, show=show
+        )
 
 
 def generate_cam(
-    config, filepath, model, cam_extractor, show=True, title="", figsize=(5, 5)
+    config, filepath, model, cam_extractor, show=True, title="", figsize=(7, 7)
 ):
     logger = logging.getLogger()
     logger.disabled = True
 
     image = Image.open(filepath).convert("RGB")
     transforms = cnn_utils.get_transforms(config["img_size"])
-    input = transforms["test"](image).to(device).unsqueeze(0)
-    input_image = input.detach().cpu().numpy()[0].transpose((1, 2, 0))
+    input_tensor = transforms["test"](image).to(device).unsqueeze(0)
+    input_image = input_tensor.detach().cpu().numpy()[0].transpose((1, 2, 0))
     input_image = np.clip(
         np.array(cnn_utils.imagenet_std) * input_image
         + np.array(cnn_utils.imagenet_mean),
         0,
         1,
     )
-    output = model(input)
+    targets = [ClassifierOutputTarget(1)]
+    cam_map = cam_extractor(input_tensor=input_tensor, targets=targets)
+    result = show_cam_on_image(input_image, cam_map[0, :], use_rgb=True)
+    point = generate_point_from_cam(config, cam_map[0, :], image)
 
-    if config["type"] == "cnn":
-        cams = cam_extractor(1, output)
-        for name, cam in zip(cam_extractor.target_names, cams):
-            cam_map = cam.squeeze(0)
-            result = overlay_mask(image, to_pil_image(cam_map, mode="F"), alpha=0.5)
-
-    elif config["type"] == "vit":
-        from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
-
-        targets = [ClassifierOutputTarget(1)]
-        cam_map = cam_extractor(input_tensor=input, targets=targets)[0, :]
-        result = show_cam_on_image(input_image, cam_map, use_rgb=True)
-
-    point = generate_point_from_cam(config, cam_map, image)
+    cam_metric = ROADMostRelevantFirst(percentile=90)
+    _, visualizations = cam_metric(
+        input_tensor, cam_map, targets, model, return_visualization=True
+    )
+    cam_metric = ROADCombined(percentiles=[20, 40, 60, 80])
+    scores = cam_metric(input_tensor, cam_map, targets, model)
+    score = scores[0]
 
     if show:
-        import matplotlib.patches as patches
+        visualization = visualizations[0].cpu().numpy().transpose((1, 2, 0))
+        visualization = deprocess_image(visualization)
+        visualization = Image.fromarray(visualization)
 
-        fig, ax = plt.subplots(1, 3, figsize=figsize)
+        fig, ax = plt.subplots(1, 4, figsize=figsize)
         ax[0].imshow(image)
         ax[1].imshow(result)
         rect = patches.Rectangle(
@@ -246,16 +310,16 @@ def generate_cam(
         )
         ax[2].imshow(image)
         ax[2].add_patch(rect)
+        ax[3].imshow(visualization)
+        ax[3].text(5, 20, f"ROAD: {100*score:.3f}", size=6, color="white")
         ax[1].title.set_text(title)
-        ax[0].xaxis.set_visible(False)
-        ax[1].xaxis.set_visible(False)
-        ax[2].xaxis.set_visible(False)
-        ax[0].yaxis.set_visible(False)
-        ax[1].yaxis.set_visible(False)
-        ax[2].yaxis.set_visible(False)
+
+        for i in range(4):
+            ax[i].xaxis.set_visible(False)
+            ax[i].yaxis.set_visible(False)
         plt.show()
 
-    return cam_map, point
+    return cam_map, point, score
 
 
 def generate_point_from_cam(config, cam_map, image):
