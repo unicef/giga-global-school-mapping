@@ -105,7 +105,6 @@ def cam_predict(
     buffer_size=50,
     verbose=False,
 ):
-    classes = {1: config["pos_class"], 0: config["neg_class"]}
     out_dir = data_utils.makedir(
         os.path.join(
             os.getcwd(),
@@ -123,15 +122,7 @@ def cam_predict(
     )
     if os.path.exists(out_file):
         return gpd.read_file(out_file)
-
-    exp_dir = os.path.join(
-        os.getcwd(),
-        config["exp_dir"],
-        config["project"],
-        f"{iso_code}_{config['config_name']}",
-    )
-    model_file = os.path.join(exp_dir, f"{iso_code}_{config['config_name']}.pth")
-    model = pred_utils.load_model(config, classes, model_file, verbose=verbose).eval()
+    model = pred_utils.load_model(iso_code, config).eval()
     cam_extractor = get_cam_extractor(config, model, cam_method)
 
     results = generate_cam_points(
