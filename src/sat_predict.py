@@ -73,7 +73,7 @@ def main(args):
         geotiff_dir = data_utils.makedir(
             os.path.join("output", args.iso_code, "geotiff", shapename)
         )
-        pred_utils.georeference_images(subdata, sat_config, sat_dir, geotiff_dir)
+        cam_utils.georeference_images(subdata, sat_config, sat_dir, geotiff_dir)
 
         print(f"Generating CAMs for {shapename}...")
         results = cam_utils.cam_predict(
