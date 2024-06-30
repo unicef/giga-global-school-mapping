@@ -297,12 +297,13 @@ def get_geoboundaries(
 
     # Download geoboundary if it doesn't already exist
     if not os.path.exists(out_file):
+        url = f"{config['gbhumanitarian_url']}{iso_code}/{adm_level}/"
         try:
-            url = f"{config['gbhumanitarian_url']}{iso_code}/{adm_level}/"
             r = requests.get(url)
             download_path = r.json()["gjDownloadURL"]
         except Exception as e:
             logging.info(e)
+            logging.info(url)
             logging.info("Defaulting to ADM0...")
             url = f"{config['gbopen_url']}{iso_code}/ADM0/"
             r = requests.get(url)

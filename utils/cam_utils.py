@@ -96,7 +96,14 @@ def get_cam_extractor(config, model, cam_extractor):
 
 
 def cam_predict(
-    iso_code, config, data, geotiff_dir, shapename, buffer_size=50, verbose=False
+    iso_code,
+    config,
+    data,
+    geotiff_dir,
+    shapename,
+    cam_method="gradcam",
+    buffer_size=50,
+    verbose=False,
 ):
     classes = {1: config["pos_class"], 0: config["neg_class"]}
     out_dir = data_utils.makedir(
@@ -108,10 +115,11 @@ def cam_predict(
             config["project"],
             "cams",
             config["config_name"],
+            cam_method,
         )
     )
     out_file = os.path.join(
-        out_dir, f"{iso_code}_{shapename}_{config['config_name']}_cam.gpkg"
+        out_dir, f"{iso_code}_{shapename}_{config['config_name']}_{cam_method}.gpkg"
     )
     if os.path.exists(out_file):
         return gpd.read_file(out_file)
@@ -124,7 +132,7 @@ def cam_predict(
     )
     model_file = os.path.join(exp_dir, f"{iso_code}_{config['config_name']}.pth")
     model = pred_utils.load_model(config, classes, model_file, verbose=verbose).eval()
-    cam_extractor = get_cam_extractor(config, model, "gradcam")
+    cam_extractor = get_cam_extractor(config, model, cam_method)
 
     results = generate_cam_points(
         data, config, geotiff_dir, model, cam_extractor, buffer_size
@@ -148,7 +156,7 @@ def generate_cam_points(
     crs = data.crs
     for index in tqdm(list(data.index), total=len(data)):
         _, point, _ = generate_cam(
-            config, filepaths[index], model, cam_extractor, show=False
+            config, filepaths[index], model, cam_extractor, metric=False, show=False
         )
         with rio.open(filepaths[index]) as map_layer:
             coord = [map_layer.xy(point[1], point[0])]

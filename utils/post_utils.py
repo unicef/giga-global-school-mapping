@@ -163,6 +163,7 @@ def load_preds(
         model = calib_utils.load_calibrator(iso_code, model_config, calibrator)
         data["prob_cal"] = model.transform(data["prob"].values)
 
+    data = data.reset_index(drop=True)
     logging.info(f"Data dimensions: {data.shape}")
     return data
 

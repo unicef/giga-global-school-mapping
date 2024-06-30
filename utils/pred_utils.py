@@ -41,8 +41,9 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 logging.basicConfig(level=logging.INFO)
 
 
-def cnn_predict_images(data, model, config, in_dir, classes, threshold):
+def cnn_predict_images(data, model, config, in_dir, threshold):
     files = data_utils.get_image_filepaths(config, data, in_dir)
+    classes = {1: config["pos_class"], 0: config["neg_class"]}
 
     preds, probs = [], []
     for file in data_utils.create_progress_bar(files):
@@ -60,10 +61,7 @@ def cnn_predict_images(data, model, config, in_dir, classes, threshold):
     return data
 
 
-def cnn_predict(
-    data, iso_code, shapename, config, threshold, in_dir=None, n_classes=None
-):
-    cwd = os.path.dirname(os.getcwd())
+def cnn_predict(data, iso_code, shapename, config, threshold, in_dir=None):
     config_name = config["config_name"]
 
     out_dir = data_utils.makedir(
@@ -77,20 +75,15 @@ def cnn_predict(
     if os.path.exists(out_file):
         return gpd.read_file(out_file)
 
-    classes = {1: config["pos_class"], 0: config["neg_class"]}
-    exp_dir = os.path.join(
-        cwd, config["exp_dir"], config["project"], f"{iso_code}_{config['config_name']}"
-    )
-    model_file = os.path.join(exp_dir, f"{iso_code}_{config['config_name']}.pth")
-    model = load_model(c=config, classes=classes, model_file=model_file)
-    results = cnn_predict_images(data, model, config, in_dir, classes, threshold)
+    model = load_model(iso_code, config=config)
+    results = cnn_predict_images(data, model, config, in_dir, threshold)
     results = results[["UID", "geometry", "pred", "prob"]]
     results = gpd.GeoDataFrame(results, geometry="geometry")
     results.to_file(out_file, driver="GPKG")
     return results
 
 
-def load_model(iso_code, config, verbose=True, save=True):
+def load_model(iso_code, config, verbose=True):
     exp_dir = os.path.join(
         os.getcwd(),
         config["exp_dir"],
@@ -114,7 +107,7 @@ def load_model(iso_code, config, verbose=True, save=True):
 
 
 def filter_by_buildings(iso_code, config, data, n_seconds=10):
-    cwd = os.path.dirname(os.getcwd())
+    cwd = os.getcwd()
     raster_dir = os.path.join(cwd, config["rasters_dir"])
     ms_path = os.path.join(raster_dir, "ms_buildings", f"{iso_code}_ms.tif")
     google_path = os.path.join(raster_dir, "google_buildings", f"{iso_code}_google.tif")
