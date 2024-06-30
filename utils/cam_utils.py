@@ -207,7 +207,7 @@ def georeference_images(data, config, in_dir, out_dir):
                 dst.write(dataset, indexes=bands)
 
 
-def compare_cams(iso_code, config, filepaths, show=True, verbose=False):
+def compare_cams(iso_code, config, filepaths, show=True, metrics=True, verbose=False):
     cam_scores = dict()
     for cam_name, cam in cams.items():
         model = pred_utils.load_model(iso_code, config, verbose=verbose).eval()
@@ -220,7 +220,13 @@ def compare_cams(iso_code, config, filepaths, show=True, verbose=False):
                 if not show:
                     pbar.set_description(f"Processing {cam_name}")
                 cam_map, point, score = generate_cam(
-                    config, filepath, model, cam_extractor, title=cam_name, show=show
+                    config,
+                    filepath,
+                    model,
+                    cam_extractor,
+                    title=cam_name,
+                    show=show,
+                    metrics=metrics,
                 )
                 cam_scores[cam_name].append(score)
 
