@@ -259,6 +259,7 @@ def generate_cam(
     model,
     cam_extractor,
     percentile=95,
+    metrics=True,
     show=True,
     title="",
     figsize=(9, 9),
@@ -281,20 +282,21 @@ def generate_cam(
     result = show_cam_on_image(input_image, cam_map[0, :], use_rgb=True)
     point = generate_point_from_cam(config, cam_map[0, :], image)
 
-    cam_metric = ROADMostRelevantFirst(percentile=percentile)
-    scores, road_visualizations = cam_metric(
-        input_tensor, cam_map, targets, model, return_visualization=True
-    )
-    score = scores[0]
+    score = 0
+    if metrics:
+        cam_metric = ROADMostRelevantFirst(percentile=percentile)
+        scores, road_visualizations = cam_metric(
+            input_tensor, cam_map, targets, model, return_visualization=True
+        )
+        score = scores[0]
 
     if show:
         road_visualization = road_visualizations[0].cpu().numpy().transpose((1, 2, 0))
         road_visualization = deprocess_image(road_visualization)
         road_visualization = Image.fromarray(road_visualization)
 
-        thresh_cam = (cam_map < np.percentile(cam_map, percentile)).transpose(
-            (0, 1, 2)
-        )[0, :, :]
+        thresh_cam = cam_map < np.percentile(cam_map, percentile)
+        thresh_cam = thresh_cam.transpose((0, 1, 2))[0, :, :]
         fig, ax = plt.subplots(1, 5, figsize=figsize)
         ax[0].imshow(image)
         ax[1].imshow(result)

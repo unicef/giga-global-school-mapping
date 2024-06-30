@@ -23,7 +23,7 @@ def main(args):
         model_config, data[data.dataset == "test"]
     )
     cam_scores_all, cam_scores_mean = cam_utils.compare_cams(
-        args.iso_code, model_config, filepaths, show=False
+        args.iso_code, model_config, filepaths, metrics=True, show=False
     )
     results = pd.DataFrame(cam_scores_mean, index=["score"]).T
 
@@ -32,6 +32,7 @@ def main(args):
         os.getcwd(), model_config["exp_dir"], model_config["project"], exp_name
     )
     results = results.reset_index()
+    results.columns = ["method", "score"]
     results.to_csv(os.path.join(exp_dir, "cam_results.csv"), index=False)
 
 
