@@ -65,6 +65,7 @@ cams = {
 
 def get_cam_extractor(config, model, cam_extractor):
     reshape_transform = None
+    cam_extractor = cams[cam_extractor]
     if "vit" in config["model"]:
 
         def reshape_transform(tensor, height=16, width=16):
