@@ -56,7 +56,6 @@ cams = {
     "gradcam": GradCAM,
     "hirescam": HiResCAM,
     "gradcam++": GradCAMPlusPlus,
-    "xgradcam": XGradCAM,
     "eigencam": EigenCAM,
     "eigengradcam": EigenGradCAM,
     "layercam": LayerCAM,
