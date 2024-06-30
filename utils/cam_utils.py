@@ -254,7 +254,14 @@ def compare_random(
 
 
 def generate_cam(
-    config, filepath, model, cam_extractor, show=True, title="", figsize=(7, 7)
+    config,
+    filepath,
+    model,
+    cam_extractor,
+    percentile=95,
+    show=True,
+    title="",
+    figsize=(9, 9),
 ):
     logger = logging.getLogger()
     logger.disabled = True
@@ -274,20 +281,21 @@ def generate_cam(
     result = show_cam_on_image(input_image, cam_map[0, :], use_rgb=True)
     point = generate_point_from_cam(config, cam_map[0, :], image)
 
-    cam_metric = ROADCombined(percentiles=[10, 50, 90])
-    scores = cam_metric(input_tensor, cam_map, targets, model)
+    cam_metric = ROADMostRelevantFirst(percentile=percentile)
+    scores, road_visualizations = cam_metric(
+        input_tensor, cam_map, targets, model, return_visualization=True
+    )
     score = scores[0]
 
     if show:
-        cam_metric = ROADMostRelevantFirst(percentile=90)
-        _, visualizations = cam_metric(
-            input_tensor, cam_map, targets, model, return_visualization=True
-        )
-        visualization = visualizations[0].cpu().numpy().transpose((1, 2, 0))
-        visualization = deprocess_image(visualization)
-        visualization = Image.fromarray(visualization)
+        road_visualization = road_visualizations[0].cpu().numpy().transpose((1, 2, 0))
+        road_visualization = deprocess_image(road_visualization)
+        road_visualization = Image.fromarray(road_visualization)
 
-        fig, ax = plt.subplots(1, 4, figsize=figsize)
+        thresh_cam = (cam_map < np.percentile(cam_map, percentile)).transpose(
+            (0, 1, 2)
+        )[0, :, :]
+        fig, ax = plt.subplots(1, 5, figsize=figsize)
         ax[0].imshow(image)
         ax[1].imshow(result)
         rect = patches.Rectangle(
@@ -300,11 +308,12 @@ def generate_cam(
         )
         ax[2].imshow(image)
         ax[2].add_patch(rect)
-        ax[3].imshow(visualization)
+        ax[3].imshow(road_visualization)
+        ax[4].imshow(thresh_cam)
         ax[3].text(5, 20, f"ROAD: {score:.3f}", size=6, color="white")
         ax[1].title.set_text(title)
 
-        for i in range(4):
+        for i in range(5):
             ax[i].xaxis.set_visible(False)
             ax[i].yaxis.set_visible(False)
         plt.show()
