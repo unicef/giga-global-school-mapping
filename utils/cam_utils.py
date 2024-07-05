@@ -55,6 +55,7 @@ cams = {
     "randomcam": RandomCAM,
     "gradcam": GradCAM,
     "hirescam": HiResCAM,
+    "scorecam": ScoreCAM,
     "gradcam++": GradCAMPlusPlus,
     "eigencam": EigenCAM,
     "eigengradcam": EigenGradCAM,
@@ -206,13 +207,15 @@ def georeference_images(data, config, in_dir, out_dir):
                 dst.write(dataset, indexes=bands)
 
 
-def compare_cams(iso_code, config, filepaths, show=True, metrics=True, verbose=False):
+def compare_cams(
+    iso_code, config, filepaths, percentile=90, show=True, metrics=True, verbose=False
+):
     cam_scores = dict()
     for cam_name, cam in cams.items():
         model = pred_utils.load_model(iso_code, config, verbose=verbose).eval()
         model = model.to(device)
         cam_scores[cam_name] = []
-        with get_cam_extractor(config, model, cam) as cam_extractor:
+        with get_cam_extractor(config, model, cam_name) as cam_extractor:
             cam_extractor.batch_size = config["batch_size"]
             pbar = data_utils.create_progress_bar(filepaths) if not show else filepaths
             for filepath in pbar:
@@ -223,6 +226,7 @@ def compare_cams(iso_code, config, filepaths, show=True, metrics=True, verbose=F
                     filepath,
                     model,
                     cam_extractor,
+                    percentile,
                     title=cam_name,
                     show=show,
                     metrics=metrics,
@@ -240,6 +244,7 @@ def compare_random(
     data,
     config,
     filepaths,
+    percentile=90,
     cam="layercam",
     n_samples=3,
     show=True,
@@ -248,13 +253,18 @@ def compare_random(
     if "class" in data.columns:
         data = data[(data["class"] == config["pos_class"])]
 
-    cam = cams[cam]
     model = pred_utils.load_model(iso_code, config, verbose=verbose).eval()
     cam_extractor = get_cam_extractor(config, model, cam)
     for index in list(data.sample(n_samples).index):
         title = str(cam_extractor.__class__.__name__)
         generate_cam(
-            config, filepaths[index], model, cam_extractor, title=title, show=show
+            config,
+            filepaths[index],
+            model,
+            cam_extractor,
+            percentile,
+            title=title,
+            show=show,
         )
 
 
@@ -263,7 +273,7 @@ def generate_cam(
     filepath,
     model,
     cam_extractor,
-    percentile=95,
+    percentile=90,
     metrics=True,
     show=True,
     title="",
@@ -302,28 +312,22 @@ def generate_cam(
 
         thresh_cam = cam_map < np.percentile(cam_map, percentile)
         thresh_cam = thresh_cam.transpose((0, 1, 2))[0, :, :]
-        fig, ax = plt.subplots(1, 5, figsize=figsize)
+
+        n_axis = 3
+        fig, ax = plt.subplots(1, n_axis, figsize=figsize, dpi=300)
         ax[0].imshow(image)
         ax[1].imshow(result)
-        rect = patches.Rectangle(
-            (point[0] - 75, point[1] - 75),
-            150,
-            150,
-            linewidth=1,
-            edgecolor="blue",
-            facecolor="none",
-        )
-        ax[2].imshow(image)
-        ax[2].add_patch(rect)
-        ax[3].imshow(road_visualization)
-        ax[4].imshow(thresh_cam)
-        ax[3].text(5, 20, f"ROAD: {score:.3f}", size=6, color="white")
+        ax[2].imshow(road_visualization)
+        ax[2].text(5, 20, f"ROAD: {score:.3f}", size=10, color="white")
         ax[1].title.set_text(title)
 
-        for i in range(5):
+        for i in range(n_axis):
             ax[i].xaxis.set_visible(False)
             ax[i].yaxis.set_visible(False)
         plt.show()
+
+        # if title == "gradcam":
+        #    fig.savefig(f"assets/{title}.pdf", bbox_inches='tight')
 
     return cam_map, point, score
 

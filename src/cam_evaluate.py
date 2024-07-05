@@ -23,7 +23,12 @@ def main(args):
         model_config, data[data.dataset == "test"]
     )
     cam_scores_all, cam_scores_mean = cam_utils.compare_cams(
-        args.iso_code, model_config, filepaths, metrics=True, show=False
+        args.iso_code,
+        model_config,
+        filepaths,
+        args.percentile,
+        metrics=True,
+        show=False,
     )
     results = pd.DataFrame(cam_scores_mean, index=["score"]).T
 
@@ -40,6 +45,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="CAM Evaluation")
     parser.add_argument("--model_config", help="Model config file")
     parser.add_argument("--iso_code", help="ISO 3166-1 alpha-3 code")
+    parser.add_argument("--percentile", help="Percentile", default=90)
     args = parser.parse_args()
 
     main(args)
