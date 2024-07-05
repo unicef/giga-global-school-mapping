@@ -55,7 +55,6 @@ cams = {
     "randomcam": RandomCAM,
     "gradcam": GradCAM,
     "hirescam": HiResCAM,
-    "scorecam": ScoreCAM,
     "gradcam++": GradCAMPlusPlus,
     "eigencam": EigenCAM,
     "eigengradcam": EigenGradCAM,
@@ -277,6 +276,7 @@ def generate_cam(
     metrics=True,
     show=True,
     title="",
+    save=None,
     figsize=(9, 9),
 ):
     logger = logging.getLogger()
@@ -326,8 +326,8 @@ def generate_cam(
             ax[i].yaxis.set_visible(False)
         plt.show()
 
-        # if title == "gradcam":
-        #    fig.savefig(f"assets/{title}.pdf", bbox_inches='tight')
+        if save:
+            fig.savefig(f"assets/{save}.pdf", bbox_inches="tight")
 
     return cam_map, point, score
 
