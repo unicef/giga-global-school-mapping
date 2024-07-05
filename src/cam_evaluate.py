@@ -26,7 +26,7 @@ def main(args):
         args.iso_code,
         model_config,
         filepaths,
-        args.percentile,
+        float(args.percentile),
         metrics=True,
         show=False,
     )
