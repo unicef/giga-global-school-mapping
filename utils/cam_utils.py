@@ -68,14 +68,23 @@ def get_cam_extractor(config, model, cam_extractor):
     cam_extractor = cams[cam_extractor]
     if "vit" in config["model"]:
 
-        def reshape_transform(tensor, height=16, width=16):
-            result = tensor[:, 1:, :].reshape(
-                tensor.size(0), height, width, tensor.size(2)
-            )
-            result = result.transpose(2, 3).transpose(1, 2)
-            return result
+        class ReshapeTransform:
+            def __init__(self, height, width):
+                self.height = height
+                self.width = width
+
+            def reshape_transform(self, tensor):
+                result = tensor[:, 1:, :].reshape(
+                    tensor.size(0), self.height, self.width, tensor.size(2)
+                )
+                result = result.transpose(2, 3).transpose(1, 2)
+                return result
 
         target_layers = [model.module.encoder.layers[-1].ln_1]
+        if config["model"] == "vit_h_14":
+            reshape_transform = ReshapeTransform(16, 16).reshape_transform
+        elif config["model"] == "vit_l_16":
+            reshape_transform = ReshapeTransform(14, 14).reshape_transform
 
     elif "swin" in config["model"].lower():
 
@@ -91,6 +100,7 @@ def get_cam_extractor(config, model, cam_extractor):
             target_layers = [
                 model.module.model.backbone.backbone.backbone.features[-1][-1].norm1
             ]
+
     return cam_extractor(
         model=model, target_layers=target_layers, reshape_transform=reshape_transform
     )
@@ -230,6 +240,7 @@ def compare_cams(
                     show=show,
                     metrics=metrics,
                 )
+                print(score)
                 cam_scores[cam_name].append(score)
 
     cam_scores_mean = dict()
