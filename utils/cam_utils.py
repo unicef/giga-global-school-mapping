@@ -240,7 +240,6 @@ def compare_cams(
                     show=show,
                     metrics=metrics,
                 )
-                print(score)
                 cam_scores[cam_name].append(score)
 
     cam_scores_mean = dict()
