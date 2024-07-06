@@ -20,7 +20,7 @@ def main(args):
         verbose=False,
     )
     filepaths = data_utils.get_image_filepaths(
-        model_config, data[data.dataset == "test"]
+        model_config, data[(data["dataset"] == "test") & (data["class"] == "school")]
     )
     cam_scores_all, cam_scores_mean = cam_utils.compare_cams(
         args.iso_code,
