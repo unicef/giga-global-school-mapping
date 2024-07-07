@@ -81,6 +81,13 @@ def get_cam_extractor(config, model, cam_extractor):
             tensor = tensor.transpose(2, 3).transpose(1, 2)
             return tensor
 
+    if "vgg" in config["model"].lower():
+        target_layers = [model.module.features[-1]]
+
+    if "convnext" in config["model"].lower():
+        target_layers = [model.module.features[-1][-1].block[2]]
+        reshape_transform = ReshapeTransform(config["model"]).reshape_transform
+
     if "vit" in config["model"].lower():
         target_layers = [model.module.encoder.layers[-1].ln_1]
         if config["model"] == "vit_h_14":
