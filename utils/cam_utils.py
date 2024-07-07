@@ -47,6 +47,9 @@ from pytorch_grad_cam import (
     RandomCAM,
 )
 
+import cv2
+import skimage.feature
+
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 logging.basicConfig(level=logging.INFO)
 
@@ -320,11 +323,16 @@ def generate_cam(
         )
         score = scores[0]
 
-    if show:
         road_visualization = road_visualizations[0].cpu().numpy().transpose((1, 2, 0))
         road_visualization = deprocess_image(road_visualization)
-        road_visualization = Image.fromarray(road_visualization)
+        edges = skimage.feature.canny(
+            image=cv2.cvtColor(road_visualization, cv2.COLOR_BGR2GRAY), sigma=3
+        )
+        if sum(edges.flatten()) == 0:
+            score = 0
 
+    if show:
+        road_visualization = Image.fromarray(road_visualization)
         thresh_cam = cam_map < np.percentile(cam_map, percentile)
         thresh_cam = thresh_cam.transpose((0, 1, 2))[0, :, :]
 
