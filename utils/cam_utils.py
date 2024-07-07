@@ -66,40 +66,35 @@ cams = {
 def get_cam_extractor(config, model, cam_extractor):
     reshape_transform = None
     cam_extractor = cams[cam_extractor]
-    if "vit" in config["model"]:
 
-        class ReshapeTransform:
-            def __init__(self, height, width):
-                self.height = height
-                self.width = width
+    class ReshapeTransform:
+        def __init__(self, model_type="vit", height=16, width=16):
+            self.model_type = model_type
+            self.height = height
+            self.width = width
 
-            def reshape_transform(self, tensor):
-                result = tensor[:, 1:, :].reshape(
+        def reshape_transform(self, tensor):
+            if "vit" in self.model_type:
+                tensor = tensor[:, 1:, :].reshape(
                     tensor.size(0), self.height, self.width, tensor.size(2)
                 )
-                result = result.transpose(2, 3).transpose(1, 2)
-                return result
+            tensor = tensor.transpose(2, 3).transpose(1, 2)
+            return tensor
 
+    if "vit" in config["model"].lower():
         target_layers = [model.module.encoder.layers[-1].ln_1]
         if config["model"] == "vit_h_14":
-            reshape_transform = ReshapeTransform(16, 16).reshape_transform
+            reshape_transform = ReshapeTransform(
+                config["model"], 16, 16
+            ).reshape_transform
         elif config["model"] == "vit_l_16":
-            reshape_transform = ReshapeTransform(14, 14).reshape_transform
+            reshape_transform = ReshapeTransform(
+                config["model"], 14, 14
+            ).reshape_transform
 
     elif "swin" in config["model"].lower():
-
-        def reshape_transform(tensor):
-            result = tensor.transpose(2, 3).transpose(1, 2)
-            return result
-
-        if "satlas-aerial_swinb_si" in config["model"].lower():
-            target_layers = [
-                model.module.model.backbone.backbone.features[-1][-1].norm1
-            ]
-        elif "satlas-aerial_swinb_mi" in config["model"].lower():
-            target_layers = [
-                model.module.model.backbone.backbone.backbone.features[-1][-1].norm1
-            ]
+        target_layers = [model.module.features[-1][-1].norm2]
+        reshape_transform = ReshapeTransform(config["model"], 14, 14).reshape_transform
 
     return cam_extractor(
         model=model, target_layers=target_layers, reshape_transform=reshape_transform
@@ -133,7 +128,8 @@ def cam_predict(
     )
     if os.path.exists(out_file):
         return gpd.read_file(out_file)
-    model = pred_utils.load_model(iso_code, config).eval()
+    model = pred_utils.load_model(iso_code, config)
+    model.eval()
     cam_extractor = get_cam_extractor(config, model, cam_method)
 
     results = generate_cam_points(
@@ -221,7 +217,8 @@ def compare_cams(
 ):
     cam_scores = dict()
     for cam_name, cam in cams.items():
-        model = pred_utils.load_model(iso_code, config, verbose=verbose).eval()
+        model = pred_utils.load_model(iso_code, config, verbose=verbose)
+        model.eval()
         model = model.to(device)
         cam_scores[cam_name] = []
         with get_cam_extractor(config, model, cam_name) as cam_extractor:
@@ -262,7 +259,8 @@ def compare_random(
     if "class" in data.columns:
         data = data[(data["class"] == config["pos_class"])]
 
-    model = pred_utils.load_model(iso_code, config, verbose=verbose).eval()
+    model = pred_utils.load_model(iso_code, config, verbose=verbose)
+    model.eval()
     cam_extractor = get_cam_extractor(config, model, cam)
     for index in list(data.sample(n_samples).index):
         title = str(cam_extractor.__class__.__name__)
