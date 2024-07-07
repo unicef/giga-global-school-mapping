@@ -47,6 +47,9 @@ from pytorch_grad_cam import (
     RandomCAM,
 )
 
+import cv2
+import skimage.feature
+
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 logging.basicConfig(level=logging.INFO)
 
@@ -56,7 +59,6 @@ cams = {
     "gradcam": GradCAM,
     "hirescam": HiResCAM,
     "gradcam++": GradCAMPlusPlus,
-    "xgradcam": XGradCAM,
     "eigencam": EigenCAM,
     "eigengradcam": EigenGradCAM,
     "layercam": LayerCAM,
@@ -66,40 +68,59 @@ cams = {
 
 def get_cam_extractor(config, model, cam_extractor):
     reshape_transform = None
-    if "vit" in config["model"]:
+    cam_extractor = cams[cam_extractor]
 
-        def reshape_transform(tensor, height=16, width=16):
-            result = tensor[:, 1:, :].reshape(
-                tensor.size(0), height, width, tensor.size(2)
-            )
-            result = result.transpose(2, 3).transpose(1, 2)
-            return result
+    class ReshapeTransform:
+        def __init__(self, model_type="vit", height=16, width=16):
+            self.model_type = model_type
+            self.height = height
+            self.width = width
 
+        def reshape_transform(self, tensor):
+            if "vit" in self.model_type:
+                tensor = tensor[:, 1:, :].reshape(
+                    tensor.size(0), self.height, self.width, tensor.size(2)
+                )
+            tensor = tensor.transpose(2, 3).transpose(1, 2)
+            return tensor
+
+    if "vgg" in config["model"].lower():
+        target_layers = [model.module.features[-1]]
+
+    if "convnext" in config["model"].lower():
+        target_layers = [model.module.features[-1][-1].block[2]]
+        reshape_transform = ReshapeTransform(config["model"]).reshape_transform
+
+    if "vit" in config["model"].lower():
         target_layers = [model.module.encoder.layers[-1].ln_1]
+        if config["model"] == "vit_h_14":
+            reshape_transform = ReshapeTransform(
+                config["model"], 16, 16
+            ).reshape_transform
+        elif config["model"] == "vit_l_16":
+            reshape_transform = ReshapeTransform(
+                config["model"], 14, 14
+            ).reshape_transform
 
     elif "swin" in config["model"].lower():
+        target_layers = [model.module.features[-1][-1].norm2]
+        reshape_transform = ReshapeTransform(config["model"], 14, 14).reshape_transform
 
-        def reshape_transform(tensor):
-            result = tensor.transpose(2, 3).transpose(1, 2)
-            return result
-
-        if "satlas-aerial_swinb_si" in config["model"].lower():
-            target_layers = [
-                model.module.model.backbone.backbone.features[-1][-1].norm1
-            ]
-        elif "satlas-aerial_swinb_mi" in config["model"].lower():
-            target_layers = [
-                model.module.model.backbone.backbone.backbone.features[-1][-1].norm1
-            ]
     return cam_extractor(
         model=model, target_layers=target_layers, reshape_transform=reshape_transform
     )
 
 
 def cam_predict(
-    iso_code, config, data, geotiff_dir, shapename, buffer_size=50, verbose=False
+    iso_code,
+    config,
+    data,
+    geotiff_dir,
+    shapename,
+    cam_method="gradcam",
+    buffer_size=50,
+    verbose=False,
 ):
-    classes = {1: config["pos_class"], 0: config["neg_class"]}
     out_dir = data_utils.makedir(
         os.path.join(
             os.getcwd(),
@@ -109,23 +130,17 @@ def cam_predict(
             config["project"],
             "cams",
             config["config_name"],
+            cam_method,
         )
     )
     out_file = os.path.join(
-        out_dir, f"{iso_code}_{shapename}_{config['config_name']}_cam.gpkg"
+        out_dir, f"{iso_code}_{shapename}_{config['config_name']}_{cam_method}.gpkg"
     )
     if os.path.exists(out_file):
         return gpd.read_file(out_file)
-
-    exp_dir = os.path.join(
-        os.getcwd(),
-        config["exp_dir"],
-        config["project"],
-        f"{iso_code}_{config['config_name']}",
-    )
-    model_file = os.path.join(exp_dir, f"{iso_code}_{config['config_name']}.pth")
-    model = pred_utils.load_model(config, classes, model_file, verbose=verbose).eval()
-    cam_extractor = get_cam_extractor(config, model, "gradcam")
+    model = pred_utils.load_model(iso_code, config)
+    model.eval()
+    cam_extractor = get_cam_extractor(config, model, cam_method)
 
     results = generate_cam_points(
         data, config, geotiff_dir, model, cam_extractor, buffer_size
@@ -149,7 +164,7 @@ def generate_cam_points(
     crs = data.crs
     for index in tqdm(list(data.index), total=len(data)):
         _, point, _ = generate_cam(
-            config, filepaths[index], model, cam_extractor, show=False
+            config, filepaths[index], model, cam_extractor, metrics=False, show=False
         )
         with rio.open(filepaths[index]) as map_layer:
             coord = [map_layer.xy(point[1], point[0])]
@@ -207,20 +222,30 @@ def georeference_images(data, config, in_dir, out_dir):
                 dst.write(dataset, indexes=bands)
 
 
-def compare_cams(iso_code, config, filepaths, show=True, verbose=False):
+def compare_cams(
+    iso_code, config, filepaths, percentile=90, show=True, metrics=True, verbose=False
+):
     cam_scores = dict()
     for cam_name, cam in cams.items():
-        model = pred_utils.load_model(iso_code, config, verbose=verbose).eval()
+        model = pred_utils.load_model(iso_code, config, verbose=verbose)
+        model.eval()
         model = model.to(device)
         cam_scores[cam_name] = []
-        with get_cam_extractor(config, model, cam) as cam_extractor:
+        with get_cam_extractor(config, model, cam_name) as cam_extractor:
             cam_extractor.batch_size = config["batch_size"]
             pbar = data_utils.create_progress_bar(filepaths) if not show else filepaths
             for filepath in pbar:
                 if not show:
                     pbar.set_description(f"Processing {cam_name}")
                 cam_map, point, score = generate_cam(
-                    config, filepath, model, cam_extractor, title=cam_name, show=show
+                    config,
+                    filepath,
+                    model,
+                    cam_extractor,
+                    percentile,
+                    title=cam_name,
+                    show=show,
+                    metrics=metrics,
                 )
                 cam_scores[cam_name].append(score)
 
@@ -235,6 +260,7 @@ def compare_random(
     data,
     config,
     filepaths,
+    percentile=90,
     cam="layercam",
     n_samples=3,
     show=True,
@@ -243,18 +269,33 @@ def compare_random(
     if "class" in data.columns:
         data = data[(data["class"] == config["pos_class"])]
 
-    cam = cams[cam]
-    model = pred_utils.load_model(iso_code, config, verbose=verbose).eval()
+    model = pred_utils.load_model(iso_code, config, verbose=verbose)
+    model.eval()
     cam_extractor = get_cam_extractor(config, model, cam)
     for index in list(data.sample(n_samples).index):
         title = str(cam_extractor.__class__.__name__)
         generate_cam(
-            config, filepaths[index], model, cam_extractor, title=title, show=show
+            config,
+            filepaths[index],
+            model,
+            cam_extractor,
+            percentile,
+            title=title,
+            show=show,
         )
 
 
 def generate_cam(
-    config, filepath, model, cam_extractor, show=True, title="", figsize=(7, 7)
+    config,
+    filepath,
+    model,
+    cam_extractor,
+    percentile=90,
+    metrics=True,
+    show=True,
+    title="",
+    save=None,
+    figsize=(9, 9),
 ):
     logger = logging.getLogger()
     logger.disabled = True
@@ -274,40 +315,42 @@ def generate_cam(
     result = show_cam_on_image(input_image, cam_map[0, :], use_rgb=True)
     point = generate_point_from_cam(config, cam_map[0, :], image)
 
-    cam_metric = ROADCombined(percentiles=[10, 50, 90])
-    scores = cam_metric(input_tensor, cam_map, targets, model)
-    score = scores[0]
-
-    if show:
-        cam_metric = ROADMostRelevantFirst(percentile=90)
-        _, visualizations = cam_metric(
+    score = 0
+    if metrics:
+        cam_metric = ROADMostRelevantFirst(percentile=percentile)
+        scores, road_visualizations = cam_metric(
             input_tensor, cam_map, targets, model, return_visualization=True
         )
-        visualization = visualizations[0].cpu().numpy().transpose((1, 2, 0))
-        visualization = deprocess_image(visualization)
-        visualization = Image.fromarray(visualization)
+        score = scores[0]
 
-        fig, ax = plt.subplots(1, 4, figsize=figsize)
+        road_visualization = road_visualizations[0].cpu().numpy().transpose((1, 2, 0))
+        road_visualization = deprocess_image(road_visualization)
+        edges = skimage.feature.canny(
+            image=cv2.cvtColor(road_visualization, cv2.COLOR_BGR2GRAY), sigma=3
+        )
+        if sum(edges.flatten()) == 0:
+            score = 0
+
+    if show:
+        road_visualization = Image.fromarray(road_visualization)
+        thresh_cam = cam_map < np.percentile(cam_map, percentile)
+        thresh_cam = thresh_cam.transpose((0, 1, 2))[0, :, :]
+
+        n_axis = 3
+        fig, ax = plt.subplots(1, n_axis, figsize=figsize, dpi=300)
         ax[0].imshow(image)
         ax[1].imshow(result)
-        rect = patches.Rectangle(
-            (point[0] - 75, point[1] - 75),
-            150,
-            150,
-            linewidth=1,
-            edgecolor="blue",
-            facecolor="none",
-        )
-        ax[2].imshow(image)
-        ax[2].add_patch(rect)
-        ax[3].imshow(visualization)
-        ax[3].text(5, 20, f"ROAD: {score:.3f}", size=6, color="white")
+        ax[2].imshow(road_visualization)
+        ax[2].text(5, 20, f"ROAD: {score:.3f}", size=10, color="white")
         ax[1].title.set_text(title)
 
-        for i in range(4):
+        for i in range(n_axis):
             ax[i].xaxis.set_visible(False)
             ax[i].yaxis.set_visible(False)
         plt.show()
+
+        if save:
+            fig.savefig(f"assets/{save}.pdf", bbox_inches="tight")
 
     return cam_map, point, score
 

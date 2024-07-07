@@ -1,6 +1,12 @@
 #!/bin/bash
 
-echo -n "Input ISO: "
-read iso
-
-python src/cam_evaluate.py --iso_code=$iso --model_config="configs/vit_configs/vit_h_14.yaml"
+python src/cam_evaluate.py --iso_code="SSD" --model_config="configs/vit_configs/vit_h_14.yaml" --percentile=90
+python src/cam_evaluate.py --iso_code="BWA" --model_config="configs/vit_configs/vit_l_16.yaml" --percentile=90
+python src/cam_evaluate.py --iso_code="SEN" --model_config="configs/vit_configs/vit_h_14.yaml" --percentile=90
+python src/cam_evaluate.py --iso_code="RWA" --model_config="configs/vit_configs/vit_h_14.yaml" --percentile=90
+python src/cam_evaluate.py --iso_code="NAM" --model_config="configs/vit_configs/swin_v2_s.yaml" --percentile=90
+python src/cam_evaluate.py --iso_code="BEN" --model_config="configs/vit_configs/swin_v2_s.yaml" --percentile=90
+python src/cam_evaluate.py --iso_code="GHA" --model_config="configs/vit_configs/swin_v2_s.yaml" --percentile=90
+python src/cam_evaluate.py --iso_code="ZWE" --model_config="configs/cnn_configs/vgg16.yaml" --percentile=90
+python src/cam_evaluate.py --iso_code="KEN" --model_config="configs/cnn_configs/convnext_small.yaml" --percentile=90
+python src/cam_evaluate.py --iso_code="MWI" --model_config="configs/cnn_configs/convnext_base.yaml" --percentile=90

@@ -13,3 +13,4 @@ archive
 output
 models/
 *.share
+*.pdf

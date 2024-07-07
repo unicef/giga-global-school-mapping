@@ -20,10 +20,15 @@ def main(args):
         verbose=False,
     )
     filepaths = data_utils.get_image_filepaths(
-        model_config, data[data.dataset == "test"]
+        model_config, data[(data["dataset"] == "test") & (data["class"] == "school")]
     )
     cam_scores_all, cam_scores_mean = cam_utils.compare_cams(
-        args.iso_code, model_config, filepaths, show=False
+        args.iso_code,
+        model_config,
+        filepaths,
+        float(args.percentile),
+        metrics=True,
+        show=False,
     )
     results = pd.DataFrame(cam_scores_mean, index=["score"]).T
 
@@ -32,6 +37,7 @@ def main(args):
         os.getcwd(), model_config["exp_dir"], model_config["project"], exp_name
     )
     results = results.reset_index()
+    results.columns = ["method", "score"]
     results.to_csv(os.path.join(exp_dir, "cam_results.csv"), index=False)
 
 
@@ -39,6 +45,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="CAM Evaluation")
     parser.add_argument("--model_config", help="Model config file")
     parser.add_argument("--iso_code", help="ISO 3166-1 alpha-3 code")
+    parser.add_argument("--percentile", help="Percentile", default=90)
     args = parser.parse_args()
 
     main(args)

@@ -77,15 +77,12 @@ def download_osm(config: dict, category: str, source: str = "osm") -> gpd.GeoDat
         source (str): Source of the data. Defaults to "osm".
 
     Returns:
-        GeoDataFrame: Combined GeoDataFrame containing the downloaded OSM data.
+        None
     """
 
     # Construct the output directory path
     out_dir = os.path.join(config["vectors_dir"], config["project"], category, source)
     out_dir = data_utils.makedir(out_dir)
-
-    # Define the path for the combined OSM file
-    osm_file = os.path.join(os.path.dirname(out_dir), f"{source}.geojson")
 
     # List of ISO codes to process
     iso_codes = config["iso_codes"]
@@ -107,7 +104,6 @@ def download_osm(config: dict, category: str, source: str = "osm") -> gpd.GeoDat
         ]
     )
 
-    data = []  # List to store the downloaded data
     for iso_code in (pbar := data_utils.create_progress_bar(iso_codes)):
         pbar.set_description(f"Processing {iso_code}")
         filename = f"{iso_code}_{source}.geojson"
@@ -131,11 +127,8 @@ def download_osm(config: dict, category: str, source: str = "osm") -> gpd.GeoDat
                 columns=config["columns"],
                 out_file=out_subfile,
             )
-            data.append(subdata)  # Add the processed data to the list
 
-    # Combine all the downloaded and processed data into a single GeoDataFrame
-    data = data_utils.concat_data(data, osm_file)
-    return data
+    return
 
 
 def _query_overture(
@@ -223,15 +216,12 @@ def download_overture(
         source (str): Source of the data. Defaults to "overture".
 
     Returns:
-        GeoDataFrame: Combined GeoDataFrame containing the downloaded Overture data.
+        None
     """
 
     # Generate output directory
     out_dir = os.path.join(config["vectors_dir"], config["project"], category, source)
     out_dir = data_utils.makedir(out_dir)
-
-    # Define the path for the combined Overture file
-    overture_file = os.path.join(os.path.dirname(out_dir), f"{source}.geojson")
 
     # List of ISO codes to process
     iso_codes = config["iso_codes"]
@@ -260,7 +250,6 @@ def download_overture(
         )
         query = f""" ({query}) and ({exclude_query})"""
 
-    data = []  # List to store the downloaded data
     for iso_code in (pbar := data_utils.create_progress_bar(iso_codes)):
         pbar.set_description(f"Processing {iso_code}")
         filename = f"{iso_code}_{source}.geojson"
@@ -292,11 +281,8 @@ def download_overture(
                     out_file=out_subfile,
                 )
             subdata = gpd.read_file(out_subfile).reset_index(drop=True)
-            data.append(subdata)  # Add the processed data to the list
 
-    # Combine all the downloaded and processed data into a single GeoDataFrame
-    data = data_utils.concat_data(data, overture_file)
-    return data
+    return
 
 
 def download_unicef(
@@ -316,7 +302,7 @@ def download_unicef(
         source (str, optional): Data source. Defaults to "unicef".
 
     Returns:
-        GeoDataFrame: Combined GeoDataFrame of all processed data.
+        None
     """
 
     # Generate output directory
@@ -327,11 +313,9 @@ def download_unicef(
     iso_codes = config["iso_codes"]
     columns = config["columns"]
 
-    data = []
     # Create a progress bar for ISO codes processing
     for iso_code in (pbar := data_utils.create_progress_bar(iso_codes)):
         pbar.set_description(f"Processing {iso_code}")
-
         filename = f"{iso_code}_{source}.geojson"
         out_subfile = os.path.join(data_dir, filename)
 
@@ -366,13 +350,8 @@ def download_unicef(
 
         # Read the processed data from file and reset the index
         subdata = gpd.read_file(out_subfile).reset_index(drop=True)
-        data.append(subdata)
 
-    # Combine all the processed data into a single GeoDataFrame and save to file
-    out_dir = os.path.dirname(data_dir)
-    out_file = os.path.join(out_dir, f"{source}.geojson")
-    data = data_utils.concat_data(data, out_file)
-    return data
+    return
 
 
 def get_country(config: dict, source: str = "ms"):

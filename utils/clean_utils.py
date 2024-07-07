@@ -103,7 +103,7 @@ def sample_points(
 
 
 def augment_negative_samples(
-    iso_code: str, config: dict, name: str = "clean"
+    iso_code: str, config: dict, imb_ratio: int = 1, name: str = "clean"
 ) -> gpd.GeoDataFrame:
     """
     Augments negative samples to balance with positive samples.
@@ -118,6 +118,8 @@ def augment_negative_samples(
             - object_proximity (float): Proximity threshold for filtering POIs.
             - sample_spacing (float): Spacing for sampling points.
             - columns (list of str): List of columns to retain in the data.
+        imb_ratio (int, optional): Imbalance ratio (i.e. ratio of negatives to positives).
+            Defaults to 1.
         name (str, optional): Name of the cleaned data file. Defaults to "clean".
 
     Returns:
@@ -151,7 +153,7 @@ def augment_negative_samples(
     n_neg = len(negatives)
 
     # Check if negative samples need augmentation to balance with positive samples
-    if n_pos * 2 > n_neg:
+    if n_pos * imb_ratio > n_neg:
         points = sample_points(
             iso_code,
             config,
@@ -177,8 +179,8 @@ def augment_negative_samples(
             points["validated"] = 0
 
         # Sample additional points to achieve balance
-        logging.info(f"{iso_code} {points.shape} {n_pos*2 - n_neg}")
-        points = points.sample((n_pos * 2 - n_neg), random_state=SEED)
+        logging.info(f"{iso_code} {points.shape} {n_pos*imb_ratio - n_neg}")
+        points = points.sample((n_pos * imb_ratio - n_neg), random_state=SEED)
 
         # Concatenate sampled points with existing negatives and save to file
         negatives = data_utils.concat_data([points, negatives], neg_file, verbose=False)
@@ -335,6 +337,7 @@ def clean_data(
     category: str,
     name: str = "clean",
     id: str = "UID",
+    imb_ratio: int = 1,
     sources: list = [],
 ) -> gpd.GeoDataFrame:
     """
@@ -445,7 +448,9 @@ def clean_data(
         data = data_utils.concat_data([data], out_file=out_file)
 
         if category == config["neg_class"]:
-            data = augment_negative_samples(iso_code, config, name=name)
+            data = augment_negative_samples(
+                iso_code, config, imb_ratio=imb_ratio, name=name
+            )
             logging.info(f"Data dimensions: {data.shape}")
 
     # Read the cleaned data
