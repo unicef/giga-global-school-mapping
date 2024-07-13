@@ -129,6 +129,7 @@ def cam_predict(
             "results",
             config["project"],
             "cams",
+            "ensemble",
             config["config_name"],
             cam_method,
         )

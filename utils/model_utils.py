@@ -6,6 +6,7 @@ import rasterio as rio
 import numpy as np
 from utils import eval_utils
 from utils import data_utils
+from utils import config_utils
 
 import logging
 
@@ -64,7 +65,7 @@ def load_data(
         return data
 
     data = []
-    data_utils.makedir(out_file)
+    data_utils.makedir(os.path.dirname(out_file))
 
     # Iterate over the ISO codes to read and process data
     for iso_code in iso_codes:
@@ -289,3 +290,50 @@ def train_val_test_split(
     data.dataset = data.dataset.fillna("train")
 
     return data
+
+
+def get_model_output(iso_code: str, config: dict, phase: str = "test") -> pd.DataFrame:
+    """
+    Retrieve the model output from a CSV file.
+
+    Args:
+        iso_code (str): ISO code of the dataset.
+        config (dict): Configuration dictionary with keys:
+            - config_name (str): Name of the configuration.
+            - exp_dir (str): Directory where experiments are stored.
+            - project (str): Name of the project.
+        phase (str, optional): Phase of the data ('test', 'train', 'val'). Defaults to "test".
+
+    Returns:
+        pd.DataFrame: DataFrame containing the model output.
+    """
+    filename = f"{iso_code}_{config['config_name']}_{phase}.csv"
+    output_path = os.path.join(
+        os.getcwd(),
+        config["exp_dir"],
+        config["project"],
+        f"{iso_code}_{config['config_name']}",
+        filename,
+    )
+    output = pd.read_csv(output_path)
+    return output
+
+
+def get_ensemble_configs(iso_code, config):
+    model_configs = []
+    for model_file in config[iso_code]:
+        model_config = config_utils.load_config(os.path.join(os.getcwd(), model_file))
+        model_configs.append(model_config)
+    # logging.info([model_configs[0]["model"], model_configs[1]["model"]])
+    return model_configs
+
+
+def ensemble_models(iso_code, config, prob_col="y_probs", phase="val"):
+    probs = 0
+    model_configs = get_ensemble_configs(iso_code, config)
+    for model_config in model_configs:
+        output = get_model_output(iso_code, model_config, phase=phase)
+        probs = probs + output[prob_col].to_numpy()
+
+    output[prob_col] = probs / len(model_configs)
+    return output

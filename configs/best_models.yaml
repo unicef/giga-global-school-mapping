@@ -1,0 +1,40 @@
+BEN: 
+- "configs/vit_configs/swin_v2_s.yaml"
+- "configs/vit_configs/vit_h_14.yaml"
+- "configs/cnn_configs/convnext_base.yaml"
+BWA: 
+- "configs/vit_configs/vit_l_16.yaml"
+- "configs/cnn_configs/convnext_large.yaml"
+- "configs/vit_configs/swin_v2_t.yaml"
+GHA: 
+- "configs/vit_configs/swin_v2_s.yaml"
+- "configs/vit_configs/vit_h_14.yaml"
+- "configs/cnn_configs/convnext_small.yaml"
+KEN: 
+- "configs/cnn_configs/convnext_small.yaml"
+- "configs/vit_configs/swin_v2_b.yaml"
+- "configs/vit_configs/vit_b_16.yaml"
+MWI: 
+- "configs/cnn_configs/convnext_base.yaml"
+- "configs/vit_configs/vit_h_14.yaml"
+- "configs/vit_configs/swin_v2_s.yaml"
+NAM: 
+- "configs/vit_configs/swin_v2_t.yaml"
+- "configs/vit_configs/vit_h_14.yaml"
+- "configs/cnn_configs/convnext_large.yaml"
+RWA: 
+- "configs/vit_configs/vit_h_14.yaml"
+- "configs/vit_configs/swin_v2_t.yaml"
+- "configs/cnn_configs/convnext_base.yaml"
+SEN: 
+- "configs/vit_configs/vit_h_14.yaml"
+- "configs/cnn_configs/convnext_large.yaml"
+- "configs/vit_configs/swin_v2_t.yaml"
+SSD: 
+- "configs/vit_configs/vit_h_14.yaml"
+- "configs/vit_configs/swin_v2_t.yaml"
+- "configs/cnn_configs/convnext_base.yaml"
+ZWE: 
+- "configs/vit_configs/vit_h_14.yaml"
+- "configs/cnn_configs/convnext_base.yaml"
+- "configs/vit_configs/swin_v2_b.yaml"

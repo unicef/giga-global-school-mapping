@@ -9,6 +9,7 @@ import torch
 
 import sat_download
 from utils import config_utils
+from utils import model_utils
 from utils import data_utils
 from utils import pred_utils
 from utils import cam_utils
@@ -59,17 +60,18 @@ def main(args):
         )
 
         print(f"Generating predictions for {shapename}...")
-        results = pred_utils.cnn_predict(
+        model_configs = model_utils.get_ensemble_configs(args.iso_code, model_config)
+        results = pred_utils.ensemble_predict(
             data=tiles,
             iso_code=args.iso_code,
             shapename=shapename,
-            config=model_config,
+            model_configs=model_configs,
             threshold=args.threshold,
             in_dir=sat_dir,
         )
 
         print(f"Generating GeoTIFFs for {shapename}...")
-        subdata = results[results["pred"] == model_config["pos_class"]]
+        subdata = results[results["pred"] == model_configs[0]["pos_class"]]
         geotiff_dir = data_utils.makedir(
             os.path.join("output", args.iso_code, "geotiff", shapename)
         )
@@ -78,7 +80,7 @@ def main(args):
         print(f"Generating CAMs for {shapename}...")
         results = cam_utils.cam_predict(
             args.iso_code,
-            model_config,
+            model_configs[0],
             subdata,
             geotiff_dir,
             shapename,
