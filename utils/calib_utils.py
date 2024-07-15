@@ -18,22 +18,21 @@ from utils import post_utils
 from utils import pred_utils
 from utils import cnn_utils
 from utils import model_utils
-from sklearn.metrics import log_loss, brier_score_loss
+from utils import config_utils
+from utils import data_utils
+from sklearn.metrics import log_loss, brier_score_loss, average_precision_score
 
 import logging
 
 logging.basicConfig(level=logging.INFO)
 SEED = 42
 
-CALIBRATORS = [
-    IsotonicRegression(),
-    TemperatureScaling(),
-    HistogramBinning(),
-    LogisticCalibration(),
-    BetaCalibration(),
-    BBQ(),
-    ENIR(),
-]
+CALIBRATORS = {
+    "IsotonicRegression": IsotonicRegression(),
+    "TemperatureScaling": TemperatureScaling(),
+    "LogisticCalibration": LogisticCalibration(),
+    "BetaCalibration": BetaCalibration(),
+}
 
 
 def calculate_bins(preds: np.ndarray, labels: np.ndarray, n_bins: int):
@@ -192,16 +191,19 @@ def calibration_curves(
         None: The function generates a plot of calibration curves.
     """
 
-    fig, ax = plt.subplots(figsize=(6, 4))
+    from matplotlib.backends.backend_pdf import PdfPages
+
+    fig, ax = plt.subplots(figsize=(6, 4), dpi=300)
 
     # Get model output for the specified phase
-    output = get_model_output(iso_code, config, phase=phase)
+    # output = get_model_output(iso_code, config, phase=phase)
+    output = model_utils.ensemble_models(iso_code, config, phase=phase)
 
     # Plot uncalibrated calibration curve
     CalibrationDisplay.from_predictions(
         output["y_true"],
         output["y_probs"],
-        name="Uncalibrated",
+        name="Uncalibrated (baseline)",
         ax=ax,
         alpha=1.0,
         color="red",
@@ -210,16 +212,18 @@ def calibration_curves(
     )
 
     # Plot calibration curves for each calibrator
-    for calibrator in CALIBRATORS:
+    for name, calibrator in CALIBRATORS.items():
         output = get_calibrator_outputs(
             iso_code, config, calibrator, phase=phase, n_bins=n_bins
         )
-        name = calibrator.__class__.__name__
         kwargs = {"alpha": 0.25, "marker": None}
 
         # Highlight the specified calibrator
         if name == highlight:
             kwargs = {"alpha": 1.0, "color": "blue", "marker": None}
+
+        if name != "BBQ" and name != "ENIR":
+            name = "".join([" " + s if s.isupper() else s for s in name]).lstrip()
 
         CalibrationDisplay.from_predictions(
             output["y_true"],
@@ -230,7 +234,10 @@ def calibration_curves(
             **kwargs,
         )
 
-    plt.legend(loc="lower right", fontsize=7.5)
+    plt.legend(loc="lower right", fontsize=8)
+    plt.ylabel("Accuracy")
+    plt.xlabel("Confidence")
+    fig.savefig("assets/calibration_curve.pdf", bbox_inches="tight")
 
 
 def calibration_metrics(
@@ -260,6 +267,9 @@ def calibration_metrics(
         f"{phase}_mce": mce.measure(confidences, ground_truth),
         f"{phase}_nll": log_loss(ground_truth, confidences),
         f"{phase}_briers": brier_score_loss(ground_truth, confidences),
+        f"{phase}_auprc": average_precision_score(
+            ground_truth, confidences, pos_label=1
+        ),
     }
 
 
@@ -280,23 +290,24 @@ def compare_calibrators(iso_code: str, config: dict, n_bins: int = 10) -> dict:
     """
     # Initialize the results dictionary
     results = dict()
-    results["Uncalibrated"] = dict()
+    uncalibrated_name = "Uncalibrated (baseline)"
+    results[uncalibrated_name] = dict()
 
     # Iterate through validation and test phases
     for phase in ["val", "test"]:
         # Get model output for the current phase
-        output = get_model_output(iso_code, config, phase=phase)
+        # output = get_model_output(iso_code, config, phase=phase)
+        output = model_utils.ensemble_models(iso_code, config, phase=phase)
 
         # Calculate and store calibration metrics for uncalibrated outputs
-        results["Uncalibrated"].update(
+        results[uncalibrated_name].update(
             calibration_metrics(
                 output["y_probs"].values, output["y_true"].values, phase, n_bins
             )
         )
         # Iterate through each calibrator defined in CALIBRATORS
-        for calibrator in CALIBRATORS:
+        for calibrator_name, calibrator in CALIBRATORS.items():
             calibrator = load_calibrator(iso_code, config, calibrator)
-            calibrator_name = calibrator.__class__.__name__
 
             # Initialize results for the calibrator if not already present
             if calibrator_name not in results:
@@ -343,15 +354,17 @@ def load_calibrator(iso_code: str, config: dict, calibrator, phase: str = "val")
         f"{iso_code}_{config['config_name']}",
         f"{iso_code}_{config['config_name']}_{calibrator_name}.pkl",
     )
+    data_utils.makedir(os.path.dirname(calibrator_file))
 
     # Check if the calibrator file exists
-    if not os.path.exists(calibrator_file):
-        # Load model output and fit the calibrator
-        output = get_model_output(iso_code, config, phase=phase)
-        confidences = output["y_probs"].values
-        ground_truth = output["y_true"].values
-        calibrator.fit(confidences, ground_truth)
-        joblib.dump(calibrator, calibrator_file)
+    # if not os.path.exists(calibrator_file):
+    # Load model output and fit the calibrator
+    calibrator = CALIBRATORS[calibrator_name]
+    output = model_utils.ensemble_models(iso_code, config, phase=phase)
+    confidences = output["y_probs"].values
+    ground_truth = output["y_true"].values
+    calibrator.fit(confidences, ground_truth)
+    joblib.dump(calibrator, calibrator_file)
 
     # Load and return the calibrator from the file
     calibrator = joblib.load(calibrator_file)
@@ -394,42 +407,6 @@ def get_calibrator_outputs(
         filename,
     )
 
-    # Check if the output file already exists
-    if not os.path.exists(output_path):
-        # Get model output and calibrate the probabilities
-        output = get_model_output(iso_code, config, phase=phase)
-        confidences = output["y_probs"].values
-        calibrated = calibrator.transform(confidences)
-        output["y_probs_cal"] = np.clip(calibrated, 0, 1)
-        output.to_csv(output_path, index=False)
-
     # Read and return the output CSV as a DataFrame
-    output = pd.read_csv(output_path)
-    return output
-
-
-def get_model_output(iso_code: str, config: dict, phase: str = "test") -> pd.DataFrame:
-    """
-    Retrieve the model output from a CSV file.
-
-    Args:
-        iso_code (str): ISO code of the dataset.
-        config (dict): Configuration dictionary with keys:
-            - config_name (str): Name of the configuration.
-            - exp_dir (str): Directory where experiments are stored.
-            - project (str): Name of the project.
-        phase (str, optional): Phase of the data ('test', 'train', 'val'). Defaults to "test".
-
-    Returns:
-        pd.DataFrame: DataFrame containing the model output.
-    """
-    filename = f"{iso_code}_{config['config_name']}_{phase}.csv"
-    output_path = os.path.join(
-        os.getcwd(),
-        config["exp_dir"],
-        config["project"],
-        f"{iso_code}_{config['config_name']}",
-        filename,
-    )
     output = pd.read_csv(output_path)
     return output

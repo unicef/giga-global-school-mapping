@@ -103,7 +103,7 @@ def sample_points(
 
 
 def augment_negative_samples(
-    iso_code: str, config: dict, imb_ratio: int = 1, name: str = "clean"
+    iso_code: str, config: dict, imb_ratio: int = 2, name: str = "clean"
 ) -> gpd.GeoDataFrame:
     """
     Augments negative samples to balance with positive samples.
@@ -137,6 +137,10 @@ def augment_negative_samples(
         f"{iso_code}_{name}.geojson",
     )
     positives = gpd.read_file(pos_file)
+    if "clean" in positives.columns:
+        positives = positives[positives["clean"] == 0]
+    if "validated" in positives.columns:
+        positives = positives[positives["validated"] == 0]
 
     # Read negative class file
     neg_file = os.path.join(
@@ -148,6 +152,10 @@ def augment_negative_samples(
         f"{iso_code}_{name}.geojson",
     )
     negatives = gpd.read_file(neg_file)
+    if "clean" in negatives.columns:
+        negatives = negatives[negatives["clean"] == 0]
+    if "validated" in negatives.columns:
+        negatives = negatives[negatives["validated"] == 0]
 
     n_pos = len(positives)
     n_neg = len(negatives)
@@ -337,7 +345,7 @@ def clean_data(
     category: str,
     name: str = "clean",
     id: str = "UID",
-    imb_ratio: int = 1,
+    imb_ratio: int = 2,
     sources: list = [],
 ) -> gpd.GeoDataFrame:
     """
@@ -450,7 +458,7 @@ def clean_data(
         if category == config["neg_class"]:
             data = augment_negative_samples(
                 iso_code, config, imb_ratio=imb_ratio, name=name
-            )
+            ).reset_index(drop=True)
             logging.info(f"Data dimensions: {data.shape}")
 
     # Read the cleaned data

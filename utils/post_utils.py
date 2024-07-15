@@ -54,15 +54,21 @@ def calculate_nearest_distance(refs, source, source_name, source_uid):
         )
         refs.loc[index1, f"distance_to_nearest_{source_name}"] = distance
         refs.loc[index1, source_uid] = nearest[source_uid]
+        for prob_col in ["prob", "prob_cal"]:
+            if prob_col in source.columns:
+                refs.loc[index1, prob_col] = nearest[prob_col]
     return refs
 
 
 def calculate_nearest_distances(preds, master, osm_overture):
     preds = calculate_nearest_distance(
-        preds, master, source_name="master", source_uid="MUID"
+        preds, master[master["clean"] == 0], source_name="master", source_uid="MUID"
     )
     preds = calculate_nearest_distance(
-        preds, osm_overture, source_name="osm_overture", source_uid="SUID"
+        preds,
+        osm_overture[osm_overture["clean"] == 0],
+        source_name="osm_overture",
+        source_uid="SUID",
     )
     master = calculate_nearest_distance(
         master, preds, source_name="pred", source_uid="PUID"
@@ -125,12 +131,14 @@ def load_preds(
     iso_code,
     data_config,
     model_config,
+    cam_method="gradcam",
     sum_threshold=0,
     buffer_size=0,
     calibrator=None,
     source="pred",
     colname="clean",
 ):
+    model_configs = model_utils.get_ensemble_configs(iso_code, model_config)
     out_dir = os.path.join(
         os.getcwd(),
         "output",
@@ -138,8 +146,11 @@ def load_preds(
         "results",
         model_config["project"],
         "cams",
-        model_config["config_name"],
+        "ensemble",
+        model_configs[0]["config_name"],
+        cam_method,
     )
+    print(out_dir)
     filenames = next(os.walk(out_dir), (None, None, []))[2]
 
     data = []
@@ -163,12 +174,12 @@ def load_preds(
         model = calib_utils.load_calibrator(iso_code, model_config, calibrator)
         data["prob_cal"] = model.transform(data["prob"].values)
 
-    data = data.reset_index(drop=True)
+    data = data.drop_duplicates("geometry").reset_index(drop=True)
     logging.info(f"Data dimensions: {data.shape}")
     return data
 
 
-def save_results(iso_code, data, config, source):
+def save_results(iso_code, data, config, source, cam_method=None):
     out_dir = os.path.join(
         os.getcwd(),
         "output",
@@ -179,7 +190,7 @@ def save_results(iso_code, data, config, source):
     out_file = f"{iso_code}_{source}.geojson"
     if source == "preds":
         out_dir = os.path.join(out_dir, "cams")
-        out_file = f"{iso_code}_{config['config_name']}_cams.geojson"
+        out_file = f"{iso_code}_{config['config_name']}_{cam_method}.geojson"
 
     out_file = os.path.join(out_dir, out_file)
     data.to_file(out_file, driver="GeoJSON")
