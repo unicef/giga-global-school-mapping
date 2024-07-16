@@ -1,8 +1,9 @@
 # Data download URLs
-project: "GIGAv2"
+project: "GIGAv1"
 pos_class: "school"
 neg_class: "non_school"
 iso_codes: ["BEN", "BWA", "GHA", "KEN", "MWI", "NAM", "RWA", "SEN", "SSD", "ZWE"]
+name: "AF"
 
 exp_dir: 'exp/'
 rasters_dir: 'data/rasters/'
