@@ -56,6 +56,19 @@ def load_data(
         os.getcwd(), vector_dir, out_dir, f"{name}_{out_dir}.geojson"
     )
 
+    if len(iso_codes) > 1:
+        data = []
+        for iso_code in data_utils.create_progress_bar(iso_codes):
+            sub_out_file = os.path.join(
+                os.getcwd(), vector_dir, out_dir, f"{iso_code}_{out_dir}.geojson"
+            )
+            subdata = gpd.read_file(sub_out_file)
+            data.append(subdata)
+        data = pd.concat(data)
+        print_stats(data, attributes, config["test_size"])
+        data.to_file(out_file, driver="GeoJSON")
+        return data
+
     # Check if the output file already exists
     if os.path.exists(out_file):
         data = gpd.read_file(out_file)
