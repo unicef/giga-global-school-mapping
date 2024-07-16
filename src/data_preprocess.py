@@ -47,7 +47,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--sources", help="Sources (e.g. unicef, osm, overture)", default=[], nargs="+"
     )
-    parser.add_argument("--imb_ratio", help="Imbalance ratio", type=int, default=1)
+    parser.add_argument("--imb_ratio", help="Imbalance ratio", type=int, default=2)
     parser.add_argument(
         "--clean_pos", help="Clean positive samples", type=str, default="True"
     )

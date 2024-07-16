@@ -206,8 +206,9 @@ if __name__ == "__main__":
     # Load config
     config_file = os.path.join(cwd, args.config)
     c = config_utils.load_config(config_file)
-    c["iso_codes"] = args.iso
-    iso = args.iso[0]
+    if "iso_codes" not in c:
+        c["iso_codes"] = args.iso
+        iso = args.iso[0]
     if "name" in c:
         iso = c["name"]
     c["iso_code"] = iso

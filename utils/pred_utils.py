@@ -41,11 +41,10 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 logging.basicConfig(level=logging.INFO)
 
 
-def cnn_predict_images(data, model, config, in_dir, threshold):
+def cnn_predict_images(data, model, config, in_dir):
     files = data_utils.get_image_filepaths(config, data, in_dir)
-    classes = {1: config["pos_class"], 0: config["neg_class"]}
 
-    preds, probs = [], []
+    probs = []
     for file in data_utils.create_progress_bar(files):
         image = Image.open(file).convert("RGB")
         transforms = cnn_utils.get_transforms(config["img_size"])
@@ -53,15 +52,11 @@ def cnn_predict_images(data, model, config, in_dir, threshold):
         soft_outputs = nnf.softmax(output, dim=1).detach().cpu().numpy()
         probs.append(soft_outputs[:, 1][0])
 
-    preds = np.array(probs)
-    preds = preds > threshold
-    preds = [str(classes[int(pred)]) for pred in preds]
-    data["pred"] = preds
     data["prob"] = probs
     return data
 
 
-def cnn_predict(data, iso_code, shapename, config, threshold, in_dir=None):
+def cnn_predict(data, iso_code, shapename, config, in_dir=None):
     config_name = config["config_name"]
 
     out_dir = data_utils.makedir(
@@ -76,9 +71,46 @@ def cnn_predict(data, iso_code, shapename, config, threshold, in_dir=None):
         return gpd.read_file(out_file)
 
     model = load_model(iso_code, config=config)
-    results = cnn_predict_images(data, model, config, in_dir, threshold)
-    results = results[["UID", "geometry", "pred", "prob"]]
+    results = cnn_predict_images(data, model, config, in_dir)
+
+    results = results[["UID", "geometry", "prob"]]
     results = gpd.GeoDataFrame(results, geometry="geometry")
+    results.to_file(out_file, driver="GPKG")
+    return results
+
+
+def ensemble_predict(data, iso_code, shapename, model_configs, threshold, in_dir=None):
+    classes = {1: model_configs[0]["pos_class"], 0: model_configs[0]["neg_class"]}
+    out_dir = data_utils.makedir(
+        os.path.join(
+            "output",
+            iso_code,
+            "results",
+            model_configs[0]["project"],
+            "tiles",
+            "ensemble",
+        )
+    )
+    name = f"{iso_code}_{shapename}"
+    out_file = os.path.join(out_dir, f"{name}_ensemble_results.gpkg")
+
+    probs = 0
+    for model_config in model_configs:
+        print(f"Generating predictions with {model_config['config_name']}...")
+        results = cnn_predict(
+            data=data,
+            iso_code=iso_code,
+            shapename=shapename,
+            config=model_config,
+            in_dir=in_dir,
+        )
+        probs = probs + results["prob"].to_numpy()
+
+    results["prob"] = probs / len(model_configs)
+    preds = results["prob"] > threshold
+    preds = [str(classes[int(pred)]) for pred in preds]
+    results["pred"] = preds
+
     results.to_file(out_file, driver="GPKG")
     return results
 
@@ -204,7 +236,7 @@ def batch_download_sat_images(
     geoboundary = data_utils.get_geoboundaries(
         data_config, iso_code, adm_level=adm_level
     )
-    for i, shapename in enumerate(geoboundary.shapeName.unique()[70:]):
+    for i, shapename in enumerate(geoboundary.shapeName.unique()):
         tiles = generate_pred_tiles(
             data_config, iso_code, spacing, buffer_size, shapename, adm_level
         ).reset_index(drop=True)
