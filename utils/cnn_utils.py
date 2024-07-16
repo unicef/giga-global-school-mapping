@@ -176,7 +176,7 @@ def visualize_data(
     inputs, classes, uids = next(iter(data_loader[phase]))
 
     # Create a figure with a grid of subplots
-    fig, axes = plt.subplots(n, n, figsize=(6, 6))
+    fig, axes = plt.subplots(n, n, figsize=(6, 6), dpi=300)
 
     # Extract class labels and values
     key_list = list(data[phase].classes.keys())
