@@ -1,6 +1,8 @@
 import os
+import json
 import pandas as pd
 import numpy as np
+import seaborn as sns
 import geopandas as gpd
 import logging
 import joblib
@@ -15,6 +17,7 @@ from utils import eval_utils
 
 import matplotlib.backends
 import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
 from matplotlib_venn import venn2, venn2_circles
 import matplotlib.patches as mpatches
 import matplotlib as mpl
@@ -29,10 +32,100 @@ DARK_BLUE = "#0530ad"
 BLUE = "#277aff"
 RED = "#f94b4b"
 
+font = {"family": "serif", "weight": "normal", "size": 12}
+mpl.rc("font", **font)
+
+
+def plot_heatmap(config, exp_dir):
+    data = dict()
+    for iso_code in config:
+        iso_dir = os.path.join(exp_dir, iso_code)
+        iso_code_name = "Regional" if len(iso_code) < 3 else iso_code
+        data[iso_code_name] = dict()
+        for iso_code_test in list(config)[:-1]:
+            if len(iso_code) < 3:
+                results = model_utils.ensemble_models(iso_code, config, phase="test")
+                results = results[results["iso"] == iso_code_test]
+                results = eval_utils.evaluate(
+                    y_true=results["y_true"],
+                    y_pred=results["y_preds"],
+                    y_prob=results["y_probs"],
+                )
+                data[iso_code_name][iso_code_test] = results["auprc"]
+            elif iso_code == iso_code_test:
+                results = model_utils.ensemble_models(iso_code, config, phase="test")
+                results = eval_utils.evaluate(
+                    y_true=results["y_true"],
+                    y_pred=results["y_preds"],
+                    y_prob=results["y_probs"],
+                )
+                data[iso_code_name][iso_code_test] = results["auprc"]
+            else:
+                results_name = f"{iso_code_test}_ensemble"
+                results_file = os.path.join(iso_dir, results_name, "results.json")
+                with open(results_file) as results:
+                    results = json.load(results)
+                    data[iso_code_name][iso_code_test] = results["test_auprc"]
+
+    data = pd.DataFrame(data).T
+    s = sns.heatmap(data, cmap="viridis", annot=True, annot_kws={"fontsize": 8})
+    for i in range(len(list(config)[:-1])):
+        s.add_patch(Rectangle((i, i), 1, 1, fill=False, edgecolor="red", lw=2))
+    s.set(ylabel="Train country")
+    s.set(xlabel="Test country")
+    figure = s.get_figure()
+    figure.savefig("assets/heatmap.pdf", dpi=500, bbox_inches="tight")
+
+
+def plot_regional_vs_country(config):
+    iso_codes = list(config)[:-1]
+    country_auprc = {"regional": [], "country-specific": []}
+    for iso_code in iso_codes:
+        country_test = model_utils.ensemble_models(iso_code, config, phase="test")
+        auprc = eval_utils.evaluate(
+            y_true=country_test["y_true"],
+            y_pred=country_test["y_preds"],
+            y_prob=country_test["y_probs"],
+        )["auprc"]
+        country_auprc["country-specific"].append(auprc)
+
+        regional_test = model_utils.ensemble_models(
+            list(config)[-1], config, phase="test"
+        )
+        regional_test = regional_test[regional_test["iso"] == iso_code]
+        auprc = eval_utils.evaluate(
+            y_true=regional_test["y_true"],
+            y_pred=regional_test["y_preds"],
+            y_prob=regional_test["y_probs"],
+        )["auprc"]
+        country_auprc["regional"].append(auprc)
+
+    x = np.arange(len(iso_codes))
+    width = 0.3
+    multiplier = 0
+
+    fig, ax = plt.subplots(figsize=(7, 1.5), layout="constrained", dpi=300)
+
+    colors = {"regional": "#277aff", "country-specific": "#ff9f40"}
+    for label, auprc in country_auprc.items():
+        offset = width * multiplier
+        ax.bar(x + offset, auprc, width, label=label.title(), color=colors[label])
+        multiplier += 1
+
+    ax.set_ylabel("AUPRC")
+    ax.set_xticks(x + width, iso_codes)
+    ax.set_ylim(0, 1.75)
+
+    ax.legend(loc="upper left", ncols=2)
+    plt.show()
+    fig.savefig("assets/regional_auprc.pdf", bbox_inches="tight")
+    return country_auprc
+
 
 def plot_rurban(config):
+    iso_codes = list(config)[:-1]
     rurban_auprc = {"rural": [], "urban": []}
-    for iso_code in config:
+    for iso_code in iso_codes:
         # model_config = config_utils.load_config(os.path.join(os.getcwd(), config[iso_code]))
         # test_output = calib_utils.get_model_output(iso_code, model_config, phase="test")
         test_output = model_utils.ensemble_models(iso_code, config, phase="test")
@@ -46,7 +139,7 @@ def plot_rurban(config):
             )["auprc"]
             rurban_auprc[rurban].append(auprc)
 
-    x = np.arange(len(config))
+    x = np.arange(len(iso_codes))
     width = 0.3
     multiplier = 0
 
@@ -59,7 +152,7 @@ def plot_rurban(config):
         multiplier += 1
 
     ax.set_ylabel("AUPRC")
-    ax.set_xticks(x + width, list(config))
+    ax.set_xticks(x + width, iso_codes)
     ax.set_ylim(0, 1.75)
 
     ax.legend(loc="upper left", ncols=2)
@@ -141,8 +234,6 @@ def plot_choropleth(
 
 def plot_venn_diagram(master, preds, threshold_dist=250, labels=True):
     fig = plt.figure(dpi=300)
-    font = {"family": "serif", "weight": "normal", "size": 12}
-    mpl.rc("font", **font)
 
     preds = post_utils.calculate_nearest_distance(
         preds, master, source_name="master", source_uid="MUID"
@@ -191,7 +282,7 @@ def plot_venn_diagram(master, preds, threshold_dist=250, labels=True):
             f"Government-mapped \nschools locations \n({master_filtered.shape[0]:,} total)",
         )
         v.get_label_by_id("B").set_text(
-            f"Model-identified school \nlocations ({preds_filtered.shape[0]:,} total)"
+            f"Model predictions \n({preds_filtered.shape[0]:,} total)"
         )
         v.get_label_by_id("11").set_text(f"{intersection.shape[0]:,}")
 
