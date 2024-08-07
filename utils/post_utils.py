@@ -343,7 +343,7 @@ def load_preds(
         model_configs[0]["config_name"],
         cam_method,
     )
-    print(out_dir)
+    # print(out_dir)
 
     # Retrieve the list of filenames from the output directory
     filenames = next(os.walk(out_dir), (None, None, []))[2]
