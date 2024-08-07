@@ -1,6 +1,8 @@
 import os
+import json
 import pandas as pd
 import numpy as np
+import seaborn as sns
 import geopandas as gpd
 import logging
 import joblib
@@ -15,6 +17,7 @@ from utils import eval_utils
 
 import matplotlib.backends
 import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
 from matplotlib_venn import venn2, venn2_circles
 import matplotlib.patches as mpatches
 import matplotlib as mpl
@@ -29,14 +32,156 @@ DARK_BLUE = "#0530ad"
 BLUE = "#277aff"
 RED = "#f94b4b"
 
+font = {"family": "serif", "weight": "normal", "size": 12}
+mpl.rc("font", **font)
 
-def plot_rurban(config):
-    rurban_auprc = {"rural": [], "urban": []}
+
+def plot_heatmap(config: dict, exp_dir: str) -> None:
+    """
+    Plots a heatmap of AUPRC scores for model performance across different ISO codes.
+
+    Args:
+        config (dict): Configuration dictionary containing ISO codes and other settings.
+        exp_dir (str): Directory where experiment results are stored.
+    """
+    data = dict()
+
+    # Iterate over each ISO code in the configuration
     for iso_code in config:
+        iso_dir = os.path.join(exp_dir, iso_code)
+        iso_code_name = "Regional" if len(iso_code) < 3 else iso_code
+        data[iso_code_name] = dict()
+
+        # Compare performance with all other ISO codes
+        for iso_code_test in list(config)[:-1]:
+            if len(iso_code) < 3:
+                # For regional codes, use ensemble models for test results
+                results = model_utils.ensemble_models(iso_code, config, phase="test")
+                results = results[results["iso"] == iso_code_test]
+                results = eval_utils.evaluate(
+                    y_true=results["y_true"],
+                    y_pred=results["y_preds"],
+                    y_prob=results["y_probs"],
+                )
+                data[iso_code_name][iso_code_test] = results["auprc"]
+            elif iso_code == iso_code_test:
+                # For the same ISO code, evaluate using ensemble models
+                results = model_utils.ensemble_models(iso_code, config, phase="test")
+                results = eval_utils.evaluate(
+                    y_true=results["y_true"],
+                    y_pred=results["y_preds"],
+                    y_prob=results["y_probs"],
+                )
+                data[iso_code_name][iso_code_test] = results["auprc"]
+            else:
+                # Load results from file for different ISO codes
+                results_name = f"{iso_code_test}_ensemble"
+                results_file = os.path.join(iso_dir, results_name, "results.json")
+                with open(results_file) as results:
+                    results = json.load(results)
+                    data[iso_code_name][iso_code_test] = results["test_auprc"]
+
+    # Convert the data dictionary to a DataFrame
+    data = pd.DataFrame(data).T
+
+    # Create and save the heatmap
+    s = sns.heatmap(data, cmap="viridis", annot=True, annot_kws={"fontsize": 8})
+    for i in range(len(list(config)[:-1])):
+        s.add_patch(Rectangle((i, i), 1, 1, fill=False, edgecolor="red", lw=2))
+    s.set(ylabel="Train country")
+    s.set(xlabel="Test country")
+    figure = s.get_figure()
+    figure.savefig("assets/heatmap.pdf", dpi=500, bbox_inches="tight")
+
+
+def plot_regional_vs_country(config: dict) -> dict:
+    """
+    Plots AUPRC scores for regional versus country-specific models.
+
+    Args:
+        config (dict): Configuration dictionary containing ISO codes and other settings.
+
+    Returns:
+        dict: A dictionary with AUPRC scores for regional and country-specific models.
+    """
+    # List of ISO codes excluding the last one (usually regional)
+    iso_codes = list(config)[:-1]
+    country_auprc = {"regional": [], "country-specific": []}
+
+    # Iterate over each ISO code to compute AUPRC scores
+    for iso_code in iso_codes:
+        # Evaluate country-specific model performance
+        country_test = model_utils.ensemble_models(iso_code, config, phase="test")
+        auprc = eval_utils.evaluate(
+            y_true=country_test["y_true"],
+            y_pred=country_test["y_preds"],
+            y_prob=country_test["y_probs"],
+        )["auprc"]
+        country_auprc["country-specific"].append(auprc)
+
+        # Evaluate regional model performance for the current ISO code
+        regional_test = model_utils.ensemble_models(
+            list(config)[-1], config, phase="test"
+        )
+        regional_test = regional_test[regional_test["iso"] == iso_code]
+        auprc = eval_utils.evaluate(
+            y_true=regional_test["y_true"],
+            y_pred=regional_test["y_preds"],
+            y_prob=regional_test["y_probs"],
+        )["auprc"]
+        country_auprc["regional"].append(auprc)
+
+    # Prepare data for plotting
+    x = np.arange(len(iso_codes))
+    width = 0.3
+    multiplier = 0
+
+    # Create the plot
+    fig, ax = plt.subplots(figsize=(7, 1.5), layout="constrained", dpi=300)
+    colors = {"regional": "#277aff", "country-specific": "#ff9f40"}
+
+    # Plot bars for regional and country-specific AUPRC scores
+    for label, auprc in country_auprc.items():
+        offset = width * multiplier
+        ax.bar(x + offset, auprc, width, label=label.title(), color=colors[label])
+        multiplier += 1
+
+    # Customize plot
+    ax.set_ylabel("AUPRC")
+    ax.set_xticks(x + width, iso_codes)
+    ax.set_ylim(0, 1.75)
+    ax.legend(loc="upper left", ncols=2)
+
+    # Display and save the plot
+    plt.show()
+    fig.savefig("assets/regional_auprc.pdf", bbox_inches="tight")
+
+    return country_auprc
+
+
+def plot_rurban(config: dict) -> None:
+    """
+    Plots AUPRC scores for rural versus urban classifications across different ISO codes.
+
+    Args:
+        config (dict): Configuration dictionary containing ISO codes and other settings.
+
+    Returns:
+        None
+    """
+    # List of ISO codes excluding the last one (usually regional)
+    iso_codes = list(config)[:-1]
+    rurban_auprc = {"rural": [], "urban": []}
+
+    # Iterate over each ISO code to compute AUPRC scores for rural and urban classifications
+    for iso_code in iso_codes:
         # model_config = config_utils.load_config(os.path.join(os.getcwd(), config[iso_code]))
         # test_output = calib_utils.get_model_output(iso_code, model_config, phase="test")
+
+        # Load model outputs for the current ISO code
         test_output = model_utils.ensemble_models(iso_code, config, phase="test")
 
+        # Compute AUPRC scores for rural and urban classifications
         for rurban in ["rural", "urban"]:
             subtest = test_output[test_output.rurban == rurban]
             auprc = eval_utils.evaluate(
@@ -46,40 +191,81 @@ def plot_rurban(config):
             )["auprc"]
             rurban_auprc[rurban].append(auprc)
 
-    x = np.arange(len(config))
+    # Prepare data for plotting
+    x = np.arange(len(iso_codes))
     width = 0.3
     multiplier = 0
 
+    # Create the plot
     fig, ax = plt.subplots(figsize=(7, 1.5), layout="constrained", dpi=300)
-
     colors = {"rural": "#277aff", "urban": "#ff9f40"}
+
+    # Plot bars for rural and urban AUPRC scores
     for rurban, auprc in rurban_auprc.items():
         offset = width * multiplier
         ax.bar(x + offset, auprc, width, label=rurban.title(), color=colors[rurban])
         multiplier += 1
 
+    # Customize plot
     ax.set_ylabel("AUPRC")
-    ax.set_xticks(x + width, list(config))
+    ax.set_xticks(x + width, iso_codes)
     ax.set_ylim(0, 1.75)
 
+    # Display and save the plot
     ax.legend(loc="upper left", ncols=2)
     plt.show()
     fig.savefig("assets/rurban_auprc.pdf", bbox_inches="tight")
 
 
 def plot_choropleth(
-    master, preds, config, iso_code, threshold_dist=250, adm_level="ADM2"
-):
+    master: gpd.GeoDataFrame,
+    preds: gpd.GeoDataFrame,
+    config: dict,
+    iso_code: str,
+    threshold_dist: int = 250,
+    adm_level: str = "ADM2",
+) -> None:
+    """
+    Plots choropleth maps for master counts, predictions, and their differences.
+
+    Args:
+        master (gpd.GeoDataFrame): GeoDataFrame containing master counts.
+        preds (gpd.GeoDataFrame): GeoDataFrame containing prediction counts.
+        config (dict): Configuration dictionary containing parameters for map plotting.
+        iso_code (str): ISO code for the geographical area.
+        threshold_dist (int, optional): Distance threshold for calculating statistics. Defaults to 250.
+        adm_level (str, optional): Administrative level for the map. Defaults to "ADM2".
+
+    Returns:
+        None
+    """
+
     def subplot_choropleth(
-        map,
-        column,
-        cmap="inferno_r",
-        shrink=0.5,
-        vmin=None,
-        vmax=None,
-        title="",
-        label="",
+        map: gpd.GeoDataFrame,
+        column: str,
+        cmap: str = "inferno_r",
+        shrink: float = 0.5,
+        vmin: float = None,
+        vmax: float = None,
+        title: str = "",
+        label: str = "",
     ):
+        """
+        Creates and saves a choropleth map for a given column of the GeoDataFrame.
+
+        Args:
+            map (gpd.GeoDataFrame): GeoDataFrame to plot.
+            column (str): Column name in the GeoDataFrame to plot.
+            cmap (str, optional): Colormap to use for the map. Defaults to "inferno_r".
+            shrink (float, optional): Shrink factor for the legend. Defaults to 0.5.
+            vmin (float, optional): Minimum value for the color scale. Defaults to None.
+            vmax (float, optional): Maximum value for the color scale. Defaults to None.
+            title (str, optional): Title of the map. Defaults to an empty string.
+            label (str, optional): Label for the map legend. Defaults to an empty string.
+
+        Returns:
+            None
+        """
         fig, ax = plt.subplots(dpi=300)
         legend_kwds = {
             "shrink": shrink,
@@ -96,6 +282,7 @@ def plot_choropleth(
             legend_kwds=legend_kwds,
             ax=ax,
         )
+        # Customize appearance
         # ax.set_title(title)
         ax.title.set_size(18)
         ax.labelcolor = "black"
@@ -105,14 +292,19 @@ def plot_choropleth(
         ax.spines["bottom"].set_visible(False)
         ax.xaxis.set_visible(False)
         ax.yaxis.set_visible(False)
+
+        # Save figure
         fig.savefig(f"assets/choropleth_{column}.pdf", bbox_inches="tight")
 
+    # Calculate statistics per geoboundary
     map = calculate_stats_per_geoboundary(
         master, preds, config, iso_code, threshold_dist, adm_level=adm_level
     )
     vmax = np.max(
         [np.nanmax(map.master_counts.values), np.nanmax(map.preds_counts.values)]
     )
+
+    # Plot choropleth maps for different data columns
     subplot_choropleth(
         map,
         column="master_counts",
@@ -139,17 +331,35 @@ def plot_choropleth(
     )
 
 
-def plot_venn_diagram(master, preds, threshold_dist=250, labels=True):
-    fig = plt.figure(dpi=300)
-    font = {"family": "serif", "weight": "normal", "size": 12}
-    mpl.rc("font", **font)
+def plot_venn_diagram(
+    master: gpd.GeoDataFrame,
+    preds: gpd.GeoDataFrame,
+    threshold_dist: int = 250,
+    labels: bool = True,
+) -> None:
+    """
+    Plots a Venn diagram to visualize the overlap between government-mapped school locations and model predictions.
 
+    Args:
+        master (gpd.GeoDataFrame): GeoDataFrame containing master school locations.
+        preds (gpd.GeoDataFrame): GeoDataFrame containing model predictions.
+        threshold_dist (int, optional): Distance threshold for calculating statistics. Defaults to 250.
+        labels (bool, optional): Whether to include detailed labels in the Venn diagram. Defaults to True.
+
+    Returns:
+        None
+    """
+    fig = plt.figure(dpi=300)
+
+    # Calculate nearest distances
     preds = post_utils.calculate_nearest_distance(
         preds, master, source_name="master", source_uid="MUID"
     )
     master = post_utils.calculate_nearest_distance(
         master, preds, source_name="pred", source_uid="PUID"
     )
+
+    # Calculate statistics for Venn diagram
     (
         master_filtered,
         preds_filtered,
@@ -158,12 +368,14 @@ def plot_venn_diagram(master, preds, threshold_dist=250, labels=True):
         preds_unconfirmed,
     ) = calculate_stats(master, preds, threshold_dist=threshold_dist)
 
+    # Define subsets for the Venn diagram
     subsets = (
         master_unconfirmed.shape[0],
         preds_unconfirmed.shape[0],
         intersection.shape[0],
     )
 
+    # Plot Venn diagram
     v = venn2(
         subsets=subsets,
         set_labels=("A", "B", "C"),
@@ -180,6 +392,7 @@ def plot_venn_diagram(master, preds, threshold_dist=250, labels=True):
     c[0].set_facecolor(LIGHT_BLUE)
     c[0].set_edgecolor(BLUE)
 
+    # Customize text labels
     for text in v.set_labels:
         text.set_fontsize(10)
     for x in range(len(v.subset_labels)):
@@ -191,10 +404,11 @@ def plot_venn_diagram(master, preds, threshold_dist=250, labels=True):
             f"Government-mapped \nschools locations \n({master_filtered.shape[0]:,} total)",
         )
         v.get_label_by_id("B").set_text(
-            f"Model-identified school \nlocations ({preds_filtered.shape[0]:,} total)"
+            f"Model predictions \n({preds_filtered.shape[0]:,} total)"
         )
         v.get_label_by_id("11").set_text(f"{intersection.shape[0]:,}")
 
+        # Annotate the intersection
         plt.annotate(
             "Schools identified by both",
             fontsize=10,
@@ -220,7 +434,24 @@ def plot_venn_diagram(master, preds, threshold_dist=250, labels=True):
     fig.savefig("assets/venn_diagram.pdf", bbox_inches="tight")
 
 
-def plot_pie_chart(master, source="master", source_col="clean", legend=False):
+def plot_pie_chart(
+    master: pd.DataFrame,
+    source: str = "master",
+    source_col: str = "clean",
+    legend: bool = False,
+) -> None:
+    """
+    Plots a pie chart of the distribution of different types of school data points.
+
+    Args:
+        master (pd.DataFrame): DataFrame containing the school data.
+        source (str, optional): Name of the source column to be used. Defaults to "master".
+        source_col (str, optional): Column name in the DataFrame that contains the data to plot. Defaults to "clean".
+        legend (bool, optional): Whether to include a legend in the pie chart. Defaults to False.
+
+    Returns:
+        None
+    """
     fig = plt.figure(dpi=1200)
     font = {"family": "serif", "weight": "normal", "size": 12}
     mpl.rc("font", **font)
@@ -232,6 +463,8 @@ def plot_pie_chart(master, source="master", source_col="clean", legend=False):
         1: "Uninhabited \narea",
         2: "Duplicate school \npoints",
     }
+
+    # Count the occurrences of each category
     counts = master[source_col].value_counts()
     sizes = list(counts.values)
     if legend:
@@ -242,6 +475,7 @@ def plot_pie_chart(master, source="master", source_col="clean", legend=False):
             loc="outside right",
         )
 
+    # Create a donut-shaped pie chart
     donut = plt.Circle((0, 0), 0.7, color="white")
     plt.rcParams["text.color"] = "#595959"
     if legend:
@@ -269,28 +503,78 @@ def plot_pie_chart(master, source="master", source_col="clean", legend=False):
 
 
 def calculate_stats_per_geoboundary(
-    master, preds, config, iso_code, threshold_dist=250, adm_level="ADM2"
-):
-    def get_counts(geoboundaries, data, name):
+    master: gpd.GeoDataFrame,
+    preds: gpd.GeoDataFrame,
+    config: dict,
+    iso_code: str,
+    threshold_dist: int = 250,
+    adm_level: str = "ADM2",
+) -> gpd.GeoDataFrame:
+    """
+    Calculates statistics of master and prediction data per geographical boundary.
+
+    Args:
+        master (gpd.GeoDataFrame): GeoDataFrame containing the master (ground truth) data.
+        preds (gpd.GeoDataFrame): GeoDataFrame containing the prediction data.
+        config (dict): Configuration dictionary containing parameters for geoboundaries.
+        iso_code (str): ISO code used to select specific geographical boundaries.
+        threshold_dist (int, optional): Distance threshold for filtering. Defaults to 250.
+        adm_level (str, optional): Administrative level for geographical boundaries. Defaults to "ADM2".
+
+    Returns:
+        gpd.GeoDataFrame: GeoDataFrame with additional columns for counts of master and prediction data,
+            and their differences.
+    """
+
+    def get_counts(
+        geoboundaries: gpd.GeoDataFrame, data: gpd.GeoDataFrame, name: str
+    ) -> gpd.GeoDataFrame:
+        """
+        Calculates counts of data points within each geographical boundary.
+
+        Args:
+            geoboundaries (gpd.GeoDataFrame): GeoDataFrame containing the geographical boundaries.
+            data (gpd.GeoDataFrame): GeoDataFrame with the data points to count.
+            name (str): Prefix for the count column name.
+
+        Returns:
+            gpd.GeoDataFrame: Updated GeoDataFrame with counts of data points.
+        """
+        # Ensure geoboundaries are in the same coordinate reference system as the data
         geoboundaries = geoboundaries.to_crs(data.crs)
+
+        # Spatial join to count how many points fall into each boundary
         sjoin = gpd.sjoin(data, geoboundaries)
+
+        # Count the number of points per boundary
         counts = (
             sjoin.groupby("shapeName").count().geometry.rename("counts").reset_index()
         )
+
+        # Merge counts back into the original geoboundaries
         counts = geoboundaries[["shapeName"]].merge(
             counts,
             on="shapeName",
             how="left",
         )["counts"]
+
+        # Add counts to the geoboundaries GeoDataFrame
         geoboundaries[f"{name}_counts"] = counts.fillna(0)
+
         return geoboundaries
 
+    # Get geographical boundaries from the configuration
     geoboundaries = data_utils.get_geoboundaries(config, iso_code, adm_level=adm_level)
+
+    # Calculate statistics for the master and prediction data
     statistics = calculate_stats(master, preds, threshold_dist=threshold_dist)
     master_filtered, preds_filtered = statistics[0], statistics[1]
 
+    # Get counts of master and prediction data points within each geographical boundary
     geoboundaries = get_counts(geoboundaries, master_filtered, name="master")
     geoboundaries = get_counts(geoboundaries, preds_filtered, name="preds")
+
+    # Calculate the difference between prediction and master counts
     geoboundaries["diff"] = (
         geoboundaries["preds_counts"] - geoboundaries["master_counts"]
     )
@@ -298,22 +582,53 @@ def calculate_stats_per_geoboundary(
 
 
 def calculate_stats(
-    master, preds, distance_col="distance_to_nearest_master", threshold_dist=250
-):
+    master: pd.DataFrame,
+    preds: pd.DataFrame,
+    distance_col: str = "distance_to_nearest_master",
+    threshold_dist: int = 250,
+) -> tuple:
+    """
+    Calculates various statistics from master and prediction datasets based on distance thresholds.
+
+    Args:
+        master (pd.DataFrame): DataFrame containing master (ground truth) data with a column for cleaning status.
+        preds (pd.DataFrame): DataFrame containing prediction data with columns for unique IDs and distance.
+        distance_col (str, optional): Column name in `preds` DataFrame that contains distance to nearest master.
+            Defaults to "distance_to_nearest_master".
+        threshold_dist (int, optional): Distance threshold for filtering predictions. Defaults to 250.
+
+    Returns:
+        tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+            - master_filtered (pd.DataFrame): Filtered master data where `clean` column is 0.
+            - preds_filtered (pd.DataFrame): Filtered predictions based on distance threshold and duplicate removal.
+            - intersection (pd.DataFrame): Predictions within the distance threshold.
+            - master_unconfirmed (pd.DataFrame): Master data not found in the intersection.
+            - preds_unconfirmed (pd.DataFrame): Predictions not found in the intersection.
+    """
+    # Filter master data to include only entries marked as "clean" == 0
     master_filtered = master[master["clean"] == 0]
+
+    # Filter predictions based on distance threshold and remove duplicates
     preds_filtered = preds[
         ~(
             preds.sort_values(distance_col)["MUID"].duplicated(keep="first")
             & (preds[distance_col] < threshold_dist)
         )
     ]
+
+    # Identify predictions within the distance threshold
     intersection = preds_filtered[(preds_filtered[distance_col] < threshold_dist)]
+
+    # Identify master data not present in the intersection
     master_unconfirmed = master_filtered[
         ~master_filtered["MUID"].isin(intersection["MUID"])
     ]
+
+    # Identify predictions not present in the intersection
     preds_unconfirmed = preds_filtered[
         ~preds_filtered["PUID"].isin(intersection["PUID"])
     ]
+
     return (
         master_filtered,
         preds_filtered,
@@ -323,16 +638,36 @@ def calculate_stats(
     )
 
 
-def read_file(iso_code, config, cam_method="gradcam", source="preds"):
+def read_file(
+    iso_code: str, config: dict, cam_method: str = "gradcam", source: str = "preds"
+):
+    """
+    Reads a GeoJSON file containing either master or prediction data.
+
+    Args:
+        iso_code (str): ISO code representing the geographical region.
+        config (dict): Configuration dictionary containing project and configuration names.
+        cam_method (str, optional): Method used for CAM (Class Activation Mapping). Defaults to "gradcam".
+        source (str, optional): Data source to read from, either "master" or "preds". Defaults to "preds".
+
+    Returns:
+        gpd.GeoDataFrame: GeoDataFrame containing the data read from the file.
+    """
+    # Construct the base directory path for output files
     out_dir = os.path.join(
         os.getcwd(), "output", iso_code, "results", config["project"]
     )
+
+    # Determine the file path based on the source
     if source == "master":
         out_file = os.path.join(out_dir, f"{iso_code}_master.geojson")
     elif source == "preds":
+        # Update output directory for CAM results
         out_dir = os.path.join(out_dir, "cams")
+        # Construct filename with CAM method and config name
         filename = f"{iso_code}_{config['config_name']}_{cam_method}.geojson"
         out_file = os.path.join(out_dir, filename)
 
+    # Read and return the GeoDataFrame from the specified file
     data = gpd.read_file(out_file)
     return data

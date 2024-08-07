@@ -38,3 +38,7 @@ ZWE:
 - "configs/vit_configs/vit_h_14.yaml"
 - "configs/cnn_configs/convnext_base.yaml"
 - "configs/vit_configs/swin_v2_b.yaml"
+AF: 
+- "configs/vit_configs/swin_v2_b.yaml"
+- "configs/cnn_configs/convnext_base.yaml"
+- "configs/vit_configs/vit_h_14.yaml"
