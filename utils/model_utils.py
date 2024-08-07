@@ -73,7 +73,7 @@ def load_data(
     if os.path.exists(out_file):
         data = gpd.read_file(out_file)
         if verbose:
-            logging.info(f"Loading existing file: {out_file}")
+            # logging.info(f"Loading existing file: {out_file}")
             print_stats(data, attributes, config["test_size"])
         return data
 
