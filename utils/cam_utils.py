@@ -2,6 +2,7 @@ import os
 import logging
 import operator
 import numpy as np
+import pandas as pd
 from tqdm import tqdm
 
 from shapely import geometry
@@ -46,6 +47,7 @@ from pytorch_grad_cam import (
     GradCAMElementWise,
     RandomCAM,
 )
+import PIL
 
 import cv2
 import skimage.feature
@@ -66,17 +68,46 @@ cams = {
 }
 
 
-def get_cam_extractor(config, model, cam_extractor):
+def get_cam_extractor(config: dict, model: torch.nn.Module, cam_extractor):
+    """
+    Retrieves the appropriate Class Activation Map (CAM) extractor based on the model configuration.
+
+    Args:
+        config (dict): Configuration dictionary containing model details.
+        model (torch.nn.Module): The neural network model from which CAMs will be extracted.
+        cam_extractor (callable): A callable that initializes the CAM extractor with the given parameters.
+
+    Returns:
+        cam_extractor: An instance of the CAM extractor configured with the
+            appropriate target layers and reshape transformation.
+    """
     reshape_transform = None
     cam_extractor = cams[cam_extractor]
 
     class ReshapeTransform:
         def __init__(self, model_type="vit", height=16, width=16):
+            """
+            Initializes the ReshapeTransform class with model type and dimensions.
+
+            Args:
+                model_type (str): The type of model (e.g., "vit").
+                height (int): The height of the transformed tensor.
+                width (int): The width of the transformed tensor.
+            """
             self.model_type = model_type
             self.height = height
             self.width = width
 
         def reshape_transform(self, tensor):
+            """
+            Reshapes the input tensor based on the model type.
+
+            Args:
+                tensor (torch.Tensor): The tensor to be reshaped.
+
+            Returns:
+                torch.Tensor: The reshaped tensor.
+            """
             if "vit" in self.model_type:
                 tensor = tensor[:, 1:, :].reshape(
                     tensor.size(0), self.height, self.width, tensor.size(2)
@@ -84,14 +115,15 @@ def get_cam_extractor(config, model, cam_extractor):
             tensor = tensor.transpose(2, 3).transpose(1, 2)
             return tensor
 
+    # Determine the target layers and reshape transform based on the model type
     if "vgg" in config["model"].lower():
         target_layers = [model.module.features[-1]]
 
-    if "convnext" in config["model"].lower():
+    elif "convnext" in config["model"].lower():
         target_layers = [model.module.features[-1][-1].block[2]]
         reshape_transform = ReshapeTransform(config["model"]).reshape_transform
 
-    if "vit" in config["model"].lower():
+    elif "vit" in config["model"].lower():
         target_layers = [model.module.encoder.layers[-1].ln_1]
         if config["model"] == "vit_h_14":
             reshape_transform = ReshapeTransform(
@@ -157,27 +189,62 @@ def cam_predict(
 
 
 def generate_cam_points(
-    data, config, in_dir, model, cam_extractor, buffer_size=50, show=False
-):
+    data: pd.DataFrame,
+    config: dict,
+    in_dir: str,
+    model: torch.nn.Module,
+    cam_extractor,
+    buffer_size: int = 50,
+    show: bool = False,
+) -> gpd.GeoDataFrame:
+    """
+    Generates Class Activation Map (CAM) points for each image in the dataset and returns them as a GeoDataFrame.
+
+    Args:
+        data (pd.DataFrame): DataFrame containing the metadata and information about the images.
+        config (dict): Configuration dictionary for image processing.
+        in_dir (str): Directory containing the input images.
+        model (torch.nn.Module): The neural network model used for CAM extraction.
+        cam_extractor (callable): Function or class used for extracting CAMs.
+        buffer_size (int, optional): Buffer size around each CAM point in meters. Defaults to 50.
+        show (bool, optional): If True, displays the CAM points on top of the raster images. Defaults to False.
+
+    Returns:
+        gpd.GeoDataFrame: A GeoDataFrame containing the CAM points with their probabilities and UIDs.
+    """
+    # List to store the generated CAM points
     results = []
+
+    # Reset index of the input DataFrame
     data = data.reset_index(drop=True)
+
+    # Get filepaths for the images
     filepaths = data_utils.get_image_filepaths(config, data, in_dir, ext=".tif")
+
+    # Store the coordinate reference system (CRS) of the input data
     crs = data.crs
+
+    # Iterate over each row in the DataFrame
     for index in tqdm(list(data.index), total=len(data)):
+        # Generate CAM for the current image
         _, point, _ = generate_cam(
             config, filepaths[index], model, cam_extractor, metrics=False, show=False
         )
+        # Open the image file and extract coordinates for the CAM point
         with rio.open(filepaths[index]) as map_layer:
             coord = [map_layer.xy(point[1], point[0])]
             coord = geometry.Point(coord)
             crs = map_layer.crs
             results.append(coord)
+
+            # Optionally show the CAM point on the image
             if show:
                 fig, ax = plt.subplots(figsize=(6, 6))
                 rasterio.plot.show(map_layer, ax=ax)
                 geom = gpd.GeoDataFrame(geometry=[coord], crs=crs)
                 geom.plot(facecolor="none", edgecolor="blue", ax=ax)
 
+    # Convert the results list to a GeoDataFrame
     results = gpd.GeoDataFrame(geometry=results, crs=crs)
     results = results.to_crs("EPSG:3857")
     results["geometry"] = results["geometry"].buffer(buffer_size, cap_style=3)
@@ -188,16 +255,42 @@ def generate_cam_points(
     return results
 
 
-def georeference_images(data, config, in_dir, out_dir):
+def georeference_images(
+    data: pd.DataFrame, config: dict, in_dir: str, out_dir: str
+) -> None:
+    """
+    Georeferences and saves images from the specified directory using the given metadata.
+
+    Args:
+        data (pd.DataFrame): DataFrame containing image metadata and geometries.
+        config (dict): Configuration dictionary specifying image dimensions and other settings.
+        in_dir (str): Directory where input images are located.
+        out_dir (str): Directory where georeferenced images will be saved.
+
+    Returns:
+        None
+    """
     filepaths = data_utils.get_image_filepaths(config, data, in_dir=in_dir)
     data = data.reset_index(drop=True)
+
+    # Iterate over each row in the DataFrame
     for index in tqdm(range(len(data)), total=len(data)):
+        # Define the output filename for the georeferenced image
         filename = os.path.join(out_dir, f"{data.iloc[index].UID}.tif")
+
+        # Check if the file already exists to avoid reprocessing
         if not os.path.exists(filename):
+            # Open the input image file
             dataset = rio.open(filepaths[index], "r")
+
+            # Read specific bands from the image
             bands = [1, 2, 3]
             dataset = dataset.read(bands)
+
+            # Get bounding box from the DataFrame for georeferencing
             bounds = data.iloc[index].geometry.bounds
+
+            # Create a transformation matrix from the bounding box
             transform = rio.transform.from_bounds(
                 bounds[0],
                 bounds[1],
@@ -206,8 +299,10 @@ def georeference_images(data, config, in_dir, out_dir):
                 config["width"],
                 config["height"],
             )
+            # Define the CRS (Coordinate Reference System)
             crs = {"init": "EPSG:3857"}
 
+            # Write the georeferenced image to the output file
             with rio.open(
                 filename,
                 "w",
@@ -224,20 +319,55 @@ def georeference_images(data, config, in_dir, out_dir):
 
 
 def compare_cams(
-    iso_code, config, filepaths, percentile=90, show=True, metrics=True, verbose=False
-):
+    iso_code: str,
+    config: dict,
+    filepaths: list,
+    percentile: int = 90,
+    show: bool = True,
+    metrics: bool = True,
+    verbose: bool = False,
+) -> tuple:
+    """
+    Compares different CAM (Class Activation Map) methods on a set of images and computes their scores.
+
+    Args:
+        iso_code (str): ISO code for the region or dataset.
+        config (dict): Configuration dictionary containing model and CAM settings.
+        filepaths (list of str): List of file paths to the images to be processed.
+        percentile (int, optional): Percentile for the CAM score threshold. Defaults to 90.
+        show (bool, optional): Whether to display CAM visualizations. Defaults to True.
+        metrics (bool, optional): Whether to calculate metrics for CAMs. Defaults to True.
+        verbose (bool, optional): Whether to print detailed logs. Defaults to False.
+
+    Returns:
+        tuple: A dictionary of CAM scores for each method, and a dictionary of mean CAM scores for each method.
+    """
+    # Dictionary to store CAM scores for each method
     cam_scores = dict()
+
+    # Iterate over each CAM method
     for cam_name, cam in cams.items():
+        # Load the model and prepare it for evaluation
         model = pred_utils.load_model(iso_code, config, verbose=verbose)
         model.eval()
         model = model.to(device)
+
+        # Initialize a list to store scores for the current CAM method
         cam_scores[cam_name] = []
+
+        # Get the CAM extractor for the current method
         with get_cam_extractor(config, model, cam_name) as cam_extractor:
             cam_extractor.batch_size = config["batch_size"]
+
+            # Create a progress bar for processing the file paths
             pbar = data_utils.create_progress_bar(filepaths) if not show else filepaths
+
+            # Process each file path
             for filepath in pbar:
                 if not show:
                     pbar.set_description(f"Processing {cam_name}")
+
+                # Generate CAM for the current image and method
                 cam_map, point, score = generate_cam(
                     config,
                     filepath,
@@ -248,33 +378,59 @@ def compare_cams(
                     show=show,
                     metrics=metrics,
                 )
+
+                # Append the CAM score to the list for the current method
                 cam_scores[cam_name].append(score)
 
+    # Calculate mean CAM scores for each method
     cam_scores_mean = dict()
     for cam in cam_scores:
         cam_scores_mean[cam] = np.mean(cam_scores[cam])
+
     return cam_scores, cam_scores_mean
 
 
 def compare_random(
-    iso_code,
-    data,
-    config,
-    filepaths,
-    percentile=90,
-    cam="layercam",
-    n_samples=3,
-    show=True,
-    verbose=False,
-):
+    iso_code: str,
+    data: pd.DataFrame,
+    config: dict,
+    filepaths: list,
+    percentile: int = 90,
+    cam: str = "layercam",
+    n_samples: int = 3,
+    show: bool = True,
+    verbose: bool = False,
+) -> None:
+    """
+    Compares a random sample of images using a specified CAM extractor and generates CAM visualizations.
+
+    Args:
+        iso_code (str): ISO code for the specific dataset.
+        data (pd.DataFrame): DataFrame containing image metadata, including class labels and other info.
+        config (dict): Configuration dictionary containing model settings and other parameters.
+        filepaths (list of str): List of file paths to the images.
+        percentile (int, optional): Percentile for thresholding the CAM map. Defaults to 90.
+        cam (str, optional): The CAM extractor method to use. Defaults to "layercam".
+        n_samples (int, optional): Number of random samples to process. Defaults to 3.
+        show (bool, optional): Whether to display the CAM visualizations. Defaults to True.
+        verbose (bool, optional): Whether to print detailed logs. Defaults to False.
+    """
     if "class" in data.columns:
+        # Filter data to include only positive class samples if specified
         data = data[(data["class"] == config["pos_class"])]
 
+    # Load and prepare the model
     model = pred_utils.load_model(iso_code, config, verbose=verbose)
     model.eval()
+
+    # Get the CAM extractor based on the specified method
     cam_extractor = get_cam_extractor(config, model, cam)
+
+    # Process a random sample of images
     for index in list(data.sample(n_samples).index):
         title = str(cam_extractor.__class__.__name__)
+
+        # Generate and visualize the CAM for the sampled image
         generate_cam(
             config,
             filepaths[index],
@@ -287,20 +443,42 @@ def compare_random(
 
 
 def generate_cam(
-    config,
-    filepath,
-    model,
+    config: dict,
+    filepath: str,
+    model: torch.nn.Module,
     cam_extractor,
-    percentile=90,
-    metrics=True,
-    show=True,
-    title="",
-    save=None,
-    figsize=(9, 9),
-):
+    percentile: int = 90,
+    metrics: bool = True,
+    show: bool = True,
+    title: str = "",
+    save: str = None,
+    figsize: tuple = (9, 9),
+) -> tuple:
+    """
+    Generates a Class Activation Map (CAM) for a given image using a specified CAM extractor.
+
+    Args:
+        config (dict): Configuration dictionary containing model and image settings.
+        filepath (str): Path to the image file.
+        model (torch.nn.Module): The trained model to use for generating CAM.
+        cam_extractor (callable): The CAM extractor function or object.
+        percentile (int, optional): Percentile for thresholding the CAM. Defaults to 90.
+        metrics (bool, optional): Whether to calculate metrics for the CAM. Defaults to True.
+        show (bool, optional): Whether to display the CAM results. Defaults to True.
+        title (str, optional): Title for the CAM plot. Defaults to an empty string.
+        save (str or None, optional): If provided, saves the CAM plot to a file with this name. Defaults to None.
+        figsize (tuple, optional): Size of the figure for plotting. Defaults to (9, 9).
+
+    Returns:
+        tuple: A tuple containing:
+            - cam_map (numpy.ndarray): The generated CAM map.
+            - point (tuple): Coordinates of the generated point from the CAM.
+            - score (float): The CAM score, if metrics are calculated.
+    """
     logger = logging.getLogger()
     logger.disabled = True
 
+    # Load and preprocess the image
     image = Image.open(filepath).convert("RGB")
     transforms = cnn_utils.get_transforms(config["img_size"])
     input_tensor = transforms["test"](image).to(device).unsqueeze(0)
@@ -311,6 +489,8 @@ def generate_cam(
         0,
         1,
     )
+
+    # Generate the CAM map
     targets = [ClassifierOutputTarget(1)]
     cam_map = cam_extractor(input_tensor=input_tensor, targets=targets)
     result = show_cam_on_image(input_image, cam_map[0, :], use_rgb=True)
@@ -318,12 +498,14 @@ def generate_cam(
 
     score = 0
     if metrics:
+        # Calculate CAM metrics
         cam_metric = ROADMostRelevantFirst(percentile=percentile)
         scores, road_visualizations = cam_metric(
             input_tensor, cam_map, targets, model, return_visualization=True
         )
         score = scores[0]
 
+        # Process the road visualization
         road_visualization = road_visualizations[0].cpu().numpy().transpose((1, 2, 0))
         road_visualization = deprocess_image(road_visualization)
         edges = skimage.feature.canny(
@@ -333,6 +515,7 @@ def generate_cam(
             score = 0
 
     if show:
+        # Display the CAM results
         road_visualization = Image.fromarray(road_visualization)
         thresh_cam = cam_map < np.percentile(cam_map, percentile)
         thresh_cam = thresh_cam.transpose((0, 1, 2))[0, :, :]
@@ -356,20 +539,38 @@ def generate_cam(
     return cam_map, point, score
 
 
-def generate_point_from_cam(config, cam_map, image):
+def generate_point_from_cam(
+    config: dict, cam_map: np.ndarray, image: PIL.Image
+) -> tuple:
+    """
+    Generates a point of interest from the Class Activation Map (CAM)
+        by finding the location of the highest activation.
+
+    Args:
+        config (dict): Configuration dictionary containing model and image settings.
+        cam_map (torch.Tensor or np.ndarray): The CAM map as a tensor or NumPy array.
+        image (PIL.Image): The input image used for CAM generation.
+
+    Returns:
+        tuple: The (x, y) coordinates of the point with the highest activation in the CAM map.
+    """
     if torch.is_tensor(cam_map):
         cam_map = np.array(cam_map.cpu())
 
+    # Convert CAM map to tensor
     ten_map = torch.tensor(cam_map)
     transform = transforms.Resize(size=(image.size[0], image.size[1]), antialias=None)
     ten_map = transform(ten_map.unsqueeze(0)).squeeze()
 
     values = []
     for i in range(0, ten_map.shape[0]):
+        # Find the maximum value and its index in each channel
         index, value = max(enumerate(ten_map[i]), key=operator.itemgetter(1))
         values.append(value)
 
+    # Find the channel with the maximum activation
     y_index, y_value = max(enumerate(values), key=operator.itemgetter(1))
     x_index, x_value = max(enumerate(ten_map[y_index]), key=operator.itemgetter(1))
 
+    # Return the coordinates of the maximum activation point
     return (x_index, y_index)

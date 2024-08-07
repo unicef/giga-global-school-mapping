@@ -35,7 +35,7 @@ CALIBRATORS = {
 }
 
 
-def calculate_bins(preds: np.ndarray, labels: np.ndarray, n_bins: int):
+def calculate_bins(preds: np.ndarray, labels: np.ndarray, n_bins: int) -> tuple:
     """
     Calculate the bins, accuracies, confidences, and sizes for calibration.
 
@@ -69,7 +69,7 @@ def calculate_bins(preds: np.ndarray, labels: np.ndarray, n_bins: int):
     return bins, bin_accs, bin_confs, bin_sizes
 
 
-def calculate_metrics(preds: np.ndarray, labels: np.ndarray, n_bins: int):
+def calculate_metrics(preds: np.ndarray, labels: np.ndarray, n_bins: int) -> tuple:
     """
     Calculate the Expected Calibration Error (ECE) and Maximum Calibration Error (MCE).
 
@@ -95,7 +95,9 @@ def calculate_metrics(preds: np.ndarray, labels: np.ndarray, n_bins: int):
     return ece, mce
 
 
-def reliability_diagram(preds: np.ndarray, labels: np.ndarray, n_bins: int = 10):
+def reliability_diagram(
+    preds: np.ndarray, labels: np.ndarray, n_bins: int = 10
+) -> None:
     """
     Plot reliability diagram to visualize the calibration of a model.
 
