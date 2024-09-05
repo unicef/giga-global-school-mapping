@@ -22,10 +22,10 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 logging.info(f"Device: {device}")
 
 
-def main(config):
+def main(config, project):
     # Create experiment folder
     exp_name = "cv"
-    exp_dir = os.path.join(cwd, exp_name)
+    exp_dir = os.path.join(cwd, exp_name, project)
     logging.info(f"Experiment directory: {exp_dir}")
 
     dataloaders = dict()
@@ -37,7 +37,6 @@ def main(config):
         )
         dataloaders[iso_code] = data_loader["test"]
 
-    for iso_code in config:
         iso_dir = os.path.join(exp_dir, iso_code)
         if os.path.exists(iso_dir):
             shutil.rmtree(iso_dir)
@@ -103,9 +102,12 @@ if __name__ == "__main__":
     # Parser
     parser = argparse.ArgumentParser(description="Model Training")
     parser.add_argument("--config", help="Path to the configuration file")
+    parser.add_argument(
+        "--project", default="GIGAv1", help="Path to the configuration file"
+    )
     args = parser.parse_args()
 
     # Load config
     config_file = os.path.join(cwd, args.config)
     config = config_utils.create_config(config_file)
-    main(config)
+    main(config, args.project)
