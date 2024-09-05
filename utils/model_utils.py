@@ -21,6 +21,7 @@ def load_data(
     in_dir: str = "clean",
     out_dir: str = "train",
     verbose: bool = True,
+    suffix: str = "_prob",
 ) -> gpd.GeoDataFrame:
     """
     Load and process geospatial data for training/validation/testing.
@@ -84,7 +85,10 @@ def load_data(
     for iso_code in iso_codes:
         # Construct file paths for positive and negative classes
         positive_file = os.path.join(
-            vector_dir, config["pos_class"], in_dir, f"{iso_code}_{in_dir}.geojson"
+            vector_dir,
+            config["pos_class"],
+            in_dir,
+            f"{iso_code}_{in_dir}{suffix}.geojson",
         )
         negative_file = os.path.join(
             vector_dir, config["neg_class"], in_dir, f"{iso_code}_{in_dir}.geojson"
@@ -337,7 +341,6 @@ def get_ensemble_configs(iso_code, config):
     for model_file in config[iso_code]:
         model_config = config_utils.load_config(os.path.join(os.getcwd(), model_file))
         model_configs.append(model_config)
-    # logging.info([model_configs[0]["model"], model_configs[1]["model"]])
     return model_configs
 
 

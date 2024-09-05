@@ -10,8 +10,24 @@ from IPython.display import display
 from ipywidgets import Layout, GridspecLayout, Button, Image, Tab
 
 import logging
+from utils import data_utils
+from utils import pred_utils
+from utils import model_utils
 
 logging.basicConfig(level=logging.INFO)
+
+
+def get_filename(iso_code, config, category="school", name="clean", suffix=""):
+    # Construct the full path to the GeoJSON file if not provided
+    filename = os.path.join(
+        os.getcwd(),
+        config["vectors_dir"],
+        config["project"],
+        category,
+        name,
+        f"{iso_code}_{name}{suffix}.geojson",
+    )
+    return filename
 
 
 def map_coordinates(
@@ -25,6 +41,7 @@ def map_coordinates(
     name: str = "clean",
     col_uid: str = "UID",
     col_name: str = "name",
+    suffix="_prob",
 ) -> None:
     """
     Display a folium map centered on a specific feature from a GeoJSON file.
@@ -44,17 +61,9 @@ def map_coordinates(
     Returns:
         None
     """
-    # Construct the full path to the GeoJSON file
-    filename = os.path.join(
-        os.getcwd(),
-        config["vectors_dir"],
-        config["project"],
-        category,
-        name,
-        f"{iso_code}_{name}.geojson",
-    )
-
     # Read GeoJSON file into a GeoDataFrame
+    if not filename:
+        filename = get_filename(iso_code, config, category, name, suffix)
     data = gpd.read_file(filename)
 
     # Extract name of the feature at the specified index
@@ -87,6 +96,43 @@ def map_coordinates(
     display(map)
 
 
+def generate_predictions(iso_code, model_iso_code, model_configs, category="school"):
+    model_configs = model_utils.get_ensemble_configs(model_iso_code, model_configs)
+    out_file = get_filename(
+        iso_code, model_configs[0], category="school", name="clean", suffix="_prob"
+    )
+
+    if os.path.exists(out_file):
+        data = gpd.read_file(out_file)
+        return data
+
+    in_dir = os.path.join(
+        os.getcwd(),
+        model_configs[0]["rasters_dir"],
+        model_configs[0]["maxar_dir"],
+        model_configs[0]["project"],
+        iso_code,
+        category.lower(),
+    )
+    in_file = get_filename(iso_code, model_configs[0], category="school", name="clean")
+    data = gpd.read_file(in_file)
+
+    probs = 0
+    for model_config in model_configs:
+        model = pred_utils.load_model(model_iso_code, model_config, verbose=True)
+        data = pred_utils.cnn_predict_images(
+            data[data.clean == 0], model, model_config, in_dir
+        )
+        probs = probs + data["prob"].to_numpy()
+
+    data["prob"] = probs / len(model_configs)
+    out_file = get_filename(
+        iso_code, model_configs[0], category="school", name="clean", suffix="_prob"
+    )
+    data.to_file(out_file)
+    return data
+
+
 def validate_data(
     config: dict,
     iso_code: str,
@@ -99,6 +145,9 @@ def validate_data(
     name: str = "clean",
     col_uid: str = "UID",
     show_validated: bool = True,
+    suffix: str = "_prob",
+    min_prob: float = 0,
+    max_prob: float = 1.0,
 ) -> GridspecLayout:
     """
     Display a grid of images and validation buttons for manual validation of data samples.
@@ -119,20 +168,10 @@ def validate_data(
     Returns:
         GridspecLayout: Grid layout displaying images and validation buttons.
     """
-
-    # Construct the full path to the GeoJSON file if not provided
+    # Read GeoJSON file into a GeoDataFrame
     if not filename:
-        filename = os.path.join(
-            os.getcwd(),
-            config["vectors_dir"],
-            config["project"],
-            category,
-            name,
-            f"{iso_code}_{name}.geojson",
-        )
-
-    # Read GeoJSON file into a GeoDataFrame and drop duplicate geometries
-    data = gpd.read_file(filename).drop_duplicates(["geometry"])
+        filename = get_filename(iso_code, config, category, name, suffix)
+    data = gpd.read_file(filename)
 
     # Ensure the "validated" column exists and initialize to 0 if not present
     if "validated" not in data.columns:
@@ -140,6 +179,8 @@ def validate_data(
 
     # Filter samples based on conditions (clean and optionally show validated)
     samples = data[(data["clean"] == 0)]
+    if "prob" in samples.columns:
+        samples = samples[(samples["prob"] >= min_prob) & (samples["prob"] <= max_prob)]
     if not show_validated:
         samples = samples[(samples["validated"] == 0)]
     samples = samples.iloc[start_index : start_index + (n_rows * n_cols)]
@@ -240,6 +281,9 @@ def inspect_images(
     col_uid: str = "UID",
     col_name: str = "name",
     figsize: tuple = (15, 15),
+    suffix: str = "_prob",
+    min_prob: float = 0,
+    max_prob: float = 1.0,
 ) -> None:
     """
     Inspect and visualize satellite images associated with geographic data.
@@ -260,18 +304,9 @@ def inspect_images(
     Returns:
         None
     """
-
+    # Read GeoJSON file into a GeoDataFrame
     if not filename:
-        filename = os.path.join(
-            os.getcwd(),
-            config["vectors_dir"],
-            config["project"],
-            category,
-            "clean",
-            f"{iso_code}_clean.geojson",
-        )
-
-    # Load geographic data from the file
+        filename = get_filename(iso_code, config, category, name="clean", suffix=suffix)
     data = gpd.read_file(filename)
 
     # Optionally shuffle the data samples
@@ -283,6 +318,8 @@ def inspect_images(
         data = data[data["clean"] == 0]
     if "validated" in data.columns:
         data = data[data["validated"] == 0]
+    if "prob" in data.columns:
+        data = data[(data["prob"] >= min_prob) & (data["prob"] <= max_prob)]
     logging.info(f"Data dimensions: {data.shape}")
 
     # Create a grid of subplots for visualizing images
