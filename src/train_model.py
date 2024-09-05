@@ -19,7 +19,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 logging.info(f"Device: {device}")
 
 
-def main(c):
+def main(c, wandb):
     # Create experiment folder
     exp_name = f"{c['iso_code']}_{c['config_name']}"
     exp_dir = os.path.join(cwd, c["exp_dir"], c["project"], exp_name)
