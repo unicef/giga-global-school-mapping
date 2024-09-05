@@ -232,4 +232,4 @@ if __name__ == "__main__":
     # Set wandb configs
     wandb.init(project=c["project"], config=log_c)
 
-    main(c)
+    main(c, wandb)
