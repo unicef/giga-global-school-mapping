@@ -33,7 +33,12 @@ def filter_keywords(
 
 
 def sample_points(
-    iso_code: str, config: dict, buffer_size: float, spacing: float, name: str = "clean"
+    iso_code: str,
+    config: dict,
+    buffer_size: float,
+    spacing: float,
+    name: str = "clean",
+    suffix: str = "_prob",
 ) -> gpd.GeoDataFrame:
     """
     Sample points for augmentation, filtering out those overlapping with positive class geometries.
@@ -56,7 +61,7 @@ def sample_points(
     points = data_utils.generate_samples(config, iso_code, buffer_size, spacing)
 
     # Read positive data and perform buffer operation on geometries
-    filename = f"{iso_code}_{name}.geojson"
+    filename = f"{iso_code}_{name}{suffix}.geojson"
     vector_dir = os.path.join(os.getcwd(), config["vectors_dir"], config["project"])
     pos_file = os.path.join(vector_dir, config["pos_class"], name, filename)
     pos_df = gpd.read_file(pos_file).to_crs("EPSG:3857")
@@ -103,7 +108,11 @@ def sample_points(
 
 
 def augment_negative_samples(
-    iso_code: str, config: dict, imb_ratio: int = 2, name: str = "clean"
+    iso_code: str,
+    config: dict,
+    imb_ratio: int = 2,
+    name: str = "clean",
+    suffix: str = "_prob",
 ) -> gpd.GeoDataFrame:
     """
     Augments negative samples to balance with positive samples.
@@ -134,8 +143,9 @@ def augment_negative_samples(
         config["project"],
         config["pos_class"],
         name,
-        f"{iso_code}_{name}.geojson",
+        f"{iso_code}_{name}{suffix}.geojson",
     )
+    logging.info(f"Reading {pos_file}...")
     positives = gpd.read_file(pos_file)
     if "clean" in positives.columns:
         positives = positives[positives["clean"] == 0]
@@ -283,7 +293,12 @@ def filter_uninhabited_locations(
 
 
 def filter_pois_within_object_proximity(
-    iso_code: str, config: dict, proximity: float, sources: list, name: str = "clean"
+    iso_code: str,
+    config: dict,
+    proximity: float,
+    sources: list,
+    name: str = "clean",
+    suffix: str = "_prob",
 ) -> gpd.GeoDataFrame:
     """
     Filters points of interest (POIs) within a specified proximity of school locations.
@@ -305,7 +320,7 @@ def filter_pois_within_object_proximity(
     """
     # Set the data directory and file paths
     data_dir = os.path.join(os.getcwd(), config["vectors_dir"], config["project"])
-    filename = f"{iso_code}_{name}.geojson"
+    filename = f"{iso_code}_{name}{suffix}.geojson"
 
     # Read positive class data (e.g., school locations)
     pos_file = os.path.join(os.getcwd(), data_dir, config["pos_class"], name, filename)
@@ -413,6 +428,7 @@ def clean_data(
             subset=["shapeName"]
         )
         data = data.sjoin(geoboundaries, how="left", predicate="within")
+        data.loc[data["shapeName"].isna(), "clean"] = 3
         data.loc[data["geometry"].duplicated(keep="first"), "clean"] = 2
 
         # Split the data into smaller admin boundaries for scalability

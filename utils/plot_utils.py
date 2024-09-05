@@ -36,7 +36,7 @@ font = {"family": "serif", "weight": "normal", "size": 12}
 mpl.rc("font", **font)
 
 
-def plot_heatmap(config: dict, exp_dir: str) -> None:
+def plot_heatmap(config: dict, exp_dir: str, project: str = "GIGAv1") -> None:
     """
     Plots a heatmap of AUPRC scores for model performance across different ISO codes.
 
@@ -48,7 +48,7 @@ def plot_heatmap(config: dict, exp_dir: str) -> None:
 
     # Iterate over each ISO code in the configuration
     for iso_code in config:
-        iso_dir = os.path.join(exp_dir, iso_code)
+        iso_dir = os.path.join(exp_dir, project, iso_code)
         iso_code_name = "Regional" if len(iso_code) < 3 else iso_code
         data[iso_code_name] = dict()
 
