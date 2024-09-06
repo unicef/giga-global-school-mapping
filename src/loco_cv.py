@@ -60,5 +60,4 @@ if __name__ == "__main__":
 
         wandb.init(project=f"{c['project']}", config=log_c)
         path = os.path.join(cwd, c["exp_dir"], c["project"])
-        if not os.path.exists(path):
-            train_model.main(c, wandb)
+        train_model.main(c, wandb)
