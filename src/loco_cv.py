@@ -7,7 +7,6 @@ import pandas as pd
 import copy
 
 import torch
-import wandb
 import torch.nn as nn
 
 from utils import config_utils
@@ -58,6 +57,7 @@ if __name__ == "__main__":
         }
         logging.info(log_c)
 
+        import wandb
+
         wandb.init(project=f"{c['project']}", config=log_c)
-        path = os.path.join(cwd, c["exp_dir"], c["project"])
         train_model.main(c, wandb)
