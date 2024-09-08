@@ -658,7 +658,7 @@ def load_model(
     model = nn.DataParallel(model)  # Wrap the model for multi-GPU training
     if model_file:
         logging.info(f"Loading {model_file}...")
-        model.load_state_dict(torch.load(model_file=model_file, map_location=device))
+        model.load_state_dict(torch.load(model_file, map_location=device))
         logging.info(f"{model_file} loaded")
     model = model.to(device)  # Move the model to the specified device
 
