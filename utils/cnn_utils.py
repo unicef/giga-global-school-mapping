@@ -621,6 +621,7 @@ def load_model(
     end_lr: float = 1e-3,
     num_iter: int = 1000,
     lr_finder: bool = True,
+    model_file: str = None,
 ):
     """
     Load a model, set up the optimizer, loss function, and learning rate scheduler.
@@ -655,6 +656,10 @@ def load_model(
     # Get the model based on the specified type and number of classes
     model = get_model(model_type, n_classes)
     model = nn.DataParallel(model)  # Wrap the model for multi-GPU training
+    if model_file:
+        logging.info(f"Loading {model_file}...")
+        model.load_state_dict(torch.load(model_file=model_file, map_location=device))
+        logging.info(f"{model_file} loaded")
     model = model.to(device)  # Move the model to the specified device
 
     # Define the loss function with optional label smoothing

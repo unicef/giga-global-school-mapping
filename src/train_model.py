@@ -59,6 +59,7 @@ def main(c, wandb):
         data_loader=data_loader,
         device=device,
         lr_finder=c["lr_finder"],
+        model_file=c["model_file"],
     )
     logging.info(model)
 
@@ -200,6 +201,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--lr_finder", help="Learning rate finder (boolean indicator)", default=None
     )
+    parser.add_argument("--pretrained", help="Pretrained model file", default=None)
     parser.add_argument("--iso", help="ISO 3166-1 alpha-3 code", default=[], nargs="+")
     args = parser.parse_args()
 
@@ -216,6 +218,17 @@ if __name__ == "__main__":
     if args.lr_finder:
         args.lr_finder = bool(eval(args.lr_finder))
         c["lr_finder"] = args.lr_finder
+
+    c["model_file"] = None
+    if args.pretrained:
+        model_file = os.path.join(
+            os.getcwd(),
+            c["exp_dir"],
+            c["project"],
+            f"{args.pretrained}_{c['config_name']}",
+            f"{args.pretrained}_{c['config_name']}.pth",
+        )
+        c["model_file"] = model_file
 
     log_c = {
         key: val
