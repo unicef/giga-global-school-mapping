@@ -609,7 +609,7 @@ def get_model(model_type: str, n_classes: int) -> nn.Module:
 def load_model(
     model_type: str,
     n_classes: int,
-    pretrained: bool,
+    pretrained: str,
     scheduler_type: str,
     optimizer_type: str,
     data_loader: Optional[DataLoader] = None,

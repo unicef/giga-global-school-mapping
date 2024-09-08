@@ -22,6 +22,8 @@ logging.info(f"Device: {device}")
 def main(c, wandb):
     # Create experiment folder
     exp_name = f"{c['iso_code']}_{c['config_name']}"
+    if c["pretrained"]:
+        exp_name = f"{c['iso_code']}_{c['config_name']}_{c['pretrained']}"
     exp_dir = os.path.join(cwd, c["exp_dir"], c["project"], exp_name)
     logging.info(f"Experiment directory: {exp_dir}")
     if os.path.exists(exp_dir):
@@ -220,6 +222,7 @@ if __name__ == "__main__":
         c["lr_finder"] = args.lr_finder
 
     c["model_file"] = None
+    c["pretrained"] = None
     if args.pretrained:
         model_file = os.path.join(
             os.getcwd(),
@@ -228,6 +231,7 @@ if __name__ == "__main__":
             f"{args.pretrained}_{c['config_name']}",
             f"{args.pretrained}_{c['config_name']}.pth",
         )
+        c["pretrained"] = args.pretrained
         c["model_file"] = model_file
 
     log_c = {
