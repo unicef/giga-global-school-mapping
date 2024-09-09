@@ -129,7 +129,7 @@ def get_cam_extractor(config: dict, model: torch.nn.Module, cam_extractor):
             reshape_transform = ReshapeTransform(
                 config["model"], 16, 16
             ).reshape_transform
-        elif config["model"] == "vit_l_16":
+        elif (config["model"] == "vit_l_16") or (config["model"] == "vit_b_16"):
             reshape_transform = ReshapeTransform(
                 config["model"], 14, 14
             ).reshape_transform
