@@ -87,18 +87,21 @@ def sample_points(
 
     # Filter points with pixel value greater than 0 and convert back to EPSG:4326
     ms_path = os.path.join(raster_dir, "ms_buildings", f"{iso_code}_ms.tif")
+    points["ms_val"] = 0
     if os.path.exists(ms_path):
         with rio.open(ms_path) as src:
             points["ms_val"] = [x[0] for x in src.sample(coord_list)]
 
     google_path = os.path.join(raster_dir, "google_buildings", f"{iso_code}_google.tif")
+    points["google_val"] = 0
     if os.path.exists(google_path):
         with rio.open(google_path) as src:
             points["google_val"] = [x[0] for x in src.sample(coord_list)]
 
     ghsl_path = os.path.join(raster_dir, "ghsl", config["ghsl_built_c_file"])
+    col_val = "ghsl_val" if "ms_val" in points.columns else "pixel_val"
+    points[col_val] = 0
     with rio.open(ghsl_path) as src:
-        col_val = "ghsl_val" if "ms_val" in points.columns else "pixel_val"
         points[col_val] = [x[0] for x in src.sample(ghsl_coord_list)]
 
     points["pixel_val"] = points[["ms_val", "google_val", "ghsl_val"]].max(axis=1)
@@ -250,19 +253,8 @@ def filter_uninhabited_locations(
         # Mask the raster data with the buffered geometry from Microsoft
         image = []
         pixel_sum = 0
-        with rio.open(ms_path) as src:
-            try:
-                geometry = [subdata.iloc[0]["geometry"]]
-                image, transform = rio.mask.mask(src, geometry, crop=True)
-                image[image == 255] = 1
-                pixel_sum = np.sum(image)
-            except Exception as e:
-                logging.info(e)
-                pass
-
-        # If no building pixels found, attempt with Google Open Buildings
-        if pixel_sum == 0:
-            with rio.open(google_path) as src:
+        if os.path.exists(ms_path):
+            with rio.open(ms_path) as src:
                 try:
                     geometry = [subdata.iloc[0]["geometry"]]
                     image, transform = rio.mask.mask(src, geometry, crop=True)
@@ -271,6 +263,19 @@ def filter_uninhabited_locations(
                 except Exception as e:
                     logging.info(e)
                     pass
+
+        # If no building pixels found, attempt with Google Open Buildings
+        if pixel_sum == 0:
+            if os.path.exists(google_path):
+                with rio.open(google_path) as src:
+                    try:
+                        geometry = [subdata.iloc[0]["geometry"]]
+                        image, transform = rio.mask.mask(src, geometry, crop=True)
+                        image[image == 255] = 1
+                        pixel_sum = np.sum(image)
+                    except Exception as e:
+                        logging.info(e)
+                        pass
 
         # If no building pixels found, attempt with GHSL data
         if pixel_sum == 0:
