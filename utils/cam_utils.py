@@ -225,6 +225,7 @@ def generate_cam_points(
     crs = data.crs
 
     # Iterate over each row in the DataFrame
+    logging.info(f"Generating CAM points for {len(data)}")
     for index in tqdm(list(data.index), total=len(data)):
         # Generate CAM for the current image
         _, point, _ = generate_cam(
