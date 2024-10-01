@@ -14,6 +14,10 @@ KEN:
 - "configs/cnn_configs/convnext_small.yaml"
 - "configs/vit_configs/swin_v2_b.yaml"
 - "configs/vit_configs/vit_b_16.yaml"
+MNG:
+- "configs/vit_configs/vit_b_16.yaml"
+- "configs/cnn_configs/convnext_base.yaml"
+- "configs/vit_configs/swin_v2_b.yaml"
 MOZ:
 - "configs/cnn_configs/convnext_small.yaml"
 - "configs/vit_configs/swin_v2_b.yaml"
