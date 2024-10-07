@@ -64,6 +64,9 @@ Project Objective</h3>
 
 <h3><a id="flow-diagram" class="anchor" aria-hidden="true" href="#flow-diagram"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"></path></svg></a>
 System Flow Diagram </h3>
+
+<img src="./assets/workflow.png" width="85%" height="85%" />
+
 For each school and non-school location in our dataset, we downloaded 300 x 300 m, 500 x 500 px high-resolution satellite images from Maxar with a spatial resolution of 60 cm/px. 
 
 <h3><a id="giga-repos" class="anchor" aria-hidden="true" href="#giga-repos"><svg class="octicon octicon-link" align="center" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"></path></svg></a>
@@ -159,6 +162,13 @@ python sat_predict.py \
 --sat_creds="configs/sat_configs/<SAT_CREDENTIALS_FILE_NAME>.yaml" \
 --iso="<ISO_CODE>"
 ```
+
+<h2><a id="contribution-guidelines" class="anchor" aria-hidden="true" href="#contribution-guidelines"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"></path></svg></a>
+Contribution Guidelines</h2>
+
+Thank you for considering contributing to Giga! We value your input and aim to make the contribution process as accessible and transparent as possible. Whether you're interested in reporting bugs, discussing code, submitting fixes, proposing features, becoming a maintainer, or engaging with the Giga community, we welcome your involvement. 
+
+[Click here for detailed Contribution Guidelines](https://github.com/unicef/https://github.com/unicef/giga-global-school-mapping/blob/master/Contribution-Guidelines.md) 
 
 <h2><a id="code-design" class="anchor" aria-hidden="true" href="#code-design"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"></path></svg></a>
 Code Design</h2>
