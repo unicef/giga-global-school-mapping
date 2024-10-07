@@ -168,7 +168,7 @@ Contribution Guidelines</h2>
 
 Thank you for considering contributing to Giga! We value your input and aim to make the contribution process as accessible and transparent as possible. Whether you're interested in reporting bugs, discussing code, submitting fixes, proposing features, becoming a maintainer, or engaging with the Giga community, we welcome your involvement. 
 
-[Click here for detailed Contribution Guidelines](https://github.com/unicef/https://github.com/unicef/giga-global-school-mapping/blob/master/Contribution-Guidelines.md) 
+[Click here for detailed Contribution Guidelines](https://github.com/unicef/giga-global-school-mapping/blob/master/Contribution-Guidelines.md) 
 
 <h2><a id="code-design" class="anchor" aria-hidden="true" href="#code-design"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"></path></svg></a>
 Code Design</h2>
@@ -219,7 +219,7 @@ Code of Conduct</h2>
 
 At Giga, we're committed to maintaining an environment that's respectful, inclusive, and harassment-free for everyone involved in our project and community. We welcome contributors and participants from diverse backgrounds and pledge to uphold the standards. 
 
-[Click here for detailed Code of Conduct](https://github.com/unicef/https://github.com/unicef/giga-global-school-mapping/blob/master/CODE_OF_CONDUCT.md) 
+[Click here for detailed Code of Conduct](https://github.com/unicef/giga-global-school-mapping/blob/master/CODE_OF_CONDUCT.md) 
 
 <h2><a id="contact" class="anchor" aria-hidden="true" href="#contact"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"></path></svg></a>
 Contact</h2>
