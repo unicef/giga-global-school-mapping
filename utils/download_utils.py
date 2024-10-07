@@ -300,7 +300,11 @@ def download_overture(
 
 
 def download_unicef(
-    config: dict, profile_file: str, category: str = "school", source: str = "unicef"
+    config: dict,
+    profile_file: str,
+    category: str = "school",
+    source: str = "unicef",
+    in_file: str = None,
 ) -> gpd.GeoDataFrame:
     """
     Downloads and processes UNICEF data for specified ISO codes.
@@ -337,14 +341,17 @@ def download_unicef(
 
         # Check if the file already exists to avoid redundant processing
         if not os.path.exists(out_subfile):
-            # Initialize Delta Sharing client
-            try:
-                delta_sharing.SharingClient(profile_file)
-                table_url = f"{profile_file}#gold.school-master.{iso_code}"
-                subdata = delta_sharing.load_as_pandas(table_url)
-            except Exception as e:
-                logging.info(e)
-                continue
+            if in_file:
+                subdata = pd.read_csv(os.path.join(data_dir, in_file))
+            else:
+                # Initialize Delta Sharing client
+                try:
+                    delta_sharing.SharingClient(profile_file)
+                    table_url = f"{profile_file}#gold.school-master.{iso_code}"
+                    subdata = delta_sharing.load_as_pandas(table_url)
+                except Exception as e:
+                    logging.info(e)
+                    continue
 
             # Convert latitude and longitude to geometry
             subdata["geometry"] = gpd.GeoSeries.from_xy(

@@ -7,7 +7,6 @@ import pandas as pd
 import copy
 
 import torch
-import wandb
 import torch.nn as nn
 
 from utils import config_utils
@@ -34,9 +33,7 @@ if __name__ == "__main__":
     c = config_utils.load_config(config_file)
     name = c["name"]
 
-    if args.lr_finder:
-        args.lr_finder = bool(eval(args.lr_finder))
-        c["lr_finder"] = args.lr_finder
+    c["lr_finder"] = False
 
     iso_codes = c["iso_codes"]
     for iso_code in iso_codes:
@@ -58,7 +55,7 @@ if __name__ == "__main__":
         }
         logging.info(log_c)
 
+        import wandb
+
         wandb.init(project=f"{c['project']}", config=log_c)
-        path = os.path.join(cwd, c["exp_dir"], c["project"])
-        if not os.path.exists(path):
-            train_model.main(c, wandb)
+        train_model.main(c, wandb)
