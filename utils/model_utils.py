@@ -309,7 +309,9 @@ def train_val_test_split(
     return data
 
 
-def get_model_output(iso_code: str, config: dict, phase: str = "test") -> pd.DataFrame:
+def get_model_output(
+    iso_code: str, config: dict, phase: str = "test", pretrained=None
+) -> pd.DataFrame:
     """
     Retrieve the model output from a CSV file.
 
@@ -324,14 +326,20 @@ def get_model_output(iso_code: str, config: dict, phase: str = "test") -> pd.Dat
     Returns:
         pd.DataFrame: DataFrame containing the model output.
     """
-    filename = f"{iso_code}_{config['config_name']}_{phase}.csv"
+    if pretrained:
+        exp_name = f"{iso_code}_{config['config_name']}_{pretrained}"
+    else:
+        exp_name = f"{iso_code}_{config['config_name']}"
+
+    filename = f"{exp_name}_{phase}.csv"
     output_path = os.path.join(
         os.getcwd(),
         config["exp_dir"],
         config["project"],
-        f"{iso_code}_{config['config_name']}",
+        exp_name,
         filename,
     )
+    # logging.info(output_path)
     output = pd.read_csv(output_path)
     return output
 
@@ -344,11 +352,13 @@ def get_ensemble_configs(iso_code, config):
     return model_configs
 
 
-def ensemble_models(iso_code, config, prob_col="y_probs", phase="val"):
+def ensemble_models(iso_code, config, prob_col="y_probs", phase="val", pretrained=None):
     probs = 0
     model_configs = get_ensemble_configs(iso_code, config)
     for model_config in model_configs:
-        output = get_model_output(iso_code, model_config, phase=phase)
+        output = get_model_output(
+            iso_code, model_config, pretrained=pretrained, phase=phase
+        )
         probs = probs + output[prob_col].to_numpy()
 
     output[prob_col] = probs / len(model_configs)

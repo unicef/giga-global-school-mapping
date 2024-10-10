@@ -419,7 +419,8 @@ def save_results(
     out_file = f"{iso_code}_{source}.geojson"
     if source == "preds":
         out_dir = os.path.join(out_dir, "cams")
-        out_file = f"{iso_code}_{config['config_name']}_{cam_method}.geojson"
+        model_config = model_utils.get_ensemble_configs(iso_code, config)[0]
+        out_file = f"{iso_code}_{model_config['config_name']}_{cam_method}.geojson"
 
     # Construct the full path for the output file
     out_file = os.path.join(out_dir, out_file)

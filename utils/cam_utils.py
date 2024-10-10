@@ -60,7 +60,7 @@ cams = {
     "randomcam": RandomCAM,
     "gradcam": GradCAM,
     "hirescam": HiResCAM,
-    "gradcam++": GradCAMPlusPlus,
+    "gradcamplusplus": GradCAMPlusPlus,
     "eigencam": EigenCAM,
     "eigengradcam": EigenGradCAM,
     "layercam": LayerCAM,
@@ -129,7 +129,7 @@ def get_cam_extractor(config: dict, model: torch.nn.Module, cam_extractor):
             reshape_transform = ReshapeTransform(
                 config["model"], 16, 16
             ).reshape_transform
-        elif config["model"] == "vit_l_16":
+        elif (config["model"] == "vit_l_16") or (config["model"] == "vit_b_16"):
             reshape_transform = ReshapeTransform(
                 config["model"], 14, 14
             ).reshape_transform
@@ -225,6 +225,7 @@ def generate_cam_points(
     crs = data.crs
 
     # Iterate over each row in the DataFrame
+    logging.info(f"Generating CAM points for {len(data)}")
     for index in tqdm(list(data.index), total=len(data)):
         # Generate CAM for the current image
         _, point, _ = generate_cam(

@@ -21,7 +21,12 @@ logging.info(f"Device: {device}")
 
 def main(c, wandb):
     # Create experiment folder
-    exp_name = f"{c['iso_code']}_{c['config_name']}"
+    if c["pretrained"]:
+        exp_name = f"{c['iso_code']}_{c['config_name']}_{c['pretrained']}"
+    else:
+        exp_name = f"{c['iso_code']}_{c['config_name']}"
+    logging.info()
+
     exp_dir = os.path.join(cwd, c["exp_dir"], c["project"], exp_name)
     logging.info(f"Experiment directory: {exp_dir}")
     if os.path.exists(exp_dir):
@@ -59,6 +64,7 @@ def main(c, wandb):
         data_loader=data_loader,
         device=device,
         lr_finder=c["lr_finder"],
+        model_file=c["model_file"],
     )
     logging.info(model)
 
@@ -200,6 +206,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--lr_finder", help="Learning rate finder (boolean indicator)", default=None
     )
+    parser.add_argument("--pretrained", help="Pretrained model file", default=None)
     parser.add_argument("--iso", help="ISO 3166-1 alpha-3 code", default=[], nargs="+")
     args = parser.parse_args()
 
@@ -217,6 +224,19 @@ if __name__ == "__main__":
         args.lr_finder = bool(eval(args.lr_finder))
         c["lr_finder"] = args.lr_finder
 
+    c["model_file"] = None
+    c["pretrained"] = None
+    if args.pretrained:
+        model_file = os.path.join(
+            os.getcwd(),
+            c["exp_dir"],
+            c["project"],
+            f"{args.pretrained}_{c['config_name']}",
+            f"{args.pretrained}_{c['config_name']}.pth",
+        )
+        c["pretrained"] = args.pretrained
+        c["model_file"] = model_file
+
     log_c = {
         key: val
         for key, val in c.items()
@@ -232,4 +252,4 @@ if __name__ == "__main__":
     # Set wandb configs
     wandb.init(project=c["project"], config=log_c)
 
-    main(c)
+    main(c, wandb)

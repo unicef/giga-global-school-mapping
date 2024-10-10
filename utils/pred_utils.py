@@ -251,12 +251,8 @@ def filter_by_buildings(
     google_path = os.path.join(raster_dir, "google_buildings", f"{iso_code}_google.tif")
 
     pixel_sums = []
-    bar_format = "{l_bar}{bar:20}{r_bar}{bar:-20b}"
-    pbar = tqdm(
-        range(len(data)), total=len(data), mininterval=n_seconds, bar_format=bar_format
-    )
-
-    for index in pbar:
+    logging.info(f"Filtering buildings for {len(data)}")
+    for index in tqdm(list(data.index), total=len(data)):
         # Extract the geometry for the current entry
         subdata = data.iloc[[index]]
         pixel_sum = 0
@@ -437,7 +433,7 @@ def batch_download_sat_images(
         tiles["points"] = tiles["geometry"].centroid
         tiles = tiles[tiles["sum"] > sum_threshold].reset_index(drop=True)
         print(
-            f"{shapename} {i}/{len(geoboundary.shapeName.unique())} total tiles: {tiles.shape}"
+            f"{shapename} {i+1}/{len(geoboundary.shapeName.unique())} total tiles: {tiles.shape}"
         )
 
         # Prepare data for satellite image download
