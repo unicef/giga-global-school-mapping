@@ -90,7 +90,7 @@ Getting Started</h2>
 
 ### Setup
 ```sh
-conda create -n envname
+conda create -n envname python==3.10.13
 conda activate envname
 pip install -r requirements.txt
 ```
