@@ -95,6 +95,17 @@ conda activate envname
 pip install -r requirements.txt
 ```
 
+Fixing the Google Maps bug:
+Navigate to your site packages, e.g. `/anaconda/envs/envname/lib/python3.10/site-packages`.
+Under `leafmap/common.py`, find the function `download_google_buildings()` and replace the building URL as follows:
+
+```
+#building_url = "https://sites.research.google/open-buildings/tiles.geojson"
+building_url = "https://openbuildings-public-dot-gweb-research.uw.r.appspot.com/public/tiles.geojson"
+```
+
+To install GDAL/OGR, follow these [instructions](https://ljvmiranda921.github.io/notebook/2019/04/13/install-gdal/).
+
 ### Data Download 
 To download the relevant datasets, run `python src/data_download.py`:
 ```s
