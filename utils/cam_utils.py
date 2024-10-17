@@ -233,7 +233,7 @@ def generate_cam_points(
         )
         # Open the image file and extract coordinates for the CAM point
         with rio.open(filepaths[index]) as map_layer:
-            coord = [map_layer.xy(point[0], point[1])]
+            coord = [map_layer.xy(point[1], point[0])]
             coord = geometry.Point(coord)
             crs = map_layer.crs
             results.append(coord)
