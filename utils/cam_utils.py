@@ -150,7 +150,7 @@ def cam_predict(
     geotiff_dir,
     shapename,
     cam_method="gradcam",
-    buffer_size=50,
+    buffer_size=100,
     verbose=False,
 ):
     out_dir = data_utils.makedir(
@@ -179,12 +179,7 @@ def cam_predict(
         data, config, geotiff_dir, model, cam_extractor, buffer_size
     )
     results = pred_utils.filter_by_buildings(iso_code, config, results)
-    if len(results) > 0:
-        results = data_utils.connect_components(results, buffer_size=0)
-        results = results.sort_values("prob", ascending=False).drop_duplicates(
-            ["group"]
-        )
-        results.to_file(out_file, driver="GPKG")
+    results.to_file(out_file, driver="GPKG")
     return results
 
 
@@ -194,7 +189,7 @@ def generate_cam_points(
     in_dir: str,
     model: torch.nn.Module,
     cam_extractor,
-    buffer_size: int = 50,
+    buffer_size: int = 100,
     show: bool = False,
 ) -> gpd.GeoDataFrame:
     """

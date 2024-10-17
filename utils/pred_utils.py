@@ -281,9 +281,8 @@ def filter_by_buildings(
         # Append the pixel sum to the list
         pixel_sums.append(pixel_sum)
 
-    # Update the DataFrame with the pixel sums and filter out entries with no building presence
+    # Update the DataFrame with the pixel sums
     data["sum"] = pixel_sums
-    data = data[data["sum"] > 0]
     data = data.reset_index(drop=True)
 
     return data
