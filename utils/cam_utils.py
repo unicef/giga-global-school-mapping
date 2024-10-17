@@ -178,7 +178,7 @@ def cam_predict(
     results = generate_cam_points(
         data, config, geotiff_dir, model, cam_extractor, buffer_size
     )
-    results = pred_utils.filter_by_buildings(iso_code, config, results)
+    # results = pred_utils.filter_by_buildings(iso_code, config, results)
     if len(results) > 0:
         results = data_utils.connect_components(results, buffer_size=0)
         results = results.sort_values("prob", ascending=False).drop_duplicates(
@@ -525,6 +525,17 @@ def generate_cam(
         fig, ax = plt.subplots(1, n_axis, figsize=figsize, dpi=300)
         ax[0].imshow(image)
         ax[1].imshow(result)
+
+        rect = patches.Rectangle(
+            (point[0] - 75, point[1] - 75),
+            150,
+            150,
+            linewidth=1,
+            edgecolor="blue",
+            facecolor="none",
+        )
+        ax[0].add_patch(rect)
+
         ax[2].imshow(road_visualization)
         ax[2].text(5, 20, f"ROAD: {score:.3f}", size=10, color="white")
         ax[1].title.set_text(title)
