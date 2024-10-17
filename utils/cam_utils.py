@@ -150,7 +150,7 @@ def cam_predict(
     geotiff_dir,
     shapename,
     cam_method="gradcam",
-    buffer_size=75,
+    buffer_size=50,
     verbose=False,
 ):
     out_dir = data_utils.makedir(
