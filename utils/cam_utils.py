@@ -150,7 +150,7 @@ def cam_predict(
     geotiff_dir,
     shapename,
     cam_method="gradcam",
-    buffer_size=50,
+    buffer_size=150,
     verbose=False,
 ):
     out_dir = data_utils.makedir(
@@ -178,7 +178,7 @@ def cam_predict(
     results = generate_cam_points(
         data, config, geotiff_dir, model, cam_extractor, buffer_size
     )
-    # results = pred_utils.filter_by_buildings(iso_code, config, results)
+    results = pred_utils.filter_by_buildings(iso_code, config, results)
     if len(results) > 0:
         results = data_utils.connect_components(results, buffer_size=0)
         results = results.sort_values("prob", ascending=False).drop_duplicates(
@@ -233,7 +233,7 @@ def generate_cam_points(
         )
         # Open the image file and extract coordinates for the CAM point
         with rio.open(filepaths[index]) as map_layer:
-            coord = [map_layer.xy(point[1], point[0])]
+            coord = [map_layer.xy(point[0], point[1])]
             coord = geometry.Point(coord)
             crs = map_layer.crs
             results.append(coord)
