@@ -7,9 +7,9 @@ CONTAINER_NAME = "giga"
 giga_store = data_store.ADLSDataStore(
     container=CONTAINER_NAME, connection_string=CONNECTION_STRING
 )
-dir_path = "output/GHA/geotiff/"
+dir_path = "output/MOZ/geotiff/"
 
-blob_dir_path = "project/Dell_HPC/output/GHA/geotiff/"
+blob_dir_path = f"project/Dell_HPC/{dir_path}"
 giga_store.upload_directory(dir_path, blob_dir_path)
 
 # blob_dir_path = "project/Dell_HPC/output/RWA/results/ARCHIVE"
