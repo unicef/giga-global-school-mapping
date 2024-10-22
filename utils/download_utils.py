@@ -540,14 +540,13 @@ def download_ghsl(config: dict, type: str = "built_c") -> None:
     elif type == "smod":
         ghsl_path = os.path.join(ghsl_folder, config["ghsl_smod_file"])
 
-    # Path to the downloaded zip file
-    ghsl_zip = os.path.join(ghsl_folder, "ghsl.zip")
-
     # Download and extract the GHSL data if it doesn't already exist
     if not os.path.exists(ghsl_path):
         if type == "built_c":
+            ghsl_zip = os.path.join(ghsl_folder, "ghsl_built_c.zip")
             command1 = f"wget {config['ghsl_built_c_url']} -O {ghsl_zip}"
         elif type == "smod":
+            ghsl_zip = os.path.join(ghsl_folder, "ghsl_smod.zip")
             command1 = f"wget {config['ghsl_smod_url']} -O {ghsl_zip}"
 
         # Unzip the downloaded file into the GHSL folder
