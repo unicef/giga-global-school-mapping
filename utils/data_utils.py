@@ -405,6 +405,7 @@ def connect_components(data: gpd.GeoDataFrame, buffer_size: float) -> gpd.GeoDat
         temp = convert_crs(data, target_crs="EPSG:3857")
 
     # Create buffer around geometries
+    geometry = temp["geometry"].centroid
     geometry = temp["geometry"].buffer(buffer_size, cap_style=3)
 
     # Calculate overlap matrix
