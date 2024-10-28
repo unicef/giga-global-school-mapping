@@ -150,7 +150,7 @@ def cam_predict(
     geotiff_dir,
     shapename,
     cam_method="gradcam",
-    buffer_size=100,
+    buffer_size=50,
     verbose=False,
 ):
     out_dir = data_utils.makedir(
@@ -189,7 +189,7 @@ def generate_cam_points(
     in_dir: str,
     model: torch.nn.Module,
     cam_extractor,
-    buffer_size: int = 100,
+    buffer_size: int = 50,
     show: bool = False,
 ) -> gpd.GeoDataFrame:
     """
