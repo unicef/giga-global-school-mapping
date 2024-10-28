@@ -20,6 +20,7 @@ from sklearn.metrics import (
     auc,
     roc_auc_score,
     brier_score_loss,
+    det_curve,
 )
 from functools import partial
 
@@ -306,18 +307,19 @@ def evaluate(
             - "balanced_accuracy": Balanced accuracy score at the optimal threshold.
     """
     # Calculate precision, recall, and thresholds for different probability thresholds
-    precision, recall, thresholds = precision_recall_curve(
+    precision, recall, pr_thresholds = precision_recall_curve(
         y_true, y_prob, pos_label=pos_label
     )
 
     # Compute the optimal threshold if not provided
     if not optim_threshold:
         optim_threshold, _ = get_optimal_threshold(
-            precision[:-1], recall[:-1], thresholds, beta=beta
+            precision[:-1], recall[:-1], pr_thresholds, beta=beta
         )
 
     # Generate predictions based on the optimal threshold
     y_pred_optim = [pos_label if val > optim_threshold else neg_label for val in y_prob]
+    fpr, fnr, det_thresholds = det_curve(y_true, y_prob)
 
     return {
         # Performance metrics for the full range of thresholds
@@ -327,7 +329,10 @@ def evaluate(
         "brier_score": brier_score_loss(y_true, y_prob, pos_label=pos_label),
         "precision_scores_": precision,
         "recall_scores_": recall,
-        "thresholds_": thresholds,
+        "pr_thresholds": pr_thresholds,
+        "det_thresholds": det_thresholds,
+        "fpr": fpr,
+        "fnr": fnr,
         # Performance metrics at the optimal threshold
         "optim_threshold": optim_threshold,
         "fbeta_score": fbeta_score(
