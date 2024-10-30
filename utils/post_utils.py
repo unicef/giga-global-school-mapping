@@ -80,16 +80,20 @@ def read_file(
     return data
 
 
-def standardize_data(config, iso_code, source="preds", uid="PUID"):
-    data = read_file(iso_code, config, source=source)
-
-    if source != "master":
-        data["giga_id_school"] = data[uid]
+def standardize_data(
+    config, iso_code, cam_method="gradcam", source="preds", uid="PUID"
+):
+    data = read_file(iso_code, config, cam_method=cam_method, source=source)
 
     if source == "preds":
         data = data.rename(columns={"prob": "predicted_proba"})
+        data[uid] = data[uid].astype(str).str.pad(width=8, side="right", fillchar="0")
+        data[uid] = data[uid].apply(lambda x: f"ML-{iso_code}-SCHOOL-{x}")
         data["source"] = "ML"
         data["name"] = "Unknown"
+
+    if source != "master":
+        data["giga_id_school"] = data[uid]
 
     elif source == "master":
         data["source"] = "MASTER"
@@ -100,12 +104,11 @@ def standardize_data(config, iso_code, source="preds", uid="PUID"):
         data = data.rename(columns={2: "is_duplicated"})
 
     data["school_id"] = data[uid]
-    data["lon"] = data["geometry"].x
-    data["lat"] = data["geometry"].y
-
     data = add_admin_fields(config, iso_code, data)
     data = model_utils.get_rurban_classification(config, data)
     data = data.to_crs("EPSG:4326")
+    data["lon"] = data["geometry"].x
+    data["lat"] = data["geometry"].y
 
     if source == "preds":
         data = data.dropna(subset=["admin1", "admin2"])
