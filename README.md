@@ -95,7 +95,7 @@ conda activate envname
 pip install -r requirements.txt
 ```
 
-Fixing the Google Maps bug:
+**Fixing the Google Buildings error**:
 Navigate to your site packages, e.g. `/anaconda/envs/envname/lib/python3.10/site-packages`.
 Under `leafmap/common.py`, find the function `download_google_buildings()` and replace the building URL as follows:
 
