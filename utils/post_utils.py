@@ -14,6 +14,7 @@ from utils import config_utils
 from utils import pred_utils
 from utils import model_utils
 from utils import eval_utils
+from utils import plot_utils
 
 import matplotlib.pyplot as plt
 from matplotlib_venn import venn2, venn2_circles
@@ -23,6 +24,137 @@ import matplotlib as mpl
 from scipy.spatial import cKDTree
 
 logging.basicConfig(level=logging.INFO)
+
+
+COLUMNS = [
+    "giga_id_school",
+    "school_id",
+    "name",
+    "lat",
+    "lon",
+    "admin1",
+    "admin1_id_giga",
+    "admin2",
+    "admin2_id_giga",
+    "education_level",
+    "source",
+    "uninhabited",
+    "is_duplicated",
+    "predicted_proba",
+    "rurban",
+]
+
+
+def read_file(
+    iso_code: str, config: dict, cam_method: str = "gradcam", source: str = "preds"
+) -> gpd.GeoDataFrame:
+    """
+    Reads a GeoJSON file containing either master or prediction data.
+
+    Args:
+        iso_code (str): ISO code representing the geographical region.
+        config (dict): Configuration dictionary containing project and configuration names.
+        cam_method (str, optional): Method used for CAM (Class Activation Mapping). Defaults to "gradcam".
+        source (str, optional): Data source to read from, either "master" or "preds". Defaults to "preds".
+
+    Returns:
+        gpd.GeoDataFrame: GeoDataFrame containing the data read from the file.
+    """
+    # Construct the base directory path for output files
+    out_dir = os.path.join(
+        os.getcwd(), "output", iso_code, "results", config["project"]
+    )
+
+    # Determine the file path based on the source
+    if source == "preds":
+        # Update output directory for CAM results
+        out_dir = os.path.join(out_dir, "cams")
+        # Construct filename with CAM method and config name
+        filename = f"{iso_code}_{config[iso_code][0].split('/')[-1].split('.')[0]}_{cam_method}.geojson"
+        out_file = os.path.join(out_dir, filename)
+    else:
+        out_file = os.path.join(out_dir, f"{iso_code}_{source}.geojson")
+
+    # Read and return the GeoDataFrame from the specified file
+    data = gpd.read_file(out_file)
+    return data
+
+
+def standardize_data(config, iso_code, source="preds", uid="PUID"):
+    data = read_file(iso_code, config, source=source)
+
+    if source != "master":
+        data["giga_id_school"] = data[uid]
+
+    if source == "preds":
+        data = data.rename(columns={"prob": "predicted_proba"})
+        data["source"] = "ML"
+        data["name"] = "Unknown"
+
+    elif source == "master":
+        data["source"] = "MASTER"
+        one_hot = pd.get_dummies(data["clean"])
+        data = data.drop("clean", axis=1)
+        data = data.join(one_hot)
+        data = data.rename(columns={1: "uninhabited"})
+        data = data.rename(columns={2: "is_duplicated"})
+
+    data["school_id"] = data[uid]
+    data["lon"] = data["geometry"].x
+    data["lat"] = data["geometry"].y
+
+    data = add_admin_fields(config, iso_code, data)
+    data = model_utils.get_rurban_classification(config, data)
+    data = data.to_crs("EPSG:4326")
+
+    if source == "preds":
+        data = data.dropna(subset=["admin1", "admin2"])
+
+    data["giga_id_school"] = data["giga_id_school"].astype(str)
+    data["school_id"] = data["school_id"].astype(str)
+    for column in COLUMNS:
+        if column not in data.columns:
+            data[column] = None
+
+    data = data[COLUMNS]
+    return data.reset_index(drop=True)
+
+
+def add_admin_fields(config, iso_code, data, crs="EPSG:4326"):
+    data = data.to_crs(crs)
+    admin1 = gpd.read_file(
+        os.path.join(
+            os.getcwd(),
+            config["vectors_dir"],
+            "mapbox",
+            f"{iso_code}_admin1.geojson",
+        )
+    )
+    admin2 = gpd.read_file(
+        os.path.join(
+            os.getcwd(),
+            config["vectors_dir"],
+            "mapbox",
+            f"{iso_code}_admin2.geojson",
+        )
+    )
+    admin1.rename(columns={"name": "admin1"}, inplace=True)
+    admin2.rename(columns={"name": "admin2"}, inplace=True)
+    admin2["admin1_id_giga"] = admin2["admin2_id_giga"].apply(lambda x: x[:6])
+    admin2["admin1"] = admin2["admin1_id_giga"].map(
+        dict(zip(admin1["admin1_id_giga"], admin1["admin1"]))
+    )
+
+    data_joined = data.sjoin(
+        admin2[["admin1", "admin1_id_giga", "admin2", "admin2_id_giga", "geometry"]],
+        how="left",
+        predicate="intersects",
+    )
+
+    data = data_joined.drop(columns=["index_right"])
+    data = data.drop_duplicates(subset=["giga_id_school"], keep="first")
+
+    return data.reset_index(drop=True)
 
 
 def get_lat_lon_pairs(data: gpd.GeoDataFrame) -> np.ndarray:

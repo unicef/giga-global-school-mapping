@@ -5,6 +5,11 @@ import logging
 import wandb
 import pandas as pd
 import numpy as np
+
+import matplotlib.pyplot as plt
+import matplotlib
+import matplotlib.ticker as plticker
+
 from sklearn.metrics import (
     make_scorer,
     confusion_matrix,
@@ -355,3 +360,44 @@ def evaluate(
         "overall_accuracy": accuracy_score(y_true, y_pred_optim) * 100,
         "balanced_accuracy": balanced_accuracy_score(y_true, y_pred_optim) * 100,
     }
+
+
+def plot_results(results, plot="det"):
+    if plot == "pr":
+        thresholds = results["pr_thresholds"]
+        right = results["precision_scores_"][:-1]
+        right_label = "Precision"
+        left = results["recall_scores_"][:-1]
+        left_label = "Recall"
+
+    elif plot == "det":
+        thresholds = results["det_thresholds"]
+        right = results["fnr"]
+        right_label = "False Negative Rate (FNR)"
+        left = results["fpr"]
+        left_label = "False Positive Rate (FPR)"
+
+    fig, ax = plt.subplots(figsize=(6, 4))
+    ax.plot(thresholds, right, "b--")
+    ax.plot(thresholds, left, "g--")
+    ax.set_ylabel(left_label)
+    ax.yaxis.label.set_color("green")
+    ax2 = ax.twinx()
+    l1 = ax.get_ylim()
+    l2 = ax2.get_ylim()
+
+    def func(x):
+        return l2[0] + (x - l1[0]) / (l1[1] - l1[0]) * (l2[1] - l2[0])
+
+    ticks = func(ax.get_yticks())
+    ax2.yaxis.set_major_locator(matplotlib.ticker.FixedLocator(ticks))
+    ax2.set_yticklabels(ax.get_yticklabels())
+    ax2.set_ylabel(right_label, rotation=270, labelpad=15)
+    ax2.yaxis.label.set_color("blue")
+    ax2.yaxis.set_label_position("right")
+    ax2.yaxis.tick_right()
+    ax.set_xlabel("Probability Threshold")
+    loc = plticker.MultipleLocator(
+        base=0.1
+    )  # this locator puts ticks at regular intervals
+    ax.xaxis.set_major_locator(loc)

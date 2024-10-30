@@ -636,38 +636,3 @@ def calculate_stats(
         master_unconfirmed,
         preds_unconfirmed,
     )
-
-
-def read_file(
-    iso_code: str, config: dict, cam_method: str = "gradcam", source: str = "preds"
-):
-    """
-    Reads a GeoJSON file containing either master or prediction data.
-
-    Args:
-        iso_code (str): ISO code representing the geographical region.
-        config (dict): Configuration dictionary containing project and configuration names.
-        cam_method (str, optional): Method used for CAM (Class Activation Mapping). Defaults to "gradcam".
-        source (str, optional): Data source to read from, either "master" or "preds". Defaults to "preds".
-
-    Returns:
-        gpd.GeoDataFrame: GeoDataFrame containing the data read from the file.
-    """
-    # Construct the base directory path for output files
-    out_dir = os.path.join(
-        os.getcwd(), "output", iso_code, "results", config["project"]
-    )
-
-    # Determine the file path based on the source
-    if source == "master":
-        out_file = os.path.join(out_dir, f"{iso_code}_master.geojson")
-    elif source == "preds":
-        # Update output directory for CAM results
-        out_dir = os.path.join(out_dir, "cams")
-        # Construct filename with CAM method and config name
-        filename = f"{iso_code}_{config['config_name']}_{cam_method}.geojson"
-        out_file = os.path.join(out_dir, filename)
-
-    # Read and return the GeoDataFrame from the specified file
-    data = gpd.read_file(out_file)
-    return data
