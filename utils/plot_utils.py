@@ -351,29 +351,17 @@ def plot_venn_diagram(
     """
     fig = plt.figure(dpi=300)
 
-    # Calculate nearest distances
-    preds = post_utils.calculate_nearest_distance(
-        preds, master, source_name="master", source_uid="MUID"
-    )
-    master = post_utils.calculate_nearest_distance(
-        master, preds, source_name="pred", source_uid="PUID"
+    master = master[master.clean == 0]
+    matches = post_utils.match_dataframes(
+        left_df=preds.to_crs("EPSG:3857"),
+        right_df=master.to_crs("EPSG:3857"),
+        distance_threshold=250,
     )
 
-    # Calculate statistics for Venn diagram
-    (
-        master_filtered,
-        preds_filtered,
-        intersection,
-        master_unconfirmed,
-        preds_unconfirmed,
-    ) = calculate_stats(master, preds, threshold_dist=threshold_dist)
-
-    # Define subsets for the Venn diagram
-    subsets = (
-        master_unconfirmed.shape[0],
-        preds_unconfirmed.shape[0],
-        intersection.shape[0],
-    )
+    master_unconfirmed = master.shape[0] - matches.shape[0]
+    intersection = matches.shape[0]
+    preds_unconfirmed = preds.shape[0] - matches.shape[0]
+    subsets = (master_unconfirmed, preds_unconfirmed, intersection)
 
     # Plot Venn diagram
     v = venn2(
@@ -401,12 +389,12 @@ def plot_venn_diagram(
 
     if labels:
         v.get_label_by_id("A").set_text(
-            f"Government-mapped \nschools locations \n({master_filtered.shape[0]:,} total)",
+            f"Government-mapped \nschools locations \n({master.shape[0]:,} total)",
         )
         v.get_label_by_id("B").set_text(
-            f"Model predictions \n({preds_filtered.shape[0]:,} total)"
+            f"Model predictions \n({preds.shape[0]:,} total)"
         )
-        v.get_label_by_id("11").set_text(f"{intersection.shape[0]:,}")
+        v.get_label_by_id("11").set_text(f"{intersection:,}")
 
         # Annotate the intersection
         plt.annotate(
@@ -424,11 +412,8 @@ def plot_venn_diagram(
             ),
         )
     else:
-        v.get_label_by_id("A").set_text(f"{master_filtered.shape[0]:,} total")
-        v.get_label_by_id("B").set_text(f"{preds_filtered.shape[0]:,} total")
-
-    # v.get_label_by_id("A").set_color(BLUE)
-    # v.get_label_by_id("B").set_color(DARK_YELLOW)
+        v.get_label_by_id("A").set_text(f"{master.shape[0]:,} total")
+        v.get_label_by_id("B").set_text(f"{preds.shape[0]:,} total")
 
     plt.show()
     fig.savefig("assets/venn_diagram.pdf", bbox_inches="tight")

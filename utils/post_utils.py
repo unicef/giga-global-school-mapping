@@ -22,6 +22,7 @@ import matplotlib.patches as mpatches
 import matplotlib as mpl
 
 from scipy.spatial import cKDTree
+from typing import Tuple, List, Union
 
 logging.basicConfig(level=logging.INFO)
 
@@ -179,6 +180,100 @@ def get_lat_lon_pairs(data: gpd.GeoDataFrame) -> np.ndarray:
         lat_lon_pairs[i] = [row.geometry.y, row.geometry.x]
 
     return lat_lon_pairs
+
+
+def match_dataframes(
+    left_df: Union[pd.DataFrame, gpd.GeoDataFrame],
+    right_df: Union[pd.DataFrame, gpd.GeoDataFrame],
+    distance_threshold: float,
+    coordinate_columns: List[str] = ["lat", "lon"],
+) -> List[Tuple[int, int, float]]:
+    """
+    Match rows between two dataframes based on spatial distance using KD-tree.
+
+    Args:
+        left_df: Left dataframe to match from
+        right_df: Right dataframe to match to
+        distance_threshold: Maximum allowed distance for matching, nonnegative float
+        coordinate_columns: List of column names to use for distance calculation (when dataframe is provided)
+
+    Returns:
+        List of tuples containing (left_index, right_index, distance)
+    """
+
+    def get_coordinates(df: Union[pd.DataFrame, gpd.GeoDataFrame]) -> np.ndarray:
+        """Extract coordinates as numpy array."""
+        if isinstance(df, gpd.GeoDataFrame):
+            return df.get_coordinates().values
+
+        return df[coordinate_columns].values
+
+    def build_distance_list(
+        left_coords: np.ndarray,
+        right_coords: np.ndarray,
+        left_indices: np.ndarray,
+        right_indices: np.ndarray,
+    ) -> List[Tuple[int, int, float]]:
+        """
+        Build initial list of all valid pairs within distance threshold.
+        """
+        kdtree = cKDTree(right_coords)
+        distances_list = []
+
+        # Find all neighbors within distance threshold for each left point
+        for i, left_point in enumerate(left_coords):
+            distances, indices = kdtree.query(
+                left_point, k=len(right_coords), distance_upper_bound=distance_threshold
+            )
+            # Only keep valid matches
+            valid_mask = indices < len(right_coords)
+            if np.any(valid_mask):
+                for idx, dist in zip(indices[valid_mask], distances[valid_mask]):
+                    distances_list.append(
+                        (
+                            left_indices[i],  # Use original left index
+                            right_indices[idx],  # Use original right index
+                            dist,
+                        )
+                    )
+
+        # Sort by distance for efficient access to minimum
+        return sorted(distances_list, key=lambda x: x[2])
+
+    def match_pairs(
+        distances_list: List[Tuple[int, int, float]]
+    ) -> List[Tuple[int, int, float]]:
+        """
+        Find best matches from the distance list.
+        """
+        matched_pairs = []
+        used_left = set()
+        used_right = set()
+
+        # Iterate through sorted distances and find valid pairs
+        for left_idx, right_idx, dist in distances_list:
+            if left_idx not in used_left and right_idx not in used_right:
+                matched_pairs.append((left_idx, right_idx, dist))
+                used_left.add(left_idx)
+                used_right.add(right_idx)
+
+        return matched_pairs
+
+    # Initialize coordinates and indices
+    left_coords = get_coordinates(left_df)
+    right_coords = get_coordinates(right_df)
+    left_indices = np.array(left_df.index)
+    right_indices = np.array(right_df.index)
+
+    # Build initial distance list
+    initial_distances = build_distance_list(
+        left_coords, right_coords, left_indices, right_indices
+    )
+
+    # Find matches
+    out = pd.DataFrame(match_pairs(initial_distances))
+    out.columns = ["left_index", "right_index", "distance"]
+    return out
 
 
 def calculate_distance(
