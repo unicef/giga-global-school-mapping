@@ -95,7 +95,8 @@ conda activate envname
 pip install -r requirements.txt
 ```
 
-**Fixing the Google Buildings error**:
+
+#### Fixing the Google Buildings URL Error
 Navigate to your site packages, e.g. `/anaconda/envs/envname/lib/python3.10/site-packages`.
 Under `leafmap/common.py`, find the function `download_google_buildings()` and replace the building URL as follows:
 
@@ -104,10 +105,19 @@ Under `leafmap/common.py`, find the function `download_google_buildings()` and r
 building_url = "https://openbuildings-public-dot-gweb-research.uw.r.appspot.com/public/tiles.geojson"
 ```
 
-To install GDAL/OGR, follow these [instructions](https://ljvmiranda921.github.io/notebook/2019/04/13/install-gdal/).
+#### Install GDAL/OGR: Follow these [instructions](https://ljvmiranda921.github.io/notebook/2019/04/13/install-gdal/).
+
+#### Add to PYTHONPATH
+Finally, add this line to `~/.profile`:
+```sh
+export PYTHONPATH=$(pwd)
+```
+This adds your present working directory (pwd) to your Python path environment variable.
 
 ### Data Download 
-To download the relevant datasets, run `python src/data_download.py`:
+To download the relevant datasets, run either of the following:
+- `notebooks/data_download.ipynb`
+- `python src/data_download.py`:
 ```s
 usage: data_download.py [-h] [--config CONFIG] [--profile PROFILE]
 
@@ -118,10 +128,15 @@ options:
   --profile PROFILE  Path to the profile file
 ```
 
-### Data Preparation
-To run the data cleaning pipeline, run `python src/data_preparation.py`:
+For example:
 ```s
-usage: data_preparation.py [-h] [--config CONFIG] [--name NAME] 
+python src/data_download.py --config="configs/data_configs/<DATA_CONFIG_FILE_NAME>" -- profile="configs/<PROFILE>"
+```
+
+### Data Preparation
+To run the data cleaning pipeline, run `python src/data_preprocess.py`:
+```s
+usage: data_preprocess.py [-h] [--config CONFIG] [--name NAME] 
 [--sources SOURCES [SOURCES ...]] [--clean_pos CLEAN_POS] [--clean_neg CLEAN_NEG]
 
 Data Cleaning Pipeline
@@ -151,7 +166,12 @@ options:
 ```
 
 ### Model Training
-To train the computer vision models, run `python src/train_cnn.py`:
+To train the computer vision models, run:
+```s
+sh train.sh
+```
+
+Alternatively, you can run `python src/train_cnn.py`:
 ```s
 usage: train_cnn.py [-h] [--cnn_config CNN_CONFIG] [--lr_finder LR_FINDER] [--iso ISO [ISO ...]]
 
@@ -166,12 +186,42 @@ options:
 ### Model Prediction
 For model prediction, run:
 ```s
-python sat_predict.py \
---data_config="configs/<DATA_CONFIG_FILE_NAME>.yaml" \
---model_config="configs/cnn_configs/<CNN_CONFIG_FILE_NAME>.yaml" \
---sat_config="configs/sat_configs/<SAT_CONFIG_FILE_NAME>.yaml" \
---sat_creds="configs/sat_configs/<SAT_CREDENTIALS_FILE_NAME>.yaml" \
---iso="<ISO_CODE>"
+sh sat_predict.sh
+```
+
+Alternatively, you can run `python src/sat_predict.py`:
+```s
+usage: sat_predict.py [-h] [--data_config DATA_CONFIG] [--model_config MODEL_CONFIG] [--sat_config SAT_CONFIG]
+                      [--sat_creds SAT_CREDS] [--cam_method CAM_METHOD] [--shapename SHAPENAME]
+                      [--adm_level ADM_LEVEL] [--spacing SPACING] [--buffer_size BUFFER_SIZE]
+                      [--threshold THRESHOLD] [--sum_threshold SUM_THRESHOLD] [--iso_code ISO_CODE]
+
+Model Prediction
+
+options:
+  -h, --help            show this help message and exit
+  --data_config DATA_CONFIG
+                        Data config file
+  --model_config MODEL_CONFIG
+                        Model config file
+  --sat_config SAT_CONFIG
+                        Satellite image config file
+  --sat_creds SAT_CREDS
+                        Credentials file
+  --cam_method CAM_METHOD
+                        Class activation map method
+  --shapename SHAPENAME
+                        Model shapename (default None)
+  --adm_level ADM_LEVEL
+                        Admin level (default "ADM2")
+  --spacing SPACING     Tile spacing (default 150)
+  --buffer_size BUFFER_SIZE
+                        Buffer size (defualt 150)
+  --threshold THRESHOLD
+                        Probability threshold (default 0.5)
+  --sum_threshold SUM_THRESHOLD
+                        Pixel sum threshold (default 5)
+  --iso_code ISO_CODE   ISO code
 ```
 
 <h2><a id="contribution-guidelines" class="anchor" aria-hidden="true" href="#contribution-guidelines"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"></path></svg></a>
