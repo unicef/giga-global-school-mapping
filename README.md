@@ -204,10 +204,10 @@ options:
 
 For example:
 ```sh
-python src/train_model.py --config="configs/cnn_configs/convnext_small.yaml" --iso=<ISO_CODE>; 
+python src/train_model.py --config="configs/cnn_configs/convnext_small.yaml" --iso=MNG; 
 ```
 
-Outputs will be saved to `exp/<project_name>/<iso_code>_<model_name>/` (e.g. `exp/GIGAv2/MNG_convnext_large/`). 
+Outputs will be saved to `exp/<project_name>/<iso_code>_<model_name>/` (e.g. `exp/GIGAv2/MNG_convnext_small/`). 
 
 ### Model Ensemble
 Open `configs/best_models.yaml`. Add an entry for your country of interest (using the country's ISO code), and specify the best model variants for each ViT, Swin, and Convnext in order of model performance, i.e. the first entry is the best-performing model.
@@ -244,17 +244,29 @@ python src/cam_evaluate.py --iso_code="MNG" --model_config="configs/vit_configs/
 The output will be saved in `exp/<project_name>/<iso_code><best_model_name>/cam_results.csv`. The CAM method with the lowest value (i.e. the largest confidence drop after perturbation of the top 10% of pixels) is the best CAM method for the given model.
 
 ## Model Prediction
+### Download Nationwide Satellite Images
+To download nationwide satellite images, run:
+```sh
+sh sat_batch_download.sh
+```
+Alternatively, you can run `src/sat_batch_download.py`.
+
+For example:
+```sh
+python src/sat_batch_download.py --data_config="configs/data_configs/data_config_ISO_AS.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --sat_creds="configs/sat_configs/issa_sat_creds.yaml" --iso_code=MNG --adm_level="ADM2" --mode="sat";
+```
+
+### Nationwide Model Deployment
 For model prediction, run:
 ```s
 sh sat_predict.sh
 ```
 
 Alternatively, you can run `python src/sat_predict.py`:
-```s
-usage: sat_predict.py [-h] [--data_config DATA_CONFIG] [--model_config MODEL_CONFIG] [--sat_config SAT_CONFIG]
-                      [--sat_creds SAT_CREDS] [--cam_method CAM_METHOD] [--shapename SHAPENAME]
-                      [--adm_level ADM_LEVEL] [--spacing SPACING] [--buffer_size BUFFER_SIZE]
-                      [--threshold THRESHOLD] [--sum_threshold SUM_THRESHOLD] [--iso_code ISO_CODE]
+
+For example:
+```sh
+python src/sat_predict.py --data_config="configs/data_configs/data_config_ISO_AS.yaml" --model_config="configs/best_models.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --sat_creds="configs/sat_configs/issa_sat_creds.yaml" --cam_method="hirescam" --threshold=0.5 --iso_code=MNG;
 ```
 
 ### File Organization 
