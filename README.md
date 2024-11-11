@@ -90,12 +90,22 @@ Getting Started</h2>
 
 ### Setup
 ```sh
-conda create -n envname python==3.10.13
-conda activate envname
+conda create -n <env_name> python==3.10.13
+conda activate <env_name>
 pip install -r requirements.txt
 ```
+Add your present working directory (pwd) to your Python path environment variable by adding this line to `~/.profile`:
+```sh
+export PYTHONPATH=$(pwd)
+```
+Add the conda environment to jupyterlab:
+```sh
+conda install ipykernel
+ipython kernel install --user --name=<env_name>
+```
 
-**Fixing the Google Buildings error**:
+
+### Fixing the Google Buildings URL Error
 Navigate to your site packages, e.g. `/anaconda/envs/envname/lib/python3.10/site-packages`.
 Under `leafmap/common.py`, find the function `download_google_buildings()` and replace the building URL as follows:
 
@@ -104,10 +114,20 @@ Under `leafmap/common.py`, find the function `download_google_buildings()` and r
 building_url = "https://openbuildings-public-dot-gweb-research.uw.r.appspot.com/public/tiles.geojson"
 ```
 
-To install GDAL/OGR, follow these [instructions](https://ljvmiranda921.github.io/notebook/2019/04/13/install-gdal/).
+### Install GDAL/OGR: Follow these [instructions](https://ljvmiranda921.github.io/notebook/2019/04/13/install-gdal/).
 
-### Data Download 
-To download the relevant datasets, run `python src/data_download.py`:
+<h2><a id="code-design" class="anchor" aria-hidden="true" href="#code-design"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"></path></svg></a>
+Code Design</h2>
+
+This repository is divided into the following files and folders:
+- **notebooks/**: contains all Jupyter notebooks for exploratory data analysis and model prediction.
+- **utils/**: contains utility methods for loading datasets, building model, and performing training routines.
+- **src/**: contains scripts runnable scripts for automated data cleaning and model training/evaluation.
+
+## Data Download 
+To download the relevant datasets, run either of the following:
+- `notebooks/01_data_download.ipynb`
+- `python src/data_download.py`:
 ```s
 usage: data_download.py [-h] [--config CONFIG] [--profile PROFILE]
 
@@ -118,10 +138,19 @@ options:
   --profile PROFILE  Path to the profile file
 ```
 
-### Data Preparation
-To run the data cleaning pipeline, run `python src/data_preparation.py`:
+For example:
 ```s
-usage: data_preparation.py [-h] [--config CONFIG] [--name NAME] 
+python src/data_download.py --config="configs/data_configs/data_config_ISO_AS.yaml" -- profile="configs/profile.share"
+```
+
+Outputs are saved to:
+-  `data/vectors/<project_name>/school/` 
+- `data/vectors/<project_name>/non_school/`.
+
+## Data Preparation
+The satellite image download script can be found in: `src/sat_download.py`, and the data cleaning script can be found in: `src/data_preprocess.py`:
+```s
+usage: data_preprocess.py [-h] [--config CONFIG] [--name NAME] 
 [--sources SOURCES [SOURCES ...]] [--clean_pos CLEAN_POS] [--clean_neg CLEAN_NEG]
 
 Data Cleaning Pipeline
@@ -129,65 +158,123 @@ options:
   -h, --help            show this help message and exit
   --config CONFIG       Path to the configuration file
   --name NAME           Folder name
-  --sources SOURCES [SOURCES ...] Sources (e.g. unicef, osm, overture)
-  --clean_pos CLEAN_POS Clean positive samples (Boolean indicator)
-  --clean_neg CLEAN_NEG Clean negative samples (Boolean indicator)
+  --sources SOURCES [SOURCES ...] Sources (default [unicef, osm, overture])
+  --clean_pos CLEAN_POS Clean positive samples (bool, default: True)
+  --clean_neg CLEAN_NEG Clean negative samples (bool, default: True)
 ```
 
-### Satellite Image Download
-To download Maxar satellite images, run `python src/sat_download.py`:
-```s
-usage: sat_download.py [-h] [--config CONFIG] [--creds CREDS] 
-[--category CATEGORY] [--iso_code ISO_CODE] [--filename FILENAME]
+To clean the positive and negative samples, follow these steps:
 
-Satellite Image Download
-options:
-  -h, --help           show this help message and exit
-  --config CONFIG      Path to the configuration file
-  --creds CREDS        Path to the credentials file
-  --category CATEGORY  Category (e.g. school or non_school)
-  --iso_code ISO_CODE  ISO 3166-1 alpha-3 code
-  --filename FILENAME  Filename of data (optional)
+### Cleaning positive samples
+1. Run data cleaning for the positive samples:
+```s
+python data_preprocess.py --config="configs/data_configs/<data_config_file>" --clean_neg=False
+```
+2. Download the satellite images of positive samples using `notebooks/02_sat_download.ipynb`
+3. Manually inspect and clean the satellite images for the positive samples using `notebooks/03_sat_cleaning.ipynb`
+4. Vector outputs are saved to `data/vectors/<project_name>/school/clean/`. Satellite images are saved to `data/rasters/500x500_60cm/<project_name>/<iso_code>/school/` 
+
+
+### Cleaning negative samples
+5. Run data cleaning for the negative samples:
+```s
+python data_preprocess.py --config="configs/data_configs/<data_config_file>" --clean_pos=False
+```
+6. Download the satellite images of negative samples using `notebooks/02_sat_download.ipynb`
+7. Vector outputs are saved to `data/vectors/<project_name>/non_school/clean/`. Satellite images are saved to `data/rasters/500x500_60cm/<project_name>/<iso_code>/non_school/` 
+
+
+## Model Training
+To train the computer vision models, run:
+```s
+sh train.sh
 ```
 
-### Model Training
-To train the computer vision models, run `python src/train_cnn.py`:
+Alternatively, you can run `python src/train_cnn.py`:
 ```s
-usage: train_cnn.py [-h] [--cnn_config CNN_CONFIG] [--lr_finder LR_FINDER] [--iso ISO [ISO ...]]
+usage: train_cnn.py [-h] [--config MODEL_CONFIG] [--lr_finder LR_FINDER] [--iso ISO [ISO ...]]
 
 Model Training
 options:
   -h, --help              show this help message and exit
-  --cnn_config CNN_CONFIG Path to the configuration file
-  --lr_finder LR_FINDER   Learning rate finder (Boolean indicator)
+  --config MODEL_CONFIG Path to the configuration file
+  --lr_finder LR_FINDER   Learning rate finder (bool)
   --iso ISO [ISO ...]     ISO 3166-1 alpha-3 codes
 ```
 
-### Model Prediction
-For model prediction, run:
-```s
-python sat_predict.py \
---data_config="configs/<DATA_CONFIG_FILE_NAME>.yaml" \
---model_config="configs/cnn_configs/<CNN_CONFIG_FILE_NAME>.yaml" \
---sat_config="configs/sat_configs/<SAT_CONFIG_FILE_NAME>.yaml" \
---sat_creds="configs/sat_configs/<SAT_CREDENTIALS_FILE_NAME>.yaml" \
---iso="<ISO_CODE>"
+For example:
+```sh
+python src/train_model.py --config="configs/cnn_configs/convnext_small.yaml" --iso=MNG; 
 ```
 
-<h2><a id="contribution-guidelines" class="anchor" aria-hidden="true" href="#contribution-guidelines"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"></path></svg></a>
-Contribution Guidelines</h2>
+Outputs will be saved to `exp/<project_name>/<iso_code>_<model_name>/` (e.g. `exp/GIGAv2/MNG_convnext_small/`). 
 
-Thank you for considering contributing to Giga! We value your input and aim to make the contribution process as accessible and transparent as possible. Whether you're interested in reporting bugs, discussing code, submitting fixes, proposing features, becoming a maintainer, or engaging with the Giga community, we welcome your involvement. 
+### Model Ensemble
+Open `configs/best_models.yaml`. Add an entry for your country of interest (using the country's ISO code), and specify the best model variants for each ViT, Swin, and Convnext in order of model performance, i.e. the first entry is the best-performing model.
 
-[Click here for detailed Contribution Guidelines](https://github.com/unicef/giga-global-school-mapping/blob/master/Contribution-Guidelines.md) 
+For example:.
+```sh
+MNG:
+- "configs/vit_configs/vit_b_16.yaml"
+- "configs/cnn_configs/convnext_base.yaml"
+- "configs/vit_configs/swin_v2_b.yaml"
+```
+To evaluate the model ensemble, run `05_model_evaluation.ipynb`. 
 
-<h2><a id="code-design" class="anchor" aria-hidden="true" href="#code-design"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"></path></svg></a>
-Code Design</h2>
+### Optimal Probability Threshold 
+The best probability threshold for CAM generation maximizes the F2 score based on the validation set and can be found in the results as `optim_threshold`.
 
-This repository is divided into the following files and folders:
-- **notebooks/**: contains all Jupyter notebooks for exploratory data analysis and model prediction.
-- **utils/**: contains utility methods for loading datasets, building model, and performing training routines.
-- **src/**: contains scripts runnable scripts for automated data cleaning and model training/evaluation.
+## CAM Evaluation
+To determine the best CAM method, run `src/cam_evaluate.py`:
+```s
+usage: cam_evaluate.py [-h] [--model_config MODEL_CONFIG] [--iso_code ISO_CODE]
+                       [--percentile PERCENTILE]
+
+CAM Evaluation
+
+options:
+  -h, --help              show this help message and exit
+  --model_config MODEL_CONFIG Model config file
+  --iso_code ISO_CODE     ISO 3166-1 alpha-3 code
+  --percentile PERCENTILE Percentile (default: 90)
+```
+
+**Note**: The `model_config` should be set to the best performing model overall for the corresponding country of interest. For example:
+```sh
+python src/cam_evaluate.py --iso_code="MNG" --model_config="configs/vit_configs/vit_b_16.yaml" --percentile=90
+```
+
+The output will be saved in `exp/<project_name>/<iso_code><best_model_name>/cam_results.csv`. The CAM method with the lowest value (i.e. the largest confidence drop after perturbation of the top 10% of pixels) is the best CAM method for the given model.
+
+## Model Prediction
+### Download Nationwide Satellite Images
+To download nationwide satellite images, run:
+```sh
+sh sat_batch_download.sh
+```
+Alternatively, you can run `src/sat_batch_download.py`. 
+
+For example:
+```sh
+python src/sat_batch_download.py --data_config="configs/data_configs/data_config_ISO_AS.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --sat_creds="configs/sat_configs/issa_sat_creds.yaml" --iso_code=MNG --adm_level="ADM2" --mode="sat";
+```
+
+The satellite images are saved to `output/<iso_code>/images/`.
+
+### Nationwide Model Deployment
+For model prediction, run:
+```s
+sh sat_predict.sh
+```
+
+Alternatively, you can run `python src/sat_predict.py`:
+
+For example:
+```sh
+python src/sat_predict.py --data_config="configs/data_configs/data_config_ISO_AF.yaml" --model_config="configs/best_models.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --sat_creds="configs/sat_configs/issa_sat_creds.yaml" --cam_method="gradcam" --threshold=0.344 --iso_code=RWA;
+```
+
+The outputs are saved to `output/<iso_code>/results/`.
 
 ### File Organization 
 The datasets are organized as follows:
@@ -224,6 +311,14 @@ data
             └── ...
     
 ```
+
+<h2><a id="contribution-guidelines" class="anchor" aria-hidden="true" href="#contribution-guidelines"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"></path></svg></a>
+Contribution Guidelines</h2>
+
+Thank you for considering contributing to Giga! We value your input and aim to make the contribution process as accessible and transparent as possible. Whether you're interested in reporting bugs, discussing code, submitting fixes, proposing features, becoming a maintainer, or engaging with the Giga community, we welcome your involvement. 
+
+[Click here for detailed Contribution Guidelines](https://github.com/unicef/giga-global-school-mapping/blob/master/Contribution-Guidelines.md) 
+
 
 <h2><a id="code-of-conduct" class="anchor" aria-hidden="true" href="#code-of-conduct"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"></path></svg></a>
 Code of Conduct</h2>
