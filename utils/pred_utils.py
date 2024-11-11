@@ -103,7 +103,8 @@ def cnn_predict(
     )
 
     name = f"{iso_code}_{shapename}"
-    out_file = os.path.join(out_dir, f"{name}_{config['config_name']}_results.gpkg")
+    #out_file = os.path.join(out_dir, f"{name}_{config['config_name']}_results.gpkg")
+    out_file = os.path.join(out_dir, f"{name}_{config['config_name']}_results.geojson")
 
     # If the results file already exists, read and return it
     if os.path.exists(out_file):
@@ -116,7 +117,8 @@ def cnn_predict(
     # Prepare and save the results as a GeoDataFrame
     results = results[["UID", "geometry", "prob"]]
     results = gpd.GeoDataFrame(results, geometry="geometry")
-    results.to_file(out_file, driver="GPKG")
+    #results.to_file(out_file, driver="GPKG")
+    results.to_file(out_file, driver="GeoJSON")
 
     return results
 
@@ -160,7 +162,8 @@ def ensemble_predict(
     )
     # Define the output file path
     name = f"{iso_code}_{shapename}"
-    out_file = os.path.join(out_dir, f"{name}_ensemble_results.gpkg")
+    #out_file = os.path.join(out_dir, f"{name}_ensemble_results.gpkg")
+    out_file = os.path.join(out_dir, f"{name}_ensemble_results.geojson")
 
     # Initialize an array to accumulate probabilities from each model
     probs = 0
@@ -186,7 +189,8 @@ def ensemble_predict(
     results["pred"] = preds
 
     # Save the results to a GeoPackage file
-    results.to_file(out_file, driver="GPKG")
+    #results.to_file(out_file, driver="GPKG")
+    results.to_file(out_file, driver="GeoJSON")
     return results
 
 
@@ -230,7 +234,7 @@ def load_model(iso_code: str, config: dict, verbose: bool = True) -> torch.nn.Mo
 
 
 def filter_by_buildings(
-    iso_code: str, config: dict, data: pd.DataFrame, n_seconds: int = 10
+    iso_code: str, config: dict, data: gpd.GeoDataFrame, n_seconds: int = 10
 ) -> pd.DataFrame:
     """
     Filters the data based on building presence by summing pixel values from building raster files.
@@ -238,7 +242,7 @@ def filter_by_buildings(
     Args:
         iso_code (str): ISO code for the region, used to locate the raster files.
         config (dict): Configuration dictionary containing paths to raster directories.
-        data (pd.DataFrame): DataFrame containing the data with geometries to be processed.
+        data (gpd.GeoDataFrame): DataFrame containing the data with geometries to be processed.
         n_seconds (int, optional): Interval in seconds to update the progress bar. Default is 10.
 
     Returns:
@@ -251,6 +255,7 @@ def filter_by_buildings(
     google_path = os.path.join(raster_dir, "google_buildings", f"{iso_code}_google.tif")
 
     pixel_sums = []
+    data = data.reset_index(drop=True)
     logging.info(f"Filtering buildings for {len(data)}")
     for index in tqdm(list(data.index), total=len(data)):
         # Extract the geometry for the current entry
@@ -313,7 +318,7 @@ def generate_pred_tiles(
     """
     # Define the output directory and file path
     out_dir = data_utils.makedir(os.path.join(os.getcwd(), "output", iso_code, "tiles"))
-    out_file = os.path.join(out_dir, f"{iso_code}_{shapename}.gpkg")
+    out_file = os.path.join(out_dir, f"{iso_code}_{shapename}.geojson")
 
     # Return the existing file if it already exists
     if os.path.exists(out_file):
@@ -342,7 +347,8 @@ def generate_pred_tiles(
     filtered = filtered[["UID", "geometry", "shapeName", "sum"]]
 
     # Save the filtered points to a GeoPackage file
-    filtered.to_file(out_file, driver="GPKG", index=False)
+    #filtered.to_file(out_file, driver="GPKG", index=False)
+    filtered.to_file(out_file, driver="GeoJSON", index=False)
 
     return filtered
 
