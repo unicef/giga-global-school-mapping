@@ -577,6 +577,11 @@ def load_preds(
 
     # Retrieve the list of filenames from the output directory
     filenames = next(os.walk(out_dir), (None, None, []))[2]
+    filenames = [
+        filename 
+        for filename in filenames 
+        if filename.split(".")[-1] in [".gpkg", "geojson"]
+    ]
 
     # Initialize a list to store data from each file
     data = []
