@@ -113,6 +113,14 @@ Add your present working directory (pwd) to your Python path environment variabl
 export PYTHONPATH=$(pwd)
 ```
 
+<h2><a id="code-design" class="anchor" aria-hidden="true" href="#code-design"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"></path></svg></a>
+Code Design</h2>
+
+This repository is divided into the following files and folders:
+- **notebooks/**: contains all Jupyter notebooks for exploratory data analysis and model prediction.
+- **utils/**: contains utility methods for loading datasets, building model, and performing training routines.
+- **src/**: contains scripts runnable scripts for automated data cleaning and model training/evaluation.
+
 ## Data Download 
 To download the relevant datasets, run either of the following:
 - `notebooks/01_data_download.ipynb`
@@ -132,6 +140,10 @@ For example:
 python src/data_download.py --config="configs/data_configs/<DATA_CONFIG_FILE_NAME>" -- profile="configs/<PROFILE>"
 ```
 
+Outputs are saved to:
+-  `data/vectors/<PROJECT_NAME>/school/` 
+- `data/vectors/<PROJECT_NAME>/non_school/`.
+
 ## Data Preparation
 The satellite image download script can be found in: `src/sat_download.py`, and the data cleaning script can be found in: `src/data_preprocess.py`:
 ```s
@@ -144,27 +156,29 @@ options:
   --config CONFIG       Path to the configuration file
   --name NAME           Folder name
   --sources SOURCES [SOURCES ...] Sources (default [unicef, osm, overture])
-  --clean_pos CLEAN_POS Clean positive samples (bool, default is True)
-  --clean_neg CLEAN_NEG Clean negative samples (bool, default is True)
+  --clean_pos CLEAN_POS Clean positive samples (bool, default: True)
+  --clean_neg CLEAN_NEG Clean negative samples (bool, default: True)
 ```
 
 To clean the positive and negative samples, follow these steps:
 
 ### Cleaning positive samples
-1. For the positive samples, remove invalid data points (e.g. uninhabited areas, duplicate points):
+1. Run data cleaning for the positive samples:
 ```s
 python data_preprocess.py --config="configs/data_configs/<DATA_CONFIG_FILE_NAME>" --clean_neg=False
 ```
 2. Download the satellite images of positive samples using `notebooks/02_sat_download.ipynb`
-3. Manually clean the satellite images using `notebooks/03_sat_cleaning.ipynb`
+3. Manually inspect and clean the satellite images for the positive samples using `notebooks/03_sat_cleaning.ipynb`
+4. Vector outputs are saved to `data/vectors/<PROJECT_NAME>/school/clean/`. Satellite images are saved to `data/rasters/500x500_60cm/<PROJECT_NAME>/<ISO_CODE>/school/` 
 
 
 ### Cleaning negative samples
-4. After cleaning the positive samples, you can proceed to cleaning negative samples:
+5. Run data cleaning for the negative samples:
 ```s
 python data_preprocess.py --config="configs/data_configs/<DATA_CONFIG_FILE_NAME>" --clean_pos=False
 ```
-5. Download the satellite images of negative samples using `notebooks/02_sat_download.ipynb`
+6. Download the satellite images of negative samples using `notebooks/02_sat_download.ipynb`
+7. Vector outputs are saved to `data/vectors/<PROJECT_NAME>/non_school/clean/`. Satellite images are saved to `data/rasters/500x500_60cm/<PROJECT_NAME>/<ISO_CODE>/non_school/` 
 
 
 ## Model Training
@@ -175,14 +189,53 @@ sh train.sh
 
 Alternatively, you can run `python src/train_cnn.py`:
 ```s
-usage: train_cnn.py [-h] [--cnn_config CNN_CONFIG] [--lr_finder LR_FINDER] [--iso ISO [ISO ...]]
+usage: train_cnn.py [-h] [--config MODEL_CONFIG] [--lr_finder LR_FINDER] [--iso ISO [ISO ...]]
 
 Model Training
 options:
   -h, --help              show this help message and exit
-  --cnn_config CNN_CONFIG Path to the configuration file
+  --config MODEL_CONFIG Path to the configuration file
   --lr_finder LR_FINDER   Learning rate finder (bool)
   --iso ISO [ISO ...]     ISO 3166-1 alpha-3 codes
+```
+
+For example:
+```sh
+python src/train_model.py --config="configs/cnn_configs/convnext_small.yaml" --iso=<ISO_CODE>; 
+```
+
+Outputs will be saved to `exp/<PROJECT_NAME>/<ISO_CODE>_<MODEL_NAME>/` (e.g. `exp/GIGAv2/MNG_convnext_large/`). 
+
+### Model Ensemble
+Open `configs/best_models.yaml`. Add an entry for your country of interest (using the country's ISO code), and specify the best model variants for each ViT, Swin, and Convnext in order of model performance, i.e. the first entry is the best-performing model.
+
+For example:.
+```sh
+MNG: 
+- "configs/vit_configs/swin_v2_s.yaml"
+- "configs/vit_configs/vit_h_14.yaml"
+- "configs/cnn_configs/convnext_base.yaml"
+```
+To evaluate the model ensemble, run `05_model_evaluation.ipynb`.
+
+## CAM Evaluation
+To determine the best CAM method, run `src/cam_evaluate.py`:
+```s
+usage: cam_evaluate.py [-h] [--model_config MODEL_CONFIG] [--iso_code ISO_CODE]
+                       [--percentile PERCENTILE]
+
+CAM Evaluation
+
+options:
+  -h, --help              show this help message and exit
+  --model_config MODEL_CONFIG Model config file
+  --iso_code ISO_CODE     ISO 3166-1 alpha-3 code
+  --percentile PERCENTILE Percentile (default: 90)
+```
+
+**Note**: The `model_config` should be set to the best performing model overall for the corresponding country of interest. For example:
+```sh
+python src/cam_evaluate.py --iso_code="SSD" --model_config="configs/vit_configs/vit_h_14.yaml" --percentile=90
 ```
 
 ## Model Prediction
@@ -198,21 +251,6 @@ usage: sat_predict.py [-h] [--data_config DATA_CONFIG] [--model_config MODEL_CON
                       [--adm_level ADM_LEVEL] [--spacing SPACING] [--buffer_size BUFFER_SIZE]
                       [--threshold THRESHOLD] [--sum_threshold SUM_THRESHOLD] [--iso_code ISO_CODE]
 ```
-
-<h2><a id="contribution-guidelines" class="anchor" aria-hidden="true" href="#contribution-guidelines"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"></path></svg></a>
-Contribution Guidelines</h2>
-
-Thank you for considering contributing to Giga! We value your input and aim to make the contribution process as accessible and transparent as possible. Whether you're interested in reporting bugs, discussing code, submitting fixes, proposing features, becoming a maintainer, or engaging with the Giga community, we welcome your involvement. 
-
-[Click here for detailed Contribution Guidelines](https://github.com/unicef/giga-global-school-mapping/blob/master/Contribution-Guidelines.md) 
-
-<h2><a id="code-design" class="anchor" aria-hidden="true" href="#code-design"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"></path></svg></a>
-Code Design</h2>
-
-This repository is divided into the following files and folders:
-- **notebooks/**: contains all Jupyter notebooks for exploratory data analysis and model prediction.
-- **utils/**: contains utility methods for loading datasets, building model, and performing training routines.
-- **src/**: contains scripts runnable scripts for automated data cleaning and model training/evaluation.
 
 ### File Organization 
 The datasets are organized as follows:
@@ -249,6 +287,14 @@ data
             └── ...
     
 ```
+
+<h2><a id="contribution-guidelines" class="anchor" aria-hidden="true" href="#contribution-guidelines"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"></path></svg></a>
+Contribution Guidelines</h2>
+
+Thank you for considering contributing to Giga! We value your input and aim to make the contribution process as accessible and transparent as possible. Whether you're interested in reporting bugs, discussing code, submitting fixes, proposing features, becoming a maintainer, or engaging with the Giga community, we welcome your involvement. 
+
+[Click here for detailed Contribution Guidelines](https://github.com/unicef/giga-global-school-mapping/blob/master/Contribution-Guidelines.md) 
+
 
 <h2><a id="code-of-conduct" class="anchor" aria-hidden="true" href="#code-of-conduct"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"></path></svg></a>
 Code of Conduct</h2>
