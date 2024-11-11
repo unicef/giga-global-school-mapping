@@ -219,7 +219,10 @@ MNG:
 - "configs/cnn_configs/convnext_base.yaml"
 - "configs/vit_configs/swin_v2_b.yaml"
 ```
-To evaluate the model ensemble, run `05_model_evaluation.ipynb`.
+To evaluate the model ensemble, run `05_model_evaluation.ipynb`. 
+
+### Optimal Probability Threshold 
+The best probability threshold for CAM generation maximizes the F2 score based on the validation set and can be found in the results as `optim_threshold`.
 
 ## CAM Evaluation
 To determine the best CAM method, run `src/cam_evaluate.py`:
@@ -249,12 +252,14 @@ To download nationwide satellite images, run:
 ```sh
 sh sat_batch_download.sh
 ```
-Alternatively, you can run `src/sat_batch_download.py`.
+Alternatively, you can run `src/sat_batch_download.py`. Make sure to specify the corresponding best CAM method and probability thresholds for your country of interest.
 
 For example:
 ```sh
 python src/sat_batch_download.py --data_config="configs/data_configs/data_config_ISO_AS.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --sat_creds="configs/sat_configs/issa_sat_creds.yaml" --iso_code=MNG --adm_level="ADM2" --mode="sat";
 ```
+
+The satellite images are saved to `output/<iso_code>/images/`.
 
 ### Nationwide Model Deployment
 For model prediction, run:
@@ -268,6 +273,8 @@ For example:
 ```sh
 python src/sat_predict.py --data_config="configs/data_configs/data_config_ISO_AS.yaml" --model_config="configs/best_models.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --sat_creds="configs/sat_configs/issa_sat_creds.yaml" --cam_method="hirescam" --threshold=0.5 --iso_code=MNG;
 ```
+
+The outputs are saved to `output/<iso_code>/results/`.
 
 ### File Organization 
 The datasets are organized as follows:
