@@ -133,7 +133,7 @@ python src/data_download.py --config="configs/data_configs/<DATA_CONFIG_FILE_NAM
 ```
 
 ### Data Preparation
-The data cleaning script can be found in: `python src/data_preprocess.py`:
+The satellite image download script can be found in: `src/sat_download.py`, and the data cleaning script can be found in: `src/data_preprocess.py`:
 ```s
 usage: data_preprocess.py [-h] [--config CONFIG] [--name NAME] 
 [--sources SOURCES [SOURCES ...]] [--clean_pos CLEAN_POS] [--clean_neg CLEAN_NEG]
@@ -148,7 +148,9 @@ options:
   --clean_neg CLEAN_NEG Clean negative samples (bool, default is True)
 ```
 
-#### Clean positive samples
+To clean the positive and negative samples, follow these steps:
+
+### Cleaning positive samples
 1. For the positive samples, remove invalid data points (e.g. uninhabited areas, duplicate points):
 ```s
 python data_preprocess.py --config="configs/data_configs/<DATA_CONFIG_FILE_NAME>" --clean_neg=False
@@ -157,28 +159,13 @@ python data_preprocess.py --config="configs/data_configs/<DATA_CONFIG_FILE_NAME>
 3. Manually clean the satellite images using `notebooks/03_sat_cleaning.ipynb`
 
 
-#### Clean negative samples
+### Cleaning negative samples
 1. After cleaning the positive samples, you can proceed to cleaning negative samples:
 ```s
 python data_preprocess.py --config="configs/data_configs/<DATA_CONFIG_FILE_NAME>" --clean_pos=False
 ```
 2. Download the satellite images of negative samples using `notebooks/02_sat_download.ipynb`
 
-### Satellite Image Download
-To download Maxar satellite images, run `python src/sat_download.py`:
-```s
-usage: sat_download.py [-h] [--config CONFIG] [--creds CREDS] 
-[--category CATEGORY] [--iso_code ISO_CODE] [--filename FILENAME]
-
-Satellite Image Download
-options:
-  -h, --help           show this help message and exit
-  --config CONFIG      Path to the configuration file
-  --creds CREDS        Path to the credentials file
-  --category CATEGORY  Category (e.g. school or non_school)
-  --iso_code ISO_CODE  ISO 3166-1 alpha-3 code
-  --filename FILENAME  Filename of data (optional)
-```
 
 ### Model Training
 To train the computer vision models, run:
