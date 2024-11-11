@@ -22,6 +22,7 @@ import matplotlib.patches as mpatches
 import matplotlib as mpl
 
 from scipy.spatial import cKDTree
+from typing import Tuple, List, Union
 
 logging.basicConfig(level=logging.INFO)
 
@@ -80,16 +81,20 @@ def read_file(
     return data
 
 
-def standardize_data(config, iso_code, source="preds", uid="PUID"):
-    data = read_file(iso_code, config, source=source)
-
-    if source != "master":
-        data["giga_id_school"] = data[uid]
+def standardize_data(
+    config, iso_code, cam_method="gradcam", source="preds", uid="PUID"
+):
+    data = read_file(iso_code, config, cam_method=cam_method, source=source)
 
     if source == "preds":
         data = data.rename(columns={"prob": "predicted_proba"})
+        data[uid] = data[uid].astype(str).str.pad(width=8, side="right", fillchar="0")
+        data[uid] = data[uid].apply(lambda x: f"ML-{iso_code}-SCHOOL-{x}")
         data["source"] = "ML"
         data["name"] = "Unknown"
+
+    if source != "master":
+        data["giga_id_school"] = data[uid]
 
     elif source == "master":
         data["source"] = "MASTER"
@@ -100,12 +105,11 @@ def standardize_data(config, iso_code, source="preds", uid="PUID"):
         data = data.rename(columns={2: "is_duplicated"})
 
     data["school_id"] = data[uid]
-    data["lon"] = data["geometry"].x
-    data["lat"] = data["geometry"].y
-
     data = add_admin_fields(config, iso_code, data)
     data = model_utils.get_rurban_classification(config, data)
     data = data.to_crs("EPSG:4326")
+    data["lon"] = data["geometry"].x
+    data["lat"] = data["geometry"].y
 
     if source == "preds":
         data = data.dropna(subset=["admin1", "admin2"])
@@ -176,6 +180,100 @@ def get_lat_lon_pairs(data: gpd.GeoDataFrame) -> np.ndarray:
         lat_lon_pairs[i] = [row.geometry.y, row.geometry.x]
 
     return lat_lon_pairs
+
+
+def match_dataframes(
+    left_df: Union[pd.DataFrame, gpd.GeoDataFrame],
+    right_df: Union[pd.DataFrame, gpd.GeoDataFrame],
+    distance_threshold: float,
+    coordinate_columns: List[str] = ["lat", "lon"],
+) -> List[Tuple[int, int, float]]:
+    """
+    Match rows between two dataframes based on spatial distance using KD-tree.
+
+    Args:
+        left_df: Left dataframe to match from
+        right_df: Right dataframe to match to
+        distance_threshold: Maximum allowed distance for matching, nonnegative float
+        coordinate_columns: List of column names to use for distance calculation (when dataframe is provided)
+
+    Returns:
+        List of tuples containing (left_index, right_index, distance)
+    """
+
+    def get_coordinates(df: Union[pd.DataFrame, gpd.GeoDataFrame]) -> np.ndarray:
+        """Extract coordinates as numpy array."""
+        if isinstance(df, gpd.GeoDataFrame):
+            return df.get_coordinates().values
+
+        return df[coordinate_columns].values
+
+    def build_distance_list(
+        left_coords: np.ndarray,
+        right_coords: np.ndarray,
+        left_indices: np.ndarray,
+        right_indices: np.ndarray,
+    ) -> List[Tuple[int, int, float]]:
+        """
+        Build initial list of all valid pairs within distance threshold.
+        """
+        kdtree = cKDTree(right_coords)
+        distances_list = []
+
+        # Find all neighbors within distance threshold for each left point
+        for i, left_point in enumerate(left_coords):
+            distances, indices = kdtree.query(
+                left_point, k=len(right_coords), distance_upper_bound=distance_threshold
+            )
+            # Only keep valid matches
+            valid_mask = indices < len(right_coords)
+            if np.any(valid_mask):
+                for idx, dist in zip(indices[valid_mask], distances[valid_mask]):
+                    distances_list.append(
+                        (
+                            left_indices[i],  # Use original left index
+                            right_indices[idx],  # Use original right index
+                            dist,
+                        )
+                    )
+
+        # Sort by distance for efficient access to minimum
+        return sorted(distances_list, key=lambda x: x[2])
+
+    def match_pairs(
+        distances_list: List[Tuple[int, int, float]]
+    ) -> List[Tuple[int, int, float]]:
+        """
+        Find best matches from the distance list.
+        """
+        matched_pairs = []
+        used_left = set()
+        used_right = set()
+
+        # Iterate through sorted distances and find valid pairs
+        for left_idx, right_idx, dist in distances_list:
+            if left_idx not in used_left and right_idx not in used_right:
+                matched_pairs.append((left_idx, right_idx, dist))
+                used_left.add(left_idx)
+                used_right.add(right_idx)
+
+        return matched_pairs
+
+    # Initialize coordinates and indices
+    left_coords = get_coordinates(left_df)
+    right_coords = get_coordinates(right_df)
+    left_indices = np.array(left_df.index)
+    right_indices = np.array(right_df.index)
+
+    # Build initial distance list
+    initial_distances = build_distance_list(
+        left_coords, right_coords, left_indices, right_indices
+    )
+
+    # Find matches
+    out = pd.DataFrame(match_pairs(initial_distances))
+    out.columns = ["left_index", "right_index", "distance"]
+    return out
 
 
 def calculate_distance(
@@ -479,6 +577,11 @@ def load_preds(
 
     # Retrieve the list of filenames from the output directory
     filenames = next(os.walk(out_dir), (None, None, []))[2]
+    filenames = [
+        filename 
+        for filename in filenames 
+        if filename.split(".")[-1] in [".gpkg", "geojson"]
+    ]
 
     # Initialize a list to store data from each file
     data = []

@@ -39,3 +39,6 @@ torchcam==0.4.0
 torchvision==0.16.2
 tqdm==4.65.0
 translators==5.8.9
+torchsummary
+scikit-image
+wandb

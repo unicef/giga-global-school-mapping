@@ -166,8 +166,11 @@ def cam_predict(
             cam_method,
         )
     )
+    #out_file = os.path.join(
+    #    out_dir, f"{iso_code}_{shapename}_{config['config_name']}_{cam_method}.gpkg"
+    #)
     out_file = os.path.join(
-        out_dir, f"{iso_code}_{shapename}_{config['config_name']}_{cam_method}.gpkg"
+        out_dir, f"{iso_code}_{shapename}_{config['config_name']}_{cam_method}.geojson"
     )
     if os.path.exists(out_file):
         return gpd.read_file(out_file)
@@ -179,7 +182,8 @@ def cam_predict(
         data, config, geotiff_dir, model, cam_extractor, buffer_size
     )
     results = pred_utils.filter_by_buildings(iso_code, config, results)
-    results.to_file(out_file, driver="GPKG")
+    #results.to_file(out_file, driver="GPKG")
+    results.to_file(out_file, driver="GeoJSON")
     return results
 
 

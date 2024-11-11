@@ -269,6 +269,27 @@ def validate_data(
     return grid
 
 
+def update_validation(config, iso_code, category, indexes=[], name="clean", suffix="_prob", filename=None):
+    validated = {0: "VALID", -1: "INVALID"}
+    if not filename:
+        filename = get_filename(iso_code, config, category, name="clean", suffix=suffix)
+    data = gpd.read_file(filename) 
+
+    if "validated" not in data.columns:
+        data["validated"] = 0
+    
+    for index in indexes:
+        item = data.iloc[index]
+        change_value = -1
+        if item["validated"] == -1:
+            change_value = 0
+
+        data.loc[index, "validated"] = change_value
+        logging.info(f"Item {index} changed to {validated[data.iloc[index]['validated']]}.")
+
+    data.to_file(filename, driver="GeoJSON")
+
+
 def inspect_images(
     config: dict,
     iso_code: str,
@@ -284,6 +305,7 @@ def inspect_images(
     suffix: str = "_prob",
     min_prob: float = 0,
     max_prob: float = 1.0,
+    show_validated=False
 ) -> None:
     """
     Inspect and visualize satellite images associated with geographic data.
@@ -309,6 +331,10 @@ def inspect_images(
         filename = get_filename(iso_code, config, category, name="clean", suffix=suffix)
     data = gpd.read_file(filename)
 
+    # Ensure the "validated" column exists and initialize to 0 if not present
+    if "validated" not in data.columns:
+        data["validated"] = 0
+
     # Optionally shuffle the data samples
     if random:
         data = data.sample(frac=1.0)
@@ -316,7 +342,7 @@ def inspect_images(
     # Filter data based on columns "clean" and "validated"
     if "clean" in data.columns:
         data = data[data["clean"] == 0]
-    if "validated" in data.columns:
+    if not show_validated:
         data = data[data["validated"] == 0]
     if "prob" in data.columns:
         data = data[(data["prob"] >= min_prob) & (data["prob"] <= max_prob)]
@@ -338,6 +364,7 @@ def inspect_images(
             category.lower(),
         )
         filepath = os.path.join(class_dir, f"{item[col_uid]}.tiff")
+        validated = {0: "VALID", -1: "INVALID"}
 
         # Open and display the image on the subplot
         image = rio.open(filepath)
@@ -347,7 +374,8 @@ def inspect_images(
         )
         axes[row_index, col_index].set_axis_off()
         axes[row_index, col_index].set_title(
-            f"Index: {idx}\n{item[col_uid]}\n{item[col_name]}", fontdict={"fontsize": 9}
+            f"Index: {idx}\nName: {item[col_name]}\nSource: {item['source']}\n{validated[item['validated']]}", 
+            fontdict={"fontsize": 11}
         )
 
         col_index += 1
@@ -356,3 +384,5 @@ def inspect_images(
             col_index = 0
         if row_index >= n_rows:
             break
+            
+    fig.tight_layout() 

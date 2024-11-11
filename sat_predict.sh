@@ -3,27 +3,32 @@
 echo -n "Input ISO: "
 read iso
 
-if [ "$iso" == "SEN" ]
+if [ "$iso" = "SEN" ]
 then
 python src/sat_predict.py --data_config="configs/data_configs/data_config_ISO_AF.yaml" --model_config="configs/best_models.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --sat_creds="configs/sat_configs/issa_sat_creds.yaml" --cam_method="gradcam" --threshold=0.355 --iso_code=$iso;
 fi
 
-if [ "$iso" == "MOZ" ]
+if [ "$iso" = "MOZ" ]
 then
 python src/sat_predict.py --data_config="configs/data_configs/data_config_ISO_AF.yaml" --model_config="configs/best_models.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --sat_creds="configs/sat_configs/issa_sat_creds.yaml" --cam_method="gradcamelementwise" --threshold=0.377 --iso_code=$iso;
 fi
 
-if [ "$iso" == "GHA" ]
+if [ "$iso" = "GHA" ]
 then
 python src/sat_predict.py --data_config="configs/data_configs/data_config_ISO_AF.yaml" --model_config="configs/best_models.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --sat_creds="configs/sat_configs/issa_sat_creds.yaml" --cam_method="gradcamelementwise" --threshold=0.386 --iso_code=$iso;
 fi
 
-if [ "$iso" == "BWA" ]
+if [ "$iso" = "BWA" ]
 then
 python src/sat_predict.py --data_config="configs/data_configs/data_config_ISO_AF.yaml" --model_config="configs/best_models.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --sat_creds="configs/sat_configs/issa_sat_creds.yaml" --cam_method="gradcamelementwise" --threshold=0.352 --iso_code=$iso;
 fi
 
-if [ "$iso" == "RWA" ]
+if [ "$iso" = "RWA" ]
 then
 python src/sat_predict.py --data_config="configs/data_configs/data_config_ISO_AF.yaml" --model_config="configs/best_models.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --sat_creds="configs/sat_configs/issa_sat_creds.yaml" --cam_method="gradcam" --threshold=0.344 --iso_code=$iso;
+fi
+
+if [ "$iso" = "MNG" ]
+then
+python src/sat_predict.py --data_config="configs/data_configs/data_config_ISO_AS.yaml" --model_config="configs/best_models.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --sat_creds="configs/sat_configs/issa_sat_creds.yaml" --cam_method="hirescam" --threshold=0.5 --iso_code=$iso --shapename="Bayanzu rx";
 fi
