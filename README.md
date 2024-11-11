@@ -252,7 +252,7 @@ To download nationwide satellite images, run:
 ```sh
 sh sat_batch_download.sh
 ```
-Alternatively, you can run `src/sat_batch_download.py`. Make sure to specify the corresponding best CAM method and probability thresholds for your country of interest.
+Alternatively, you can run `src/sat_batch_download.py`. 
 
 For example:
 ```sh
