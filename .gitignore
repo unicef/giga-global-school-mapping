@@ -15,3 +15,6 @@ models/
 *.share
 *.pdf
 cv/
+*amltmp
+*amlignore
+*ipynb_aml_checkpoints
