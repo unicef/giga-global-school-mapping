@@ -90,9 +90,18 @@ Getting Started</h2>
 
 ### Setup
 ```sh
-conda create -n envname python==3.10.13
-conda activate envname
+conda create -n <env_name> python==3.10.13
+conda activate <env_name>
 pip install -r requirements.txt
+```
+Add your present working directory (pwd) to your Python path environment variable by adding this line to `~/.profile`:
+```sh
+export PYTHONPATH=$(pwd)
+```
+Add the conda environment to jupyterlab:
+```sh
+conda install ipykernel
+ipython kernel install --user --name=<env_name>
 ```
 
 
@@ -106,12 +115,6 @@ building_url = "https://openbuildings-public-dot-gweb-research.uw.r.appspot.com/
 ```
 
 ### Install GDAL/OGR: Follow these [instructions](https://ljvmiranda921.github.io/notebook/2019/04/13/install-gdal/).
-
-### Add PWD to PYTHONPATH
-Add your present working directory (pwd) to your Python path environment variable by adding this line to `~/.profile`:
-```sh
-export PYTHONPATH=$(pwd)
-```
 
 <h2><a id="code-design" class="anchor" aria-hidden="true" href="#code-design"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"></path></svg></a>
 Code Design</h2>
@@ -137,12 +140,12 @@ options:
 
 For example:
 ```s
-python src/data_download.py --config="configs/data_configs/<DATA_CONFIG_FILE_NAME>" -- profile="configs/<PROFILE>"
+python src/data_download.py --config="configs/data_configs/data_config_ISO_AS.yaml" -- profile="configs/profile.share"
 ```
 
 Outputs are saved to:
--  `data/vectors/<PROJECT_NAME>/school/` 
-- `data/vectors/<PROJECT_NAME>/non_school/`.
+-  `data/vectors/<project_name>/school/` 
+- `data/vectors/<project_name>/non_school/`.
 
 ## Data Preparation
 The satellite image download script can be found in: `src/sat_download.py`, and the data cleaning script can be found in: `src/data_preprocess.py`:
@@ -165,20 +168,20 @@ To clean the positive and negative samples, follow these steps:
 ### Cleaning positive samples
 1. Run data cleaning for the positive samples:
 ```s
-python data_preprocess.py --config="configs/data_configs/<DATA_CONFIG_FILE_NAME>" --clean_neg=False
+python data_preprocess.py --config="configs/data_configs/<data_config_file>" --clean_neg=False
 ```
 2. Download the satellite images of positive samples using `notebooks/02_sat_download.ipynb`
 3. Manually inspect and clean the satellite images for the positive samples using `notebooks/03_sat_cleaning.ipynb`
-4. Vector outputs are saved to `data/vectors/<PROJECT_NAME>/school/clean/`. Satellite images are saved to `data/rasters/500x500_60cm/<PROJECT_NAME>/<ISO_CODE>/school/` 
+4. Vector outputs are saved to `data/vectors/<project_name>/school/clean/`. Satellite images are saved to `data/rasters/500x500_60cm/<project_name>/<iso_code>/school/` 
 
 
 ### Cleaning negative samples
 5. Run data cleaning for the negative samples:
 ```s
-python data_preprocess.py --config="configs/data_configs/<DATA_CONFIG_FILE_NAME>" --clean_pos=False
+python data_preprocess.py --config="configs/data_configs/<data_config_file>" --clean_pos=False
 ```
 6. Download the satellite images of negative samples using `notebooks/02_sat_download.ipynb`
-7. Vector outputs are saved to `data/vectors/<PROJECT_NAME>/non_school/clean/`. Satellite images are saved to `data/rasters/500x500_60cm/<PROJECT_NAME>/<ISO_CODE>/non_school/` 
+7. Vector outputs are saved to `data/vectors/<project_name>/non_school/clean/`. Satellite images are saved to `data/rasters/500x500_60cm/<project_name>/<iso_code>/non_school/` 
 
 
 ## Model Training
@@ -204,17 +207,17 @@ For example:
 python src/train_model.py --config="configs/cnn_configs/convnext_small.yaml" --iso=<ISO_CODE>; 
 ```
 
-Outputs will be saved to `exp/<PROJECT_NAME>/<ISO_CODE>_<MODEL_NAME>/` (e.g. `exp/GIGAv2/MNG_convnext_large/`). 
+Outputs will be saved to `exp/<project_name>/<iso_code>_<model_name>/` (e.g. `exp/GIGAv2/MNG_convnext_large/`). 
 
 ### Model Ensemble
 Open `configs/best_models.yaml`. Add an entry for your country of interest (using the country's ISO code), and specify the best model variants for each ViT, Swin, and Convnext in order of model performance, i.e. the first entry is the best-performing model.
 
 For example:.
 ```sh
-MNG: 
-- "configs/vit_configs/swin_v2_s.yaml"
-- "configs/vit_configs/vit_h_14.yaml"
+MNG:
+- "configs/vit_configs/vit_b_16.yaml"
 - "configs/cnn_configs/convnext_base.yaml"
+- "configs/vit_configs/swin_v2_b.yaml"
 ```
 To evaluate the model ensemble, run `05_model_evaluation.ipynb`.
 
@@ -235,8 +238,10 @@ options:
 
 **Note**: The `model_config` should be set to the best performing model overall for the corresponding country of interest. For example:
 ```sh
-python src/cam_evaluate.py --iso_code="SSD" --model_config="configs/vit_configs/vit_h_14.yaml" --percentile=90
+python src/cam_evaluate.py --iso_code="MNG" --model_config="configs/vit_configs/vit_b_16.yaml" --percentile=90
 ```
+
+The output will be saved in `exp/<project_name>/<iso_code><best_model_name>/cam_results.csv`. The CAM method with the lowest value (i.e. the largest confidence drop after perturbation of the top 10% of pixels) is the best CAM method for the given model.
 
 ## Model Prediction
 For model prediction, run:
