@@ -96,7 +96,7 @@ pip install -r requirements.txt
 ```
 
 
-#### Fixing the Google Buildings URL Error
+### Fixing the Google Buildings URL Error
 Navigate to your site packages, e.g. `/anaconda/envs/envname/lib/python3.10/site-packages`.
 Under `leafmap/common.py`, find the function `download_google_buildings()` and replace the building URL as follows:
 
@@ -105,15 +105,15 @@ Under `leafmap/common.py`, find the function `download_google_buildings()` and r
 building_url = "https://openbuildings-public-dot-gweb-research.uw.r.appspot.com/public/tiles.geojson"
 ```
 
-#### Install GDAL/OGR: Follow these [instructions](https://ljvmiranda921.github.io/notebook/2019/04/13/install-gdal/).
+### Install GDAL/OGR: Follow these [instructions](https://ljvmiranda921.github.io/notebook/2019/04/13/install-gdal/).
 
-#### Add PWD to PYTHONPATH
+### Add PWD to PYTHONPATH
 Add your present working directory (pwd) to your Python path environment variable by adding this line to `~/.profile`:
 ```sh
 export PYTHONPATH=$(pwd)
 ```
 
-### Data Download 
+## Data Download 
 To download the relevant datasets, run either of the following:
 - `notebooks/01_data_download.ipynb`
 - `python src/data_download.py`:
@@ -132,7 +132,7 @@ For example:
 python src/data_download.py --config="configs/data_configs/<DATA_CONFIG_FILE_NAME>" -- profile="configs/<PROFILE>"
 ```
 
-### Data Preparation
+## Data Preparation
 The satellite image download script can be found in: `src/sat_download.py`, and the data cleaning script can be found in: `src/data_preprocess.py`:
 ```s
 usage: data_preprocess.py [-h] [--config CONFIG] [--name NAME] 
@@ -160,14 +160,14 @@ python data_preprocess.py --config="configs/data_configs/<DATA_CONFIG_FILE_NAME>
 
 
 ### Cleaning negative samples
-1. After cleaning the positive samples, you can proceed to cleaning negative samples:
+4. After cleaning the positive samples, you can proceed to cleaning negative samples:
 ```s
 python data_preprocess.py --config="configs/data_configs/<DATA_CONFIG_FILE_NAME>" --clean_pos=False
 ```
-2. Download the satellite images of negative samples using `notebooks/02_sat_download.ipynb`
+5. Download the satellite images of negative samples using `notebooks/02_sat_download.ipynb`
 
 
-### Model Training
+## Model Training
 To train the computer vision models, run:
 ```s
 sh train.sh
@@ -185,7 +185,7 @@ options:
   --iso ISO [ISO ...]     ISO 3166-1 alpha-3 codes
 ```
 
-### Model Prediction
+## Model Prediction
 For model prediction, run:
 ```s
 sh sat_predict.sh
