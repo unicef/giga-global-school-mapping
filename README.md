@@ -208,7 +208,7 @@ python src/train_model.py --config="configs/cnn_configs/convnext_small.yaml" --i
 
 Outputs will be saved to `exp/<project_name>/<iso_code>_<model_name>/` (e.g. `exp/GIGAv2/MNG_convnext_small/`). 
 
-### Model Ensemble
+## Model Ensemble
 Open `configs/best_models.yaml`. Add an entry for your country of interest (using the country's ISO code), and specify the best model variants for each ViT, Swin, and Convnext in order of model performance, i.e. the first entry is the best-performing model.
 
 For example:.
@@ -235,9 +235,9 @@ options:
   --percentile PERCENTILE     Percentile (float, default: 90)
 ```
 
-**Note**: The `model_config` should be set to the best performing model overall for the corresponding country of interest. For example:
+For example:
 ```sh
-python src/cam_evaluate.py --iso_code="MNG" --model_config="configs/vit_configs/vit_b_16.yaml"
+python src/cam_evaluate.py --iso_code="MNG" --model_config="configs/best_models.yaml"
 ```
 
 The output will be saved in `exp/<project_name>/<iso_code><best_model_name>/cam_results.csv`.
