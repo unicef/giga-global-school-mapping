@@ -177,8 +177,9 @@ def ensemble_predict(
             config=model_config,
             in_dir=in_dir,
         )
-        # Accumulate probabilities from the current model
-        probs = probs + results["prob"].to_numpy()
+        if len(results) > 0:
+            # Accumulate probabilities from the current model
+            probs = probs + results["prob"].to_numpy()
 
     # Average the probabilities across all models
     results["prob"] = probs / len(model_configs)
