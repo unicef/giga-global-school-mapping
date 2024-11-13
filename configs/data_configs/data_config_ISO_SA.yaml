@@ -1,6 +1,6 @@
 vectors_dir: 'data/vectors/'
 rasters_dir: 'data/rasters/'
-iso_codes: ['BRA']
+iso_codes: ['HND']
 
 proximity: 50
 filter_buffer_size: 150

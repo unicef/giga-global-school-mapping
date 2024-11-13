@@ -138,54 +138,57 @@ options:
   --profile PROFILE  Path to the profile file
 ```
 
-For example:
+#### Sample usage
 ```s
 python src/data_download.py --config="configs/data_configs/data_config_ISO_AS.yaml" -- profile="configs/profile.share"
 ```
 
-Outputs are saved to:
--  `data/vectors/<project_name>/school/` 
-- `data/vectors/<project_name>/non_school/`.
+#### Outputs
+-  School files are saved to `data/vectors/<project_name>/school/` 
+- Non-school files are save to `data/vectors/<project_name>/non_school/`.
 
 ## Data Preparation
-The satellite image download script can be found in: `src/sat_download.py`, and the data cleaning script can be found in: `src/data_preprocess.py`:
+The data cleaning script can be found in `src/data_preprocess.py`:
 ```sh
-usage: data_preprocess.py [-h] [--config CONFIG] [--creds CREDS] [--name NAME]
-                          [--sources SOURCES [SOURCES ...]] [--imb_ratio IMB_RATIO]
-                          [--clean_pos CLEAN_POS] [--clean_neg CLEAN_NEG]
-                          [--download_sat DOWNLOAD_SAT]
+usage: data_preprocess.py [-h] [--config CONFIG] [--creds CREDS] [--clean_pos CLEAN_POS] [--clean_neg CLEAN_NEG]
+
 
 Data Cleaning Pipeline
 
 options:
   -h, --help              show this help message and exit
   --config CONFIG         Path to the configuration file
-  --creds CREDS           Path to the credentials file
-  --name NAME             Folder name
-  --sources SOURCES       Sources (string, e.g. unicef, osm, overture)
-  --imb_ratio IMB_RATIO   Imbalance ratio (int)
-  --clean_pos CLEAN_POS   Clean positive samples (bool)
-  --clean_neg CLEAN_NEG   Clean negative samples (bool)
-  --download_sat DOWNLOAD_SAT   Download satellite images (bool)
+  --sat_config SAT_CONFIG Path to the satellite config file
+  --sat_creds SAT_CREDS   Path to the satellite credentials file
+  --clean_neg CLEAN_NEG   Clean negative samples (bool, default: False)
 ```
 
-To clean the positive and negative samples, follow these steps:
+### Cleaning School Samples
+Run data cleaning for the positive samples.
 
-### Cleaning positive samples
-- Run data cleaning for the positive samples:
+#### Sample usage
 ```s
-python src/data_preprocess.py --config="configs/data_configs/<data_config_file>" --sat_creds="configs/sat_configs/sat_creds.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --clean_neg=False
+python src/data_preprocess.py --config="configs/data_configs/data_config_ISO_AF.yaml" --sat_creds="configs/sat_configs/sat_creds.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --clean_neg=False
 ```
-- Manually inspect and clean the satellite images for the positive samples using `notebooks/03_sat_cleaning.ipynb`. 
+#### Manual Data Cleaning ✨
+Manually inspect and clean the satellite images using `notebooks/03_sat_cleaning.ipynb`. 
+
+This will add a `validated` column (or field) to the `<iso>_clean.geojson` file indicating which images to retain (0) and discard (-1) for model training.
+
+#### Outputs
 -  Vector outputs are saved to `data/vectors/<project_name>/school/clean/<iso_code>_clean.geojson`.  
 - Satellite images are saved to `data/rasters/500x500_60cm/<project_name>/<iso_code>/school/`
 
 
-### Cleaning negative samples
-- Run data cleaning for the negative samples:
+### Cleaning Non-school Samples
+Run data cleaning for the negative samples. This will sample up to 2x the number of (clean) school data points.
+
+#### Sample usage
 ```s
-python src/data_preprocess.py --config="configs/data_configs/<data_config_file>" --sat_creds="configs/sat_configs/sat_creds.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --clean_pos=False
+python src/data_preprocess.py --config="configs/data_configs/data_config_ISO_AF.yaml" --sat_creds="configs/sat_configs/sat_creds.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --clean_neg=True
 ```
+
+#### Outputs
 - Vector outputs are saved to `data/vectors/<project_name>/non_school/clean/<iso_code>_clean.geojson`. 
 - Satellite images are saved to `data/rasters/500x500_60cm/<project_name>/<iso_code>/non_school/`. 
 
@@ -203,22 +206,22 @@ usage: train_cnn.py [-h] [--config MODEL_CONFIG] [--lr_finder LR_FINDER] [--iso 
 Model Training
 options:
   -h, --help              show this help message and exit
-  --config MODEL_CONFIG Path to the configuration file
-  --lr_finder LR_FINDER   Learning rate finder (bool)
+  --config MODEL_CONFIG   Path to the model configuration file
+  --lr_finder LR_FINDER   Learning rate finder (bool, default: False)
   --iso ISO [ISO ...]     ISO 3166-1 alpha-3 codes
 ```
 
-For example:
+#### Sample usage
 ```sh
 python src/train_model.py --config="configs/cnn_configs/convnext_small.yaml" --iso=MNG; 
 ```
 
-Outputs will be saved to `exp/<project_name>/<iso_code>_<model_name>/` (e.g. `exp/GIGAv2/MNG_convnext_small/`). 
+#### Outputs
+Model results will be saved to `exp/<project_name>/<iso_code>_<model_name>/` (e.g. `exp/GIGAv2/MNG_convnext_small/`) 
 
-### Model Ensemble
+## Model Ensemble
 Open `configs/best_models.yaml`. Add an entry for your country of interest (using the country's ISO code), and specify the best model variants for each ViT, Swin, and Convnext in order of model performance, i.e. the first entry is the best-performing model.
 
-For example:.
 ```sh
 MNG:
 - "configs/vit_configs/vit_b_16.yaml"
@@ -226,9 +229,6 @@ MNG:
 - "configs/vit_configs/swin_v2_b.yaml"
 ```
 To evaluate the model ensemble, run `05_model_evaluation.ipynb`. 
-
-### Optimal Probability Threshold 
-The best probability threshold for CAM generation maximizes the F2 score based on the validation set and can be found in the results as `optim_threshold`.
 
 ## CAM Evaluation
 To determine the best CAM method, run `src/cam_evaluate.py`:
@@ -239,35 +239,49 @@ usage: cam_evaluate.py [-h] [--model_config MODEL_CONFIG] [--iso_code ISO_CODE]
 CAM Evaluation
 
 options:
-  -h, --help              show this help message and exit
+  -h, --help                  show this help message and exit
   --model_config MODEL_CONFIG Model config file
-  --iso_code ISO_CODE     ISO 3166-1 alpha-3 code
-  --percentile PERCENTILE Percentile (default: 90)
+  --iso_code ISO_CODE         ISO 3166-1 alpha-3 code
+  --percentile PERCENTILE     Percentile (float, default: 90)
 ```
 
-**Note**: The `model_config` should be set to the best performing model overall for the corresponding country of interest. For example:
+#### Sample usage
 ```sh
-python src/cam_evaluate.py --iso_code="MNG" --model_config="configs/vit_configs/vit_b_16.yaml"
+python src/cam_evaluate.py --iso_code="MNG" --model_config="configs/best_models.yaml"
 ```
 
-The output will be saved in `exp/<project_name>/<iso_code><best_model_name>/cam_results.csv`. The CAM method with the lowest value (i.e. the largest confidence drop after perturbation of the top 10% of pixels) is the best CAM method for the given model.
+#### Outputs
+The output will be saved in `exp/<project_name>/<iso_code><best_model_name>/cam_results.csv`.
 
-## Model Prediction
-### Download Nationwide Satellite Images
-To download nationwide satellite images, run:
+## Download Nationwide Satellite Images
+To download nationwide satellite, run `src/sat_batch_download.py`. 
 ```sh
-sh sat_batch_download.sh
-```
-Alternatively, you can run `src/sat_batch_download.py`. 
+usage: sat_batch_download.py [-h] [--data_config DATA_CONFIG] [--sat_config SAT_CONFIG] [--sat_creds SAT_CREDS] [--iso_code ISO_CODE] [--adm_level ADM_LEVEL] [--sum_threshold SUM_THRESHOLD] [--buffer_size BUFFER_SIZE] [--spacing SPACING]
 
-For example:
+Satellite Image Download
+
+options:
+  -h, --help                    show this help message and exit
+  --data_config DATA_CONFIG     Path to the data configuration file
+  --sat_config SAT_CONFIG       Path to the satellite configuration file
+  --sat_creds SAT_CREDS         Path to the satellite credentials file
+  --iso_code ISO_CODE           ISO 3166-1 alpha-3 code
+  --adm_level ADM_LEVEL         Administrative level (string, default ADM2)
+  --sum_threshold SUM_THRESHOLD Pixel sum threshold (int, default 5)
+  --buffer_size BUFFER_SIZE     Buffer size (int, default 150)
+  --spacing SPACING             Sliding window spacing (int, default 150)
+```
+
+
+#### Sample usage
 ```sh
-python src/sat_batch_download.py --data_config="configs/data_configs/data_config_ISO_AS.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --sat_creds="configs/sat_configs/issa_sat_creds.yaml" --iso_code=MNG;
+python src/sat_batch_download.py --data_config="configs/data_configs/data_config_ISO_AS.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --sat_creds="configs/sat_configs/sat_creds.yaml" --iso_code=MNG;
 ```
 
+#### Outputs
 The satellite images are saved to `output/<iso_code>/images/`.
 
-### Nationwide Model Deployment
+## Nationwide Model Deployment
 For model prediction, run:
 ```s
 sh sat_predict.sh
@@ -275,12 +289,13 @@ sh sat_predict.sh
 
 Alternatively, you can run `python src/sat_predict.py`:
 
-For example:
+#### Sample usage
 ```sh
 python src/sat_predict.py --data_config="configs/data_configs/data_config_ISO_AF.yaml" --model_config="configs/best_models.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --sat_creds="configs/sat_configs/sat_creds.yaml" --threshold=0.344 --iso_code=RWA;
 ```
 
-The outputs are saved to `output/<iso_code>/results/`.
+#### Outputs
+The outputs are saved to `output/<iso_code>/results/<project_name>/cams/<iso_code>_<best_model_name>_<cam_method>.geojson`.
 
 ## File Organization 
 The datasets are organized as follows:

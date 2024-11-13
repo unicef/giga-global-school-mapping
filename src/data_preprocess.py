@@ -20,7 +20,7 @@ def main(args):
     config = config_utils.load_config(config_file)
 
     for iso_code in data_utils.create_progress_bar(config["iso_codes"]):
-        category = config["pos_class"] if args.clean_pos else config["neg_class"]
+        category = config["neg_class"] if args.clean_neg else config["pos_class"]
         clean_utils.clean_data(
             iso_code,
             config=config,
@@ -45,16 +45,13 @@ if __name__ == "__main__":
     parser.add_argument("--config", help="Path to the configuration file")
     parser.add_argument("--sat_config", help="Path to the satellite config file")
     parser.add_argument("--sat_creds", help="Path to the credentials file")
-    parser.add_argument("--name", help="Folder name", default="clean")
+    parser.add_argument("--name", help="Dataset name", default="clean")
     parser.add_argument(
         "--sources", help="Sources (string, e.g. unicef, osm, overture)", default=[], nargs="+"
     )
     parser.add_argument("--imb_ratio", help="Imbalance ratio (int)", type=int, default=2)
     parser.add_argument(
-        "--clean_pos", help="Clean positive samples (bool)", type=str, default="True"
-    )
-    parser.add_argument(
-        "--clean_neg", help="Clean negative samples (bool)", type=str, default="True"
+        "--clean_neg", help="Clean negative samples (bool)", type=str, default="False"
     )
     parser.add_argument(
         "--download_sat", help="Download satellite images (bool)", type=str, default="True"
@@ -62,8 +59,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Convert to boolean data type
-    args.clean_pos = bool(eval(args.clean_pos))
-    args.clean_neg = bool(eval(args.clean_neg))
+    args.clean_pos = bool(eval(args.dataset))
     args.clean_neg = bool(eval(args.download_sat))
     print(args.sources)
 
