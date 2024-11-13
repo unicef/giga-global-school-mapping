@@ -149,39 +149,45 @@ Outputs are saved to:
 
 ## Data Preparation
 The satellite image download script can be found in: `src/sat_download.py`, and the data cleaning script can be found in: `src/data_preprocess.py`:
-```s
-usage: data_preprocess.py [-h] [--config CONFIG] [--name NAME] 
-[--sources SOURCES [SOURCES ...]] [--clean_pos CLEAN_POS] [--clean_neg CLEAN_NEG]
+```sh
+usage: data_preprocess.py [-h] [--config CONFIG] [--creds CREDS] [--name NAME]
+                          [--sources SOURCES [SOURCES ...]] [--imb_ratio IMB_RATIO]
+                          [--clean_pos CLEAN_POS] [--clean_neg CLEAN_NEG]
+                          [--download_sat DOWNLOAD_SAT]
 
 Data Cleaning Pipeline
+
 options:
-  -h, --help            show this help message and exit
-  --config CONFIG       Path to the configuration file
-  --name NAME           Folder name
-  --sources SOURCES [SOURCES ...] Sources (default [unicef, osm, overture])
-  --clean_pos CLEAN_POS Clean positive samples (bool, default: True)
-  --clean_neg CLEAN_NEG Clean negative samples (bool, default: True)
+  -h, --help              show this help message and exit
+  --config CONFIG         Path to the configuration file
+  --creds CREDS           Path to the credentials file
+  --name NAME             Folder name
+  --sources SOURCES       Sources (string, e.g. unicef, osm, overture)
+  --imb_ratio IMB_RATIO   Imbalance ratio (int)
+  --clean_pos CLEAN_POS   Clean positive samples (bool)
+  --clean_neg CLEAN_NEG   Clean negative samples (bool)
+  --download_sat DOWNLOAD_SAT   Download satellite images (bool)
 ```
 
 To clean the positive and negative samples, follow these steps:
 
 ### Cleaning positive samples
-1. Run data cleaning for the positive samples:
+- Run data cleaning for the positive samples:
 ```s
-python data_preprocess.py --config="configs/data_configs/<data_config_file>" --clean_neg=False
+python src/data_preprocess.py --config="configs/data_configs/<data_config_file>" --sat_creds="configs/sat_configs/sat_creds.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --clean_neg=False
 ```
-2. Download the satellite images of positive samples using `notebooks/02_sat_download.ipynb`
-3. Manually inspect and clean the satellite images for the positive samples using `notebooks/03_sat_cleaning.ipynb`
-4. Vector outputs are saved to `data/vectors/<project_name>/school/clean/`. Satellite images are saved to `data/rasters/500x500_60cm/<project_name>/<iso_code>/school/` 
+- Manually inspect and clean the satellite images for the positive samples using `notebooks/03_sat_cleaning.ipynb`. 
+-  Vector outputs are saved to `data/vectors/<project_name>/school/clean/<iso_code>_clean.geojson`.  
+- Satellite images are saved to `data/rasters/500x500_60cm/<project_name>/<iso_code>/school/`
 
 
 ### Cleaning negative samples
-5. Run data cleaning for the negative samples:
+- Run data cleaning for the negative samples:
 ```s
-python data_preprocess.py --config="configs/data_configs/<data_config_file>" --clean_pos=False
+python src/data_preprocess.py --config="configs/data_configs/<data_config_file>" --sat_creds="configs/sat_configs/sat_creds.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --clean_pos=False
 ```
-6. Download the satellite images of negative samples using `notebooks/02_sat_download.ipynb`
-7. Vector outputs are saved to `data/vectors/<project_name>/non_school/clean/`. Satellite images are saved to `data/rasters/500x500_60cm/<project_name>/<iso_code>/non_school/` 
+- Vector outputs are saved to `data/vectors/<project_name>/non_school/clean/<iso_code>_clean.geojson`. 
+- Satellite images are saved to `data/rasters/500x500_60cm/<project_name>/<iso_code>/non_school/`. 
 
 
 ## Model Training
@@ -241,7 +247,7 @@ options:
 
 **Note**: The `model_config` should be set to the best performing model overall for the corresponding country of interest. For example:
 ```sh
-python src/cam_evaluate.py --iso_code="MNG" --model_config="configs/vit_configs/vit_b_16.yaml" --percentile=90
+python src/cam_evaluate.py --iso_code="MNG" --model_config="configs/vit_configs/vit_b_16.yaml"
 ```
 
 The output will be saved in `exp/<project_name>/<iso_code><best_model_name>/cam_results.csv`. The CAM method with the lowest value (i.e. the largest confidence drop after perturbation of the top 10% of pixels) is the best CAM method for the given model.
@@ -256,7 +262,7 @@ Alternatively, you can run `src/sat_batch_download.py`.
 
 For example:
 ```sh
-python src/sat_batch_download.py --data_config="configs/data_configs/data_config_ISO_AS.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --sat_creds="configs/sat_configs/issa_sat_creds.yaml" --iso_code=MNG --adm_level="ADM2" --mode="sat";
+python src/sat_batch_download.py --data_config="configs/data_configs/data_config_ISO_AS.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --sat_creds="configs/sat_configs/issa_sat_creds.yaml" --iso_code=MNG;
 ```
 
 The satellite images are saved to `output/<iso_code>/images/`.
@@ -271,12 +277,12 @@ Alternatively, you can run `python src/sat_predict.py`:
 
 For example:
 ```sh
-python src/sat_predict.py --data_config="configs/data_configs/data_config_ISO_AF.yaml" --model_config="configs/best_models.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --sat_creds="configs/sat_configs/issa_sat_creds.yaml" --cam_method="gradcam" --threshold=0.344 --iso_code=RWA;
+python src/sat_predict.py --data_config="configs/data_configs/data_config_ISO_AF.yaml" --model_config="configs/best_models.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --sat_creds="configs/sat_configs/sat_creds.yaml" --threshold=0.344 --iso_code=RWA;
 ```
 
 The outputs are saved to `output/<iso_code>/results/`.
 
-### File Organization 
+## File Organization 
 The datasets are organized as follows:
 ```
 data
@@ -292,24 +298,33 @@ data
 │   │   │   └── ...
 │   │   └── ...
 └── vectors
-    ├── school
-    │   ├── unicef
-    │   │   ├──ISO_unicef.geojson
-    │   │   └── ...
-    │   ├── osm
-    │   │   ├──ISO_osm.geojson
-    │   │   └── ...
-    │   ├── overture
-    │   │   ├──ISO_overture.geojson
-    │   │   └── ...
-    └── non_school
-        ├── osm
-        │   ├──ISO_osm.geojson
-        │   └── ...
-        └── overture
-            ├──ISO_overture.geojson
-            └── ...
-    
+│   ├── school
+│   │   ├── unicef
+│   │   │   ├──ISO_unicef.geojson
+│   │   │   └── ...
+│   │   ├── osm
+│   │   │   ├──ISO_osm.geojson
+│   │   │   └── ...
+│   │   ├── overture
+│   │   │   ├──ISO_overture.geojson
+│   │   │   └── ...
+│   └── non_school
+│       ├── osm
+│       │   ├──ISO_osm.geojson
+│       │   └── ...
+│       └── overture
+│           ├──ISO_overture.geojson
+│           └── ...
+output
+├── ISO
+│   ├── geotiff
+│   ├── images
+│   ├── results
+│   │     └──<project_name>
+│   │        ├── cams
+│   │        └── tiles
+│   └── tiles
+└── ...   
 ```
 
 <h2><a id="contribution-guidelines" class="anchor" aria-hidden="true" href="#contribution-guidelines"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"></path></svg></a>

@@ -21,7 +21,6 @@ def load_data(
     in_dir: str = "clean",
     out_dir: str = "train",
     verbose: bool = True,
-    suffix: str = "_prob",
 ) -> gpd.GeoDataFrame:
     """
     Load and process geospatial data for training/validation/testing.
@@ -88,7 +87,7 @@ def load_data(
             vector_dir,
             config["pos_class"],
             in_dir,
-            f"{iso_code}_{in_dir}{suffix}.geojson",
+            f"{iso_code}_{in_dir}.geojson",
         )
         negative_file = os.path.join(
             vector_dir, config["neg_class"], in_dir, f"{iso_code}_{in_dir}.geojson"
