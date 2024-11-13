@@ -148,7 +148,7 @@ Outputs are saved to:
 - `data/vectors/<project_name>/non_school/`.
 
 ## Data Preparation
-The satellite image download script can be found in: `src/sat_download.py`, and the data cleaning script can be found in: `src/data_preprocess.py`:
+Run the data cleaning script `src/data_preprocess.py`:
 ```sh
 usage: data_preprocess.py [-h] [--config CONFIG] [--creds CREDS] [--name NAME]
                           [--sources SOURCES [SOURCES ...]] [--imb_ratio IMB_RATIO]
@@ -160,16 +160,14 @@ Data Cleaning Pipeline
 options:
   -h, --help              show this help message and exit
   --config CONFIG         Path to the configuration file
-  --creds CREDS           Path to the credentials file
+  --sat_config SAT_CONFIG Path to the satellite config file
+  --sat_creds SAT_CREDS   Path to the credentials file
   --name NAME             Folder name
-  --sources SOURCES       Sources (string, e.g. unicef, osm, overture)
   --imb_ratio IMB_RATIO   Imbalance ratio (int)
   --clean_pos CLEAN_POS   Clean positive samples (bool)
   --clean_neg CLEAN_NEG   Clean negative samples (bool)
-  --download_sat DOWNLOAD_SAT   Download satellite images (bool)
+  --download_sat DOWNLOAD_SAT  Download satellite images (bool)
 ```
-
-To clean the positive and negative samples, follow these steps:
 
 ### Cleaning positive samples
 - Run data cleaning for the positive samples:
