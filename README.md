@@ -143,12 +143,12 @@ options:
 python src/data_download.py --config="configs/data_configs/data_config_ISO_AS.yaml" -- profile="configs/profile.share"
 ```
 
-Outputs are saved to:
--  `data/vectors/<project_name>/school/` 
-- `data/vectors/<project_name>/non_school/`.
+#### Outputs
+-  School files are saved to `data/vectors/<project_name>/school/` 
+- Non-school files are save to `data/vectors/<project_name>/non_school/`.
 
 ## Data Preparation
-Run the data cleaning script `src/data_preprocess.py`:
+The data cleaning script can be found in `src/data_preprocess.py`:
 ```sh
 usage: data_preprocess.py [-h] [--config CONFIG] [--creds CREDS] [--clean_pos CLEAN_POS] [--clean_neg CLEAN_NEG]
 
@@ -164,21 +164,30 @@ options:
   --clean_neg CLEAN_NEG   Clean negative samples (bool, default: True)
 ```
 
-### Cleaning positive samples
-- Run data cleaning for the positive samples, e.g.:
+### Cleaning School Samples
+Run data cleaning for the positive samples.
+
+#### Sample usage
 ```s
 python src/data_preprocess.py --config="configs/data_configs/data_config_ISO_AF.yaml" --sat_creds="configs/sat_configs/sat_creds.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --clean_neg=False
 ```
-- **Manual Data Cleaning ✨:** Manually inspect and clean the satellite images using `notebooks/03_sat_cleaning.ipynb`. 
+#### Manual Data Cleaning ✨
+Manually inspect and clean the satellite images using `notebooks/03_sat_cleaning.ipynb`. 
+
+#### Outputs
 -  Vector outputs are saved to `data/vectors/<project_name>/school/clean/<iso_code>_clean.geojson`.  
 - Satellite images are saved to `data/rasters/500x500_60cm/<project_name>/<iso_code>/school/`
 
 
-### Cleaning negative samples
-- Run data cleaning for the negative samples, e.g.:
+### Cleaning Non-school Samples
+Run data cleaning for the negative samples. This will sample up to 2x the number of (clean) school data points.
+
+#### Sample usage
 ```s
 python src/data_preprocess.py --config="configs/data_configs/data_config_ISO_AF.yaml" --sat_creds="configs/sat_configs/sat_creds.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --clean_pos=False
 ```
+
+#### Outputs
 - Vector outputs are saved to `data/vectors/<project_name>/non_school/clean/<iso_code>_clean.geojson`. 
 - Satellite images are saved to `data/rasters/500x500_60cm/<project_name>/<iso_code>/non_school/`. 
 
@@ -206,12 +215,12 @@ options:
 python src/train_model.py --config="configs/cnn_configs/convnext_small.yaml" --iso=MNG; 
 ```
 
-Outputs will be saved to `exp/<project_name>/<iso_code>_<model_name>/` (e.g. `exp/GIGAv2/MNG_convnext_small/`). 
+#### Outputs
+Model results will be saved to `exp/<project_name>/<iso_code>_<model_name>/` (e.g. `exp/GIGAv2/MNG_convnext_small/`) 
 
 ## Model Ensemble
 Open `configs/best_models.yaml`. Add an entry for your country of interest (using the country's ISO code), and specify the best model variants for each ViT, Swin, and Convnext in order of model performance, i.e. the first entry is the best-performing model.
 
-#### Sample usage
 ```sh
 MNG:
 - "configs/vit_configs/vit_b_16.yaml"
@@ -240,6 +249,7 @@ options:
 python src/cam_evaluate.py --iso_code="MNG" --model_config="configs/best_models.yaml"
 ```
 
+#### Outputs
 The output will be saved in `exp/<project_name>/<iso_code><best_model_name>/cam_results.csv`.
 
 ## Model Deployment
@@ -268,6 +278,7 @@ options:
 python src/sat_batch_download.py --data_config="configs/data_configs/data_config_ISO_AS.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --sat_creds="configs/sat_configs/sat_creds.yaml" --iso_code=MNG;
 ```
 
+#### Outputs
 The satellite images are saved to `output/<iso_code>/images/`.
 
 ### Nationwide Model Deployment
@@ -283,6 +294,7 @@ Alternatively, you can run `python src/sat_predict.py`:
 python src/sat_predict.py --data_config="configs/data_configs/data_config_ISO_AF.yaml" --model_config="configs/best_models.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --sat_creds="configs/sat_configs/sat_creds.yaml" --threshold=0.344 --iso_code=RWA;
 ```
 
+#### Outputs
 The outputs are saved to `output/<iso_code>/results/<project_name>/cams/<iso_code>_<best_model_name>_<cam_method>.geojson`.
 
 ## File Organization 
