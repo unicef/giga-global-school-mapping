@@ -174,6 +174,8 @@ python src/data_preprocess.py --config="configs/data_configs/data_config_ISO_AF.
 #### Manual Data Cleaning ✨
 Manually inspect and clean the satellite images using `notebooks/03_sat_cleaning.ipynb`. 
 
+This will add a `validated` column (or field) to the `<iso>_clean.geojson` file indicating which images to retain (0) and discard (-1) for model training.
+
 #### Outputs
 -  Vector outputs are saved to `data/vectors/<project_name>/school/clean/<iso_code>_clean.geojson`.  
 - Satellite images are saved to `data/rasters/500x500_60cm/<project_name>/<iso_code>/school/`
