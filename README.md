@@ -242,13 +242,26 @@ python src/cam_evaluate.py --iso_code="MNG" --model_config="configs/best_models.
 
 The output will be saved in `exp/<project_name>/<iso_code><best_model_name>/cam_results.csv`.
 
-## Model Prediction
+## Model Deployment
 ### Download Nationwide Satellite Images
-To download nationwide satellite images, run:
+To download nationwide satellite, run `src/sat_batch_download.py`. 
 ```sh
-sh sat_batch_download.sh
+usage: sat_batch_download.py [-h] [--data_config DATA_CONFIG] [--sat_config SAT_CONFIG] [--sat_creds SAT_CREDS] [--iso_code ISO_CODE] [--adm_level ADM_LEVEL] [--sum_threshold SUM_THRESHOLD] [--buffer_size BUFFER_SIZE] [--spacing SPACING]
+
+Satellite Image Download
+
+options:
+  -h, --help                    show this help message and exit
+  --data_config DATA_CONFIG     Path to the data configuration file
+  --sat_config SAT_CONFIG       Path to the satellite configuration file
+  --sat_creds SAT_CREDS         Path to the satellite credentials file
+  --iso_code ISO_CODE           ISO 3166-1 alpha-3 code
+  --adm_level ADM_LEVEL         Administrative level (default ADM2)
+  --sum_threshold SUM_THRESHOLD Pixel sum threshold (default 5)
+  --buffer_size BUFFER_SIZE     Buffer size (default 150)
+  --spacing SPACING             Sliding window spacing (default 150)
 ```
-Alternatively, you can run `src/sat_batch_download.py`. 
+
 
 For example:
 ```sh
