@@ -17,7 +17,7 @@ from utils import model_utils
 logging.basicConfig(level=logging.INFO)
 
 
-def get_filename(iso_code, config, category="school", name="clean", suffix=""):
+def get_filename(iso_code, config, category="school", name="clean"):
     # Construct the full path to the GeoJSON file if not provided
     filename = os.path.join(
         os.getcwd(),
@@ -25,7 +25,7 @@ def get_filename(iso_code, config, category="school", name="clean", suffix=""):
         config["project"],
         category,
         name,
-        f"{iso_code}_{name}{suffix}.geojson",
+        f"{iso_code}_{name}.geojson",
     )
     return filename
 
@@ -40,8 +40,7 @@ def map_coordinates(
     max_zoom: int = 20,
     name: str = "clean",
     col_uid: str = "UID",
-    col_name: str = "name",
-    suffix="_prob",
+    col_name: str = "name"
 ) -> None:
     """
     Display a folium map centered on a specific feature from a GeoJSON file.
@@ -63,7 +62,7 @@ def map_coordinates(
     """
     # Read GeoJSON file into a GeoDataFrame
     if not filename:
-        filename = get_filename(iso_code, config, category, name, suffix)
+        filename = get_filename(iso_code, config, category, name)
     data = gpd.read_file(filename)
 
     # Extract name of the feature at the specified index
@@ -99,7 +98,7 @@ def map_coordinates(
 def generate_predictions(iso_code, model_iso_code, model_configs, category="school"):
     model_configs = model_utils.get_ensemble_configs(model_iso_code, model_configs)
     out_file = get_filename(
-        iso_code, model_configs[0], category="school", name="clean", suffix="_prob"
+        iso_code, model_configs[0], category="school", name="clean"
     )
 
     if os.path.exists(out_file):
@@ -127,7 +126,7 @@ def generate_predictions(iso_code, model_iso_code, model_configs, category="scho
 
     data["prob"] = probs / len(model_configs)
     out_file = get_filename(
-        iso_code, model_configs[0], category="school", name="clean", suffix="_prob"
+        iso_code, model_configs[0], category="school", name="clean"
     )
     data.to_file(out_file)
     return data
@@ -145,7 +144,6 @@ def validate_data(
     name: str = "clean",
     col_uid: str = "UID",
     show_validated: bool = True,
-    suffix: str = "_prob",
     min_prob: float = 0,
     max_prob: float = 1.0,
 ) -> GridspecLayout:
@@ -170,7 +168,7 @@ def validate_data(
     """
     # Read GeoJSON file into a GeoDataFrame
     if not filename:
-        filename = get_filename(iso_code, config, category, name, suffix)
+        filename = get_filename(iso_code, config, category, name)
     data = gpd.read_file(filename)
 
     # Ensure the "validated" column exists and initialize to 0 if not present
@@ -269,10 +267,10 @@ def validate_data(
     return grid
 
 
-def update_validation(config, iso_code, category, indexes=[], name="clean", suffix="_prob", filename=None):
+def update_validation(config, iso_code, category, indexes=[], name="clean", filename=None):
     validated = {0: "VALID", -1: "INVALID"}
     if not filename:
-        filename = get_filename(iso_code, config, category, name="clean", suffix=suffix)
+        filename = get_filename(iso_code, config, category, name="clean")
     data = gpd.read_file(filename) 
 
     if "validated" not in data.columns:
@@ -302,7 +300,6 @@ def inspect_images(
     col_uid: str = "UID",
     col_name: str = "name",
     figsize: tuple = (15, 15),
-    suffix: str = "_prob",
     min_prob: float = 0,
     max_prob: float = 1.0,
     show_validated=False
@@ -328,7 +325,7 @@ def inspect_images(
     """
     # Read GeoJSON file into a GeoDataFrame
     if not filename:
-        filename = get_filename(iso_code, config, category, name="clean", suffix=suffix)
+        filename = get_filename(iso_code, config, category, name="clean")
     data = gpd.read_file(filename)
 
     # Ensure the "validated" column exists and initialize to 0 if not present

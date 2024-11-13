@@ -25,8 +25,7 @@ def download_sat_images(
     data: gpd.GeoDataFrame = None,
     filename: str = None,
     out_dir: str = None,
-    download_validated: bool = False,
-    suffix: str = "",
+    download_validated: bool = True
 ) -> None:
     """
     Download satellite images based on provided configurations and credentials.
@@ -75,7 +74,7 @@ def download_sat_images(
                 config["project"],
                 category,
                 name,
-                f"{iso_code}_{name}{suffix}.geojson",
+                f"{iso_code}_{name}.geojson",
             )
         data = gpd.read_file(filename).reset_index(drop=True)
 
