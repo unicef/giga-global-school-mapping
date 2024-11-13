@@ -150,10 +150,8 @@ Outputs are saved to:
 ## Data Preparation
 Run the data cleaning script `src/data_preprocess.py`:
 ```sh
-usage: data_preprocess.py [-h] [--config CONFIG] [--creds CREDS] [--name NAME]
-                          [--sources SOURCES [SOURCES ...]] [--imb_ratio IMB_RATIO]
-                          [--clean_pos CLEAN_POS] [--clean_neg CLEAN_NEG]
-                          [--download_sat DOWNLOAD_SAT]
+usage: data_preprocess.py [-h] [--config CONFIG] [--creds CREDS]                          [--clean_pos CLEAN_POS] [--clean_neg CLEAN_NEG]
+
 
 Data Cleaning Pipeline
 
@@ -161,12 +159,9 @@ options:
   -h, --help              show this help message and exit
   --config CONFIG         Path to the configuration file
   --sat_config SAT_CONFIG Path to the satellite config file
-  --sat_creds SAT_CREDS   Path to the credentials file
-  --name NAME             Folder name
-  --imb_ratio IMB_RATIO   Imbalance ratio for negative samples (int, default: 2)
+  --sat_creds SAT_CREDS   Path to the satellite credentials file
   --clean_pos CLEAN_POS   Clean positive samples (bool, default: True)
   --clean_neg CLEAN_NEG   Clean negative samples (bool, default: True)
-  --download_sat DOWNLOAD_SAT  Download satellite images (bool, default: True)
 ```
 
 ### Cleaning positive samples
@@ -182,7 +177,7 @@ python src/data_preprocess.py --config="configs/data_configs/data_config_ISO_AF.
 ### Cleaning negative samples
 - Run data cleaning for the negative samples, e.g.:
 ```s
-python src/data_preprocess.py --config="configs/data_configs/data_config_ISO_AF.yaml" --sat_creds="configs/sat_configs/issa_sat_creds.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml"  --clean_pos=False
+python src/data_preprocess.py --config="configs/data_configs/data_config_ISO_AF.yaml" --sat_creds="configs/sat_configs/sat_creds.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml"  --clean_pos=False
 ```
 - Vector outputs are saved to `data/vectors/<project_name>/non_school/clean/<iso_code>_clean.geojson`. 
 - Satellite images are saved to `data/rasters/500x500_60cm/<project_name>/<iso_code>/non_school/`. 
@@ -201,7 +196,7 @@ usage: train_cnn.py [-h] [--config MODEL_CONFIG] [--lr_finder LR_FINDER] [--iso 
 Model Training
 options:
   -h, --help              show this help message and exit
-  --config MODEL_CONFIG Path to the configuration file
+  --config MODEL_CONFIG   Path to the model configuration file
   --lr_finder LR_FINDER   Learning rate finder (bool)
   --iso ISO [ISO ...]     ISO 3166-1 alpha-3 codes
 ```
@@ -234,10 +229,10 @@ usage: cam_evaluate.py [-h] [--model_config MODEL_CONFIG] [--iso_code ISO_CODE]
 CAM Evaluation
 
 options:
-  -h, --help              show this help message and exit
+  -h, --help                  show this help message and exit
   --model_config MODEL_CONFIG Model config file
-  --iso_code ISO_CODE     ISO 3166-1 alpha-3 code
-  --percentile PERCENTILE Percentile (float, default: 90)
+  --iso_code ISO_CODE         ISO 3166-1 alpha-3 code
+  --percentile PERCENTILE     Percentile (float, default: 90)
 ```
 
 **Note**: The `model_config` should be set to the best performing model overall for the corresponding country of interest. For example:
@@ -257,7 +252,7 @@ Alternatively, you can run `src/sat_batch_download.py`.
 
 For example:
 ```sh
-python src/sat_batch_download.py --data_config="configs/data_configs/data_config_ISO_AS.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --sat_creds="configs/sat_configs/issa_sat_creds.yaml" --iso_code=MNG;
+python src/sat_batch_download.py --data_config="configs/data_configs/data_config_ISO_AS.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --sat_creds="configs/sat_configs/sat_creds.yaml" --iso_code=MNG;
 ```
 
 The satellite images are saved to `output/<iso_code>/images/`.
