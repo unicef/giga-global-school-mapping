@@ -11,7 +11,22 @@ from utils import cam_utils
 
 
 def main(args):
-    model_config = config_utils.load_config(args.model_config)
+    best_model_config = args.model_config
+    if 'best_models' in args.model_config:
+        best_model_config = config_utils.load_config(args.model_config)[args.iso_code][0]
+    model_config = config_utils.load_config(best_model_config)
+    logging.info(f"Best model: {best_model_config}")
+
+    exp_name = f"{args.iso_code}_{model_config['config_name']}"
+    exp_dir = os.path.join(
+        os.getcwd(), model_config["exp_dir"], model_config["project"], exp_name
+    )
+    out_file = os.path.join(exp_dir, "cam_results.csv")
+
+    if os.path.exists(out_file):
+        results = pd.read_csv(out_file)
+        print(results)
+        return results
 
     data = model_utils.load_data(
         model_config,
@@ -32,13 +47,9 @@ def main(args):
     )
     results = pd.DataFrame(cam_scores_mean, index=["score"]).T
 
-    exp_name = f"{args.iso_code}_{model_config['config_name']}"
-    exp_dir = os.path.join(
-        os.getcwd(), model_config["exp_dir"], model_config["project"], exp_name
-    )
     results = results.reset_index()
     results.columns = ["method", "score"]
-    results.to_csv(os.path.join(exp_dir, "cam_results.csv"), index=False)
+    results.to_csv(out_file, index=False)
 
 
 if __name__ == "__main__":
