@@ -45,7 +45,7 @@ if __name__ == "__main__":
     parser.add_argument("--config", help="Path to the configuration file")
     parser.add_argument("--sat_config", help="Path to the satellite config file")
     parser.add_argument("--sat_creds", help="Path to the credentials file")
-    parser.add_argument("--name", help="Folder name", default="clean")
+    parser.add_argument("--name", help="Dataset name", default="clean")
     parser.add_argument(
         "--sources", help="Sources (string, e.g. unicef, osm, overture)", default=[], nargs="+"
     )
