@@ -28,7 +28,6 @@ def batch_download(args):
             os.getcwd(), args.sat_creds
         )
     )
-
     pred_utils.batch_download_sat_images(
         sat_config, 
         sat_creds, 
@@ -47,7 +46,7 @@ def main():
     parser.add_argument("--data_config", help="Path to the data configuration file")
     parser.add_argument("--sat_config", help="Path to the satellite configuration file")
     parser.add_argument("--sat_creds", help="Path to the satellite credentials file")
-    parser.add_argument("--iso_code", help="ISO code")
+    parser.add_argument("--iso_code", help="ISO 3166-1 alpha-3 code")
     parser.add_argument("--adm_level", default="ADM2", help="Administrative level (default ADM2)")
     parser.add_argument("--sum_threshold", default=5, help="Pixel sum threshold (default 5)")
     parser.add_argument("--buffer_size", default=150, help="Buffer size (default 150)")
