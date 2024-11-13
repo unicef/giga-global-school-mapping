@@ -68,6 +68,29 @@ cams = {
 }
 
 
+def get_best_cam_method(iso_code, model_config):
+    model_name = model_config["model"]
+    cam_results_file = os.path.join(
+        os.getcwd(),
+        "exp",
+        model_config["project"],
+        f"{iso_code}_{model_name}",
+        "cam_results.csv"
+    )
+    if os.path.exists(cam_results_file):
+        cam_results = pd.read_csv(cam_results_file)
+        cam_results["method"] = cam_results["method"].replace(
+            {"gradcam++" : "gradcamplusplus"}
+        )
+        cam_method = cam_results[
+            cam_results["score"] == cam_results["score"].min()
+        ]["method"].values[0]
+        logging.info(f"Best cam method: {cam_method}")
+    else:
+        logging.info(f"{cam_results_file} does not exist. Run src/cam_evaluate.py.")
+    return cam_method
+
+
 def get_cam_extractor(config: dict, model: torch.nn.Module, cam_extractor):
     """
     Retrieves the appropriate Class Activation Map (CAM) extractor based on the model configuration.
@@ -153,6 +176,7 @@ def cam_predict(
     buffer_size=50,
     verbose=False,
 ):
+    cam_method = get_best_cam_method(iso_code, config)
     out_dir = data_utils.makedir(
         os.path.join(
             os.getcwd(),

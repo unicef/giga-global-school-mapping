@@ -9,6 +9,7 @@ import sys
 
 from src import sat_download
 from utils import data_utils
+from utils import cam_utils
 from utils import calib_utils
 from utils import config_utils
 from utils import pred_utils
@@ -532,9 +533,8 @@ def load_preds(
     iso_code: str,
     data_config: dict,
     model_config: dict,
-    cam_method: str = "gradcam",
     sum_threshold: float = 0,
-    buffer_size: float = 0,
+    buffer_size: float = 25,
     calibrator=None,
     source: str = "pred",
     colname: str = "clean",
@@ -560,6 +560,8 @@ def load_preds(
     """
     # Get the ensemble model configurations
     model_configs = model_utils.get_ensemble_configs(iso_code, model_config)
+    best_model_config = config_utils.load_config(model_config[iso_code][0])
+    cam_method = cam_utils.get_best_cam_method(iso_code, best_model_config)
 
     # Construct the output directory path for the CAM results
     out_dir = os.path.join(
@@ -590,8 +592,9 @@ def load_preds(
     for filename in (pbar := data_utils.create_progress_bar(filenames)):
         pbar.set_description(f"Reading files for {iso_code}...")
         subdata = gpd.read_file(os.path.join(out_dir, filename))
-        subdata = subdata[subdata["sum"] > sum_threshold]
-        data.append(subdata)
+        if len(subdata) > 0:
+            subdata = subdata[subdata["sum"] > sum_threshold]
+            data.append(subdata)
 
     # Concatenate data from all files, remove duplicates, and reset index
     data = gpd.GeoDataFrame(pd.concat(data), geometry="geometry", crs="EPSG:3857")
