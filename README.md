@@ -285,7 +285,7 @@ python src/sat_batch_download.py --data_config="configs/data_configs/data_config
 The satellite images are saved to `output/<iso_code>/images/`.
 
 ## Nationwide Model Deployment
-For model prediction, run run `python src/sat_predict.py`:
+For model prediction, run `python src/sat_predict.py`:
 ```sh
 usage: sat_predict.py [-h] [--data_config DATA_CONFIG] [--model_config MODEL_CONFIG] [--sat_config SAT_CONFIG] [--sat_creds SAT_CREDS] [--shapename SHAPENAME] [--iso_code ISO_CODE]
 
