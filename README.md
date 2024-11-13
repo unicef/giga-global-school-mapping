@@ -163,16 +163,16 @@ options:
   --sat_config SAT_CONFIG Path to the satellite config file
   --sat_creds SAT_CREDS   Path to the credentials file
   --name NAME             Folder name
-  --imb_ratio IMB_RATIO   Imbalance ratio (int)
-  --clean_pos CLEAN_POS   Clean positive samples (bool)
-  --clean_neg CLEAN_NEG   Clean negative samples (bool)
-  --download_sat DOWNLOAD_SAT  Download satellite images (bool)
+  --imb_ratio IMB_RATIO   Imbalance ratio for negative samples (int, default: 2)
+  --clean_pos CLEAN_POS   Clean positive samples (bool, default: True)
+  --clean_neg CLEAN_NEG   Clean negative samples (bool, default: True)
+  --download_sat DOWNLOAD_SAT  Download satellite images (bool, default: True)
 ```
 
 ### Cleaning positive samples
-- Run data cleaning for the positive samples:
+- Run data cleaning for the positive samples, e.g.:
 ```s
-python src/data_preprocess.py --config="configs/data_configs/<data_config_file>" --sat_creds="configs/sat_configs/sat_creds.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --clean_neg=False
+python src/data_preprocess.py --config="configs/data_configs/data_config_ISO_AF.yaml" --sat_creds="configs/sat_configs/sat_creds.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml"  --clean_neg=False
 ```
 - Manually inspect and clean the satellite images for the positive samples using `notebooks/03_sat_cleaning.ipynb`. 
 -  Vector outputs are saved to `data/vectors/<project_name>/school/clean/<iso_code>_clean.geojson`.  
@@ -180,9 +180,9 @@ python src/data_preprocess.py --config="configs/data_configs/<data_config_file>"
 
 
 ### Cleaning negative samples
-- Run data cleaning for the negative samples:
+- Run data cleaning for the negative samples, e.g.:
 ```s
-python src/data_preprocess.py --config="configs/data_configs/<data_config_file>" --sat_creds="configs/sat_configs/sat_creds.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --clean_pos=False
+python src/data_preprocess.py --config="configs/data_configs/data_config_ISO_AF.yaml" --sat_creds="configs/sat_configs/issa_sat_creds.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml"  --clean_pos=False
 ```
 - Vector outputs are saved to `data/vectors/<project_name>/non_school/clean/<iso_code>_clean.geojson`. 
 - Satellite images are saved to `data/rasters/500x500_60cm/<project_name>/<iso_code>/non_school/`. 
@@ -225,9 +225,6 @@ MNG:
 ```
 To evaluate the model ensemble, run `05_model_evaluation.ipynb`. 
 
-### Optimal Probability Threshold 
-The best probability threshold for CAM generation maximizes the F2 score based on the validation set and can be found in the results as `optim_threshold`.
-
 ## CAM Evaluation
 To determine the best CAM method, run `src/cam_evaluate.py`:
 ```s
@@ -240,7 +237,7 @@ options:
   -h, --help              show this help message and exit
   --model_config MODEL_CONFIG Model config file
   --iso_code ISO_CODE     ISO 3166-1 alpha-3 code
-  --percentile PERCENTILE Percentile (default: 90)
+  --percentile PERCENTILE Percentile (float, default: 90)
 ```
 
 **Note**: The `model_config` should be set to the best performing model overall for the corresponding country of interest. For example:
@@ -248,7 +245,7 @@ options:
 python src/cam_evaluate.py --iso_code="MNG" --model_config="configs/vit_configs/vit_b_16.yaml"
 ```
 
-The output will be saved in `exp/<project_name>/<iso_code><best_model_name>/cam_results.csv`. The CAM method with the lowest value (i.e. the largest confidence drop after perturbation of the top 10% of pixels) is the best CAM method for the given model.
+The output will be saved in `exp/<project_name>/<iso_code><best_model_name>/cam_results.csv`.
 
 ## Model Prediction
 ### Download Nationwide Satellite Images
