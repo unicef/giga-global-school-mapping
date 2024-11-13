@@ -160,8 +160,7 @@ options:
   --config CONFIG         Path to the configuration file
   --sat_config SAT_CONFIG Path to the satellite config file
   --sat_creds SAT_CREDS   Path to the satellite credentials file
-  --clean_pos CLEAN_POS   Clean positive samples (bool, default: True)
-  --clean_neg CLEAN_NEG   Clean negative samples (bool, default: True)
+  --clean_neg CLEAN_NEG   Clean negative samples (bool, default: False)
 ```
 
 ### Cleaning School Samples
@@ -186,7 +185,7 @@ Run data cleaning for the negative samples. This will sample up to 2x the number
 
 #### Sample usage
 ```s
-python src/data_preprocess.py --config="configs/data_configs/data_config_ISO_AF.yaml" --sat_creds="configs/sat_configs/sat_creds.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --clean_pos=False
+python src/data_preprocess.py --config="configs/data_configs/data_config_ISO_AF.yaml" --sat_creds="configs/sat_configs/sat_creds.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --clean_neg=True
 ```
 
 #### Outputs
