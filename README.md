@@ -167,9 +167,9 @@ options:
 ### Cleaning positive samples
 - Run data cleaning for the positive samples, e.g.:
 ```s
-python src/data_preprocess.py --config="configs/data_configs/data_config_ISO_AF.yaml" --sat_creds="configs/sat_configs/sat_creds.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml"  --clean_neg=False
+python src/data_preprocess.py --config="configs/data_configs/data_config_ISO_AF.yaml" --sat_creds="configs/sat_configs/sat_creds.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --clean_neg=False
 ```
-- Manually inspect and clean the satellite images for the positive samples using `notebooks/03_sat_cleaning.ipynb`. 
+- **Manual Data Cleaning ✨:** Manually inspect and clean the satellite images using `notebooks/03_sat_cleaning.ipynb`. 
 -  Vector outputs are saved to `data/vectors/<project_name>/school/clean/<iso_code>_clean.geojson`.  
 - Satellite images are saved to `data/rasters/500x500_60cm/<project_name>/<iso_code>/school/`
 
@@ -177,7 +177,7 @@ python src/data_preprocess.py --config="configs/data_configs/data_config_ISO_AF.
 ### Cleaning negative samples
 - Run data cleaning for the negative samples, e.g.:
 ```s
-python src/data_preprocess.py --config="configs/data_configs/data_config_ISO_AF.yaml" --sat_creds="configs/sat_configs/sat_creds.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml"  --clean_pos=False
+python src/data_preprocess.py --config="configs/data_configs/data_config_ISO_AF.yaml" --sat_creds="configs/sat_configs/sat_creds.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --clean_pos=False
 ```
 - Vector outputs are saved to `data/vectors/<project_name>/non_school/clean/<iso_code>_clean.geojson`. 
 - Satellite images are saved to `data/rasters/500x500_60cm/<project_name>/<iso_code>/non_school/`. 
@@ -197,7 +197,7 @@ Model Training
 options:
   -h, --help              show this help message and exit
   --config MODEL_CONFIG   Path to the model configuration file
-  --lr_finder LR_FINDER   Learning rate finder (bool)
+  --lr_finder LR_FINDER   Learning rate finder (bool, default: False)
   --iso ISO [ISO ...]     ISO 3166-1 alpha-3 codes
 ```
 
