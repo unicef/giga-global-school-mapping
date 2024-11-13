@@ -150,7 +150,7 @@ Outputs are saved to:
 ## Data Preparation
 Run the data cleaning script `src/data_preprocess.py`:
 ```sh
-usage: data_preprocess.py [-h] [--config CONFIG] [--creds CREDS]                          [--clean_pos CLEAN_POS] [--clean_neg CLEAN_NEG]
+usage: data_preprocess.py [-h] [--config CONFIG] [--creds CREDS] [--clean_pos CLEAN_POS] [--clean_neg CLEAN_NEG]
 
 
 Data Cleaning Pipeline
