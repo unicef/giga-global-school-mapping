@@ -630,8 +630,7 @@ def save_results(
     iso_code: str,
     data: gpd.GeoDataFrame,
     config: dict,
-    source: str,
-    cam_method: str = None,
+    source: str
 ):
     """
     Saves the provided data to a GeoJSON file in the specified output directory.
@@ -652,6 +651,8 @@ def save_results(
         "results",
         config["project"],
     )
+    best_config = config_utils.load_config(config[iso_code][0])
+    cam_method = cam_utils.get_best_cam_method(iso_code, best_config)
 
     # Determine the output file name based on the source type and CAM method
     out_file = f"{iso_code}_{source}.geojson"

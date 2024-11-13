@@ -100,14 +100,12 @@ def main(args):
             subdata,
             geotiff_dir,
             shapename,
-            #cam_method=args.cam_method,
         )
 
     preds = post_utils.load_preds(
         args.iso_code, 
         data_config, 
         model_config, 
-        #args.cam_method, 
         sum_threshold=-1,
         buffer_size=25
     )
@@ -115,7 +113,6 @@ def main(args):
         args.iso_code, 
         preds, 
         model_config, 
-        cam_method=args.cam_method, 
         source="preds"
     )
     return results

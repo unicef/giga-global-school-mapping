@@ -172,7 +172,6 @@ def cam_predict(
     data,
     geotiff_dir,
     shapename,
-    cam_method="gradcam",
     buffer_size=50,
     verbose=False,
 ):
