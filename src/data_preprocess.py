@@ -26,7 +26,8 @@ def main(args):
             config=config,
             name=args.name,
             category=category,
-            sources=args.sources,
+            imb_ratio=args.imb_ratio,
+            sources=args.sources
         )
         if args.download_sat:
             sat_config = config_utils.load_config(args.sat_config)
@@ -59,8 +60,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Convert to boolean data type
-    args.clean_pos = bool(eval(args.dataset))
-    args.clean_neg = bool(eval(args.download_sat))
+    args.clean_neg = bool(eval(args.clean_neg))
     print(args.sources)
 
     main(args)

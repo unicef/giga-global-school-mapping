@@ -156,11 +156,13 @@ usage: data_preprocess.py [-h] [--config CONFIG] [--creds CREDS] [--clean_pos CL
 Data Cleaning Pipeline
 
 options:
-  -h, --help              show this help message and exit
-  --config CONFIG         Path to the configuration file
-  --sat_config SAT_CONFIG Path to the satellite config file
-  --sat_creds SAT_CREDS   Path to the satellite credentials file
-  --clean_neg CLEAN_NEG   Clean negative samples (bool, default: False)
+  -h, --help                      show this help message and exit
+  --config CONFIG                 Path to the configuration file
+  --sat_config SAT_CONFIG         Path to the satellite config file
+  --sat_creds SAT_CREDS           Path to the satellite credentials file
+  --clean_neg CLEAN_NEG           Clean negative samples (bool, default: False)
+  --sources SOURCES [SOURCES ...] Sources (string, default: unicef, osm, overture)
+  --imb_ratio IMB_RATIO           Imbalance ratio for negative samples (int, default: 2)
 ```
 
 ### Cleaning School Samples
