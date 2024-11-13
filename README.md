@@ -138,7 +138,7 @@ options:
   --profile PROFILE  Path to the profile file
 ```
 
-For example:
+#### Sample usage
 ```s
 python src/data_download.py --config="configs/data_configs/data_config_ISO_AS.yaml" -- profile="configs/profile.share"
 ```
@@ -201,7 +201,7 @@ options:
   --iso ISO [ISO ...]     ISO 3166-1 alpha-3 codes
 ```
 
-For example:
+#### Sample usage
 ```sh
 python src/train_model.py --config="configs/cnn_configs/convnext_small.yaml" --iso=MNG; 
 ```
@@ -211,7 +211,7 @@ Outputs will be saved to `exp/<project_name>/<iso_code>_<model_name>/` (e.g. `ex
 ## Model Ensemble
 Open `configs/best_models.yaml`. Add an entry for your country of interest (using the country's ISO code), and specify the best model variants for each ViT, Swin, and Convnext in order of model performance, i.e. the first entry is the best-performing model.
 
-For example:.
+#### Sample usage
 ```sh
 MNG:
 - "configs/vit_configs/vit_b_16.yaml"
@@ -235,7 +235,7 @@ options:
   --percentile PERCENTILE     Percentile (float, default: 90)
 ```
 
-For example:
+#### Sample usage
 ```sh
 python src/cam_evaluate.py --iso_code="MNG" --model_config="configs/best_models.yaml"
 ```
@@ -256,14 +256,14 @@ options:
   --sat_config SAT_CONFIG       Path to the satellite configuration file
   --sat_creds SAT_CREDS         Path to the satellite credentials file
   --iso_code ISO_CODE           ISO 3166-1 alpha-3 code
-  --adm_level ADM_LEVEL         Administrative level (default ADM2)
-  --sum_threshold SUM_THRESHOLD Pixel sum threshold (default 5)
-  --buffer_size BUFFER_SIZE     Buffer size (default 150)
-  --spacing SPACING             Sliding window spacing (default 150)
+  --adm_level ADM_LEVEL         Administrative level (string, default ADM2)
+  --sum_threshold SUM_THRESHOLD Pixel sum threshold (int, default 5)
+  --buffer_size BUFFER_SIZE     Buffer size (int, default 150)
+  --spacing SPACING             Sliding window spacing (int, default 150)
 ```
 
 
-For example:
+#### Sample usage
 ```sh
 python src/sat_batch_download.py --data_config="configs/data_configs/data_config_ISO_AS.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --sat_creds="configs/sat_configs/sat_creds.yaml" --iso_code=MNG;
 ```
@@ -278,12 +278,12 @@ sh sat_predict.sh
 
 Alternatively, you can run `python src/sat_predict.py`:
 
-For example:
+#### Sample usage
 ```sh
 python src/sat_predict.py --data_config="configs/data_configs/data_config_ISO_AF.yaml" --model_config="configs/best_models.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --sat_creds="configs/sat_configs/sat_creds.yaml" --threshold=0.344 --iso_code=RWA;
 ```
 
-The outputs are saved to `output/<iso_code>/results/`.
+The outputs are saved to `output/<iso_code>/results/<project_name>/cams/<iso_code>_<best_model_name>_<cam_method>.geojson`.
 
 ## File Organization 
 The datasets are organized as follows:
