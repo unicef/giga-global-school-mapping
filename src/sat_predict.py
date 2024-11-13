@@ -10,6 +10,7 @@ import torch
 import sat_download
 from utils import config_utils
 from utils import model_utils
+from utils import eval_utils
 from utils import data_utils
 from utils import pred_utils
 from utils import post_utils
@@ -38,7 +39,7 @@ def main(args):
     shapenames = [args.shapename] if args.shapename else geoboundary.shapeName.unique()
     model_config["iso_codes"] = [args.iso_code]
 
-    for shapename in shapenames[:6]:
+    for shapename in shapenames:
         logging.info(f"Processing {shapename}...")
         tiles = pred_utils.generate_pred_tiles(
             data_config,
@@ -62,12 +63,26 @@ def main(args):
 
         print(f"Generating predictions for {shapename}...")
         model_configs = model_utils.get_ensemble_configs(args.iso_code, model_config)
+
+        val_output = model_utils.ensemble_models(args.iso_code, model_config, phase="val")
+        val_results = eval_utils.evaluate(
+            y_true=val_output["y_true"], 
+            y_pred=val_output["y_preds"], 
+            y_prob=val_output["y_probs"], 
+            pos_label=1, 
+            neg_label=0,
+            beta=2
+        )
+        threshold = val_results["optim_threshold"]
+        threshold = min(0.5, threshold)
+
+        print(f"Setting threshold to {threshold}...")
         results = pred_utils.ensemble_predict(
             data=tiles,
             iso_code=args.iso_code,
             shapename=shapename,
             model_configs=model_configs,
-            threshold=args.threshold,
+            threshold=threshold,
             in_dir=sat_dir,
         )
 
@@ -96,13 +111,6 @@ def main(args):
         sum_threshold=-1,
         buffer_size=25
     )
-    #preds = post_utils.standardize_data(
-    #    model_config, 
-    #    args.iso_code, 
-    #    cam_method=args.cam_method, 
-    #    source="preds", 
-    #    uid="UID"
-    #)
     post_utils.save_results(
         args.iso_code, 
         preds, 
@@ -120,15 +128,15 @@ if __name__ == "__main__":
     parser.add_argument("--sat_config", help="Maxar config file")
     parser.add_argument("--sat_creds", help="Credentials file")
     #parser.add_argument(
-    #    "--cam_method", help="Class activation map method", default="gradcam"
+    #    "--cam_method", help="Class activation map method", default=None
     #)
     parser.add_argument("--shapename", help="Model shapename", default=None)
     parser.add_argument("--adm_level", help="Admin level", default="ADM2")
     parser.add_argument("--spacing", help="Tile spacing", default=150)
     parser.add_argument("--buffer_size", help="Buffer size", default=150)
-    parser.add_argument(
-        "--threshold", type=float, help="Probability threshold", default=0.5
-    )
+    #parser.add_argument(
+    #    "--threshold", type=float, help="Probability threshold", default=0.5
+    #)
     parser.add_argument("--sum_threshold", help="Pixel sum threshold", default=5)
     parser.add_argument("--iso_code", help="ISO code")
     args = parser.parse_args()

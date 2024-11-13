@@ -120,9 +120,10 @@ building_url = "https://openbuildings-public-dot-gweb-research.uw.r.appspot.com/
 Code Design</h2>
 
 This repository is divided into the following files and folders:
-- **notebooks/**: contains all Jupyter notebooks for exploratory data analysis and model prediction.
+- **configs/**: contains the configuration files (data configs, satellite image configs, model configs, etc.)
+- **notebooks/**: contains all Jupyter notebooks for exploratory data analysis.
 - **utils/**: contains utility methods for loading datasets, building model, and performing training routines.
-- **src/**: contains scripts runnable scripts for automated data cleaning and model training/evaluation.
+- **src/**: contains scripts runnable scripts for automated data cleaning and model training, evaluation, and deployment.
 
 ## Data Download 
 To download the relevant datasets, run either of the following:
@@ -290,10 +291,24 @@ sh sat_predict.sh
 ```
 
 Alternatively, you can run `python src/sat_predict.py`:
+```sh
+usage: sat_predict.py [-h] [--data_config DATA_CONFIG] [--model_config MODEL_CONFIG] [--sat_config SAT_CONFIG] [--sat_creds SAT_CREDS] [--shapename SHAPENAME] [--iso_code ISO_CODE]
+
+Model Prediction
+
+options:
+  -h, --help                    show this help message and exit
+  --data_config DATA_CONFIG     Data config file
+  --model_config MODEL_CONFIG   Model config file
+  --sat_config SAT_CONFIG       Maxar config file
+  --sat_creds SAT_CREDS         Credentials file
+  --shapename SHAPENAME         Model shapename
+  --iso_code ISO_CODE           ISO 3166-1 alpha-3
+```
 
 #### Sample usage
 ```sh
-python src/sat_predict.py --data_config="configs/data_configs/data_config_ISO_AF.yaml" --model_config="configs/best_models.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --sat_creds="configs/sat_configs/sat_creds.yaml" --threshold=0.344 --iso_code=RWA;
+python src/sat_predict.py --data_config="configs/data_configs/data_config_ISO_AF.yaml" --model_config="configs/best_models.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --sat_creds="configs/sat_configs/sat_creds.yaml" --iso_code=RWA;
 ```
 
 #### Outputs
