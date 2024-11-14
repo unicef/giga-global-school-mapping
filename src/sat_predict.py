@@ -64,13 +64,12 @@ def main(args):
         print(f"Generating predictions for {shapename}...")
         model_configs = model_utils.get_ensemble_configs(args.iso_code, model_config)
 
+        # Calculate the threshold that optimizes the F2 score of the validation set
         val_output = model_utils.ensemble_models(args.iso_code, model_config, phase="val")
         val_results = eval_utils.evaluate(
             y_true=val_output["y_true"], 
             y_pred=val_output["y_preds"], 
-            y_prob=val_output["y_probs"], 
-            pos_label=1, 
-            neg_label=0,
+            y_prob=val_output["y_probs"],
             beta=2
         )
         threshold = val_results["optim_threshold"]
@@ -99,7 +98,7 @@ def main(args):
             model_configs[0],
             subdata,
             geotiff_dir,
-            shapename,
+            shapename
         )
 
     preds = post_utils.load_preds(
@@ -107,7 +106,7 @@ def main(args):
         data_config, 
         model_config, 
         sum_threshold=-1,
-        buffer_size=25
+        buffer_size=args.overlap_buffer_size
     )
     post_utils.save_results(
         args.iso_code, 
@@ -124,16 +123,11 @@ if __name__ == "__main__":
     parser.add_argument("--model_config", help="Model config file")
     parser.add_argument("--sat_config", help="Maxar config file")
     parser.add_argument("--sat_creds", help="Credentials file")
-    #parser.add_argument(
-    #    "--cam_method", help="Class activation map method", default=None
-    #)
     parser.add_argument("--shapename", help="Model shapename", default=None)
     parser.add_argument("--adm_level", help="Admin level", default="ADM2")
     parser.add_argument("--spacing", help="Tile spacing", default=150)
     parser.add_argument("--buffer_size", help="Buffer size", default=150)
-    #parser.add_argument(
-    #    "--threshold", type=float, help="Probability threshold", default=0.5
-    #)
+    parser.add_argument("--overlap_buffer_size", help="Buffer size", default=25)
     parser.add_argument("--sum_threshold", help="Pixel sum threshold", default=5)
     parser.add_argument("--iso_code", help="ISO code")
     args = parser.parse_args()
