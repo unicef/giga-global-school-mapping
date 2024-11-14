@@ -104,23 +104,6 @@ conda install ipykernel
 ipython kernel install --user --name=<env_name>
 ```
 
-
-### Updating Building URLs on Leafmap
-Navigate to your site packages, e.g. `/anaconda/envs/envname/lib/python3.10/site-packages` and edit the building URLs in `leafmap/common.py` as follows.
-
-#### Microsoft Building Footprints
-Find the function
-`download_ms_buildings()` and replace the building URL with following:
-```
-https://minedbuildings.z5.web.core.windows.net/global-buildings/dataset-links.csv
-```
-#### Google Open Buildings
-Find the function
-`download_google_buildings()` and replace the building URL with following:
-```
-https://openbuildings-public-dot-gweb-research.uw.r.appspot.com/public/tiles.geojson
-```
-
 ### Install GDAL/OGR: Follow these [instructions](https://ljvmiranda921.github.io/notebook/2019/04/13/install-gdal/).
 
 <h2><a id="code-design" class="anchor" aria-hidden="true" href="#code-design"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"></path></svg></a>
