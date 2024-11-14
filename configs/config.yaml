@@ -19,6 +19,24 @@ ghsl_smod_url: "https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/GHSL/GHS_SMOD_G
 ghsl_built_c_file: "GHS_BUILT_C_FUN_E2018_GLOBE_R2023A_54009_10_V1_0.tif"
 ghsl_smod_file: "GHS_SMOD_E2030_GLOBE_R2023A_54009_1000_V1_0.tif"
 
+standard_columns: [
+    "giga_id_school",
+    "school_id",
+    "name",
+    "lat",
+    "lon",
+    "admin1",
+    "admin1_id_giga",
+    "admin2",
+    "admin2_id_giga",
+    "education_level",
+    "source",
+    "uninhabited",
+    "is_duplicated",
+    "predicted_proba",
+    "rurban",
+]
+
 school: {
     amenity: [
         "school",
