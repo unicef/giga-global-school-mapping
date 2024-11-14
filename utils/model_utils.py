@@ -343,22 +343,62 @@ def get_model_output(
     return output
 
 
-def get_ensemble_configs(iso_code, config):
-    model_configs = []
+def get_ensemble_configs(iso_code: str, config: dict) -> list:
+    """
+    Loads and returns a list of model configuration files for ensemble predictions.
+
+    Args:
+        iso_code (str): ISO code for the country, used as a key in the configuration to find specific model files.
+        config (dict): Configuration dictionary containing file paths for each country ISO code. The dictionary includes:
+            - Each ISO code as a key, with a list of model file paths as its value.
+
+    Returns:
+        list: A list of model configuration dictionaries for each model file.
+    """
+    model_configs = [] # Initialize list to hold each loaded model configuration
+
+    # Iterate over each model file associated with the given iso_code
     for model_file in config[iso_code]:
+        # Load the configuration file for the model
         model_config = config_utils.load_config(os.path.join(os.getcwd(), model_file))
-        model_configs.append(model_config)
+        model_configs.append(model_config)# Add loaded configuration to the list
+
     return model_configs
 
 
 def ensemble_models(iso_code, config, prob_col="y_probs", phase="val", pretrained=None):
-    probs = 0
+    """
+    Generates ensemble predictions by averaging the output probabilities of multiple models.
+
+    Args:
+        iso_code (str): ISO code for the country, used to identify the relevant models in the configuration.
+        config (dict): Configuration dictionary containing model file paths for each country ISO code. 
+            The dictionary includes:
+            - Each ISO code as a key, associated with a list of model configuration files.
+        prob_col (str, optional): Column name containing model output probabilities to be ensembled. 
+            Default is "y_probs".
+        phase (str, optional): Phase of the model (e.g., "train", "val", "test") to determine the data subset. 
+            Default is "val".
+        pretrained (bool, optional): Flag to indicate if pretrained weights should be loaded. Default is None.
+
+    Returns:
+        pd.DataFrame: A DataFrame with ensemble-averaged probabilities in the specified probability column.
+    """
+    probs = 0 # Initialize cumulative probability sum
+
+    # Load all model configurations for the specified iso_code
     model_configs = get_ensemble_configs(iso_code, config)
+
+    # Loop through each model configuration to accumulate model output probabilities
     for model_config in model_configs:
+        # Get model output for the specified phase
         output = get_model_output(
             iso_code, model_config, pretrained=pretrained, phase=phase
         )
+        # Add the current model's probabilities to the cumulative sum
         probs = probs + output[prob_col].to_numpy()
 
+    # Calculate the average probabilities across all models
     output[prob_col] = probs / len(model_configs)
+    
     return output

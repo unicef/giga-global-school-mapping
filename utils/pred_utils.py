@@ -413,7 +413,7 @@ def batch_download_sat_images(
 
     Args:
         sat_config (dict): Configuration dictionary for satellite image downloads.
-        sat_creds (dict): Credentials for accessing satellite image services.
+        sat_creds (dict): Credentials for accessing Maxar satellite image services.
         data_config (dict): Configuration dictionary for data processing and tile generation.
         iso_code (str): ISO code for the region, used to locate and save the downloaded images.
         spacing (float): Spacing between sample points for tile generation.

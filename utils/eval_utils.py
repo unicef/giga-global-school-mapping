@@ -362,14 +362,33 @@ def evaluate(
     }
 
 
-def plot_results(results, plot="det"):
+def plot_results(results: dict, plot: str = "det"):
+    """
+    Plots Precision-Recall (PR) or Detection Error Tradeoff (DET) 
+    results based on a given threshold.
+
+    Args:
+        results (dict): Dictionary containing plotting data, with keys:
+            - pr_thresholds: Threshold values for the PR plot.
+            - precision_scores_: Precision scores for different thresholds.
+            - recall_scores_: Recall scores for different thresholds.
+            - det_thresholds: Threshold values for the DET plot.
+            - fnr: False negative rates for different thresholds.
+            - fpr: False positive rates for different thresholds.
+        plot (str, optional): Type of plot to display. Default is "det".
+            - "pr" for Precision-Recall
+            - "det" for Detection Error Tradeoff
+    
+    Returns:
+        None
+    """
+    # Select data for PR or DET plot based on `plot` argument
     if plot == "pr":
         thresholds = results["pr_thresholds"]
         right = results["precision_scores_"][:-1]
         right_label = "Precision"
         left = results["recall_scores_"][:-1]
         left_label = "Recall"
-
     elif plot == "det":
         thresholds = results["det_thresholds"]
         right = results["fnr"]
@@ -377,18 +396,23 @@ def plot_results(results, plot="det"):
         left = results["fpr"]
         left_label = "False Positive Rate (FPR)"
 
+    # Initialize figure and plot left axis data
     fig, ax = plt.subplots(figsize=(6, 4))
     ax.plot(thresholds, right, "b--")
     ax.plot(thresholds, left, "g--")
     ax.set_ylabel(left_label)
     ax.yaxis.label.set_color("green")
+
+    # Configure the secondary (right) y-axis
     ax2 = ax.twinx()
     l1 = ax.get_ylim()
     l2 = ax2.get_ylim()
 
+    # Define mapping function to synchronize ticks on the right y-axis
     def func(x):
         return l2[0] + (x - l1[0]) / (l1[1] - l1[0]) * (l2[1] - l2[0])
 
+    # Set tick locations and labels for the right y-axis
     ticks = func(ax.get_yticks())
     ax2.yaxis.set_major_locator(matplotlib.ticker.FixedLocator(ticks))
     ax2.set_yticklabels(ax.get_yticklabels())
@@ -396,6 +420,8 @@ def plot_results(results, plot="det"):
     ax2.yaxis.label.set_color("blue")
     ax2.yaxis.set_label_position("right")
     ax2.yaxis.tick_right()
+
+    # Set x-axis label and tick interval for thresholds
     ax.set_xlabel("Probability Threshold")
     loc = plticker.MultipleLocator(
         base=0.1
