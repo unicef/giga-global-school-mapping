@@ -28,25 +28,6 @@ from typing import Tuple, List, Union
 logging.basicConfig(level=logging.INFO)
 
 
-COLUMNS = [
-    "giga_id_school",
-    "school_id",
-    "name",
-    "lat",
-    "lon",
-    "admin1",
-    "admin1_id_giga",
-    "admin2",
-    "admin2_id_giga",
-    "education_level",
-    "source",
-    "uninhabited",
-    "is_duplicated",
-    "predicted_proba",
-    "rurban",
-]
-
-
 def read_file(
     iso_code: str, config: dict, cam_method: str = "gradcam", source: str = "preds"
 ) -> gpd.GeoDataFrame:
@@ -83,10 +64,37 @@ def read_file(
 
 
 def standardize_data(
-    config, iso_code, cam_method="gradcam", source="preds", uid="PUID"
-):
+    config: dict, 
+    iso_code: str, 
+    cam_method: str = None, 
+    source: str = "preds", 
+    uid: str = "PUID"
+) -> gpd.GeoDataFrame:
+    """
+    Standardizes data for a given country and model configuration. This includes renaming columns, 
+    generating unique IDs, adding administrative fields, and transforming to a standard coordinate system.
+
+    Args:
+        config (dict): Configuration dictionary for the model, including:
+            - model (str): Name of the model used.
+            - project (str): Project directory for storing outputs.
+            - config_name (str): Configuration name used in naming files.
+        iso_code (str): The ISO code for the country.
+        cam_method (str, optional): The CAM method used in data generation. Default is "gradcam".
+        source (str, optional): Specifies the data source type, either "preds" or "master". Default is "preds".
+        uid (str, optional): Unique identifier for schools in the data. Default is "PUID".
+
+    Returns:
+        gpd.GeoDataFrame: Standardized geospatial data ready for further analysis.
+    """
+    # Get best CAM method
+    model_config = config_utils.load_config(config)
+    cam_method = cam_utils.get_best_cam_method(iso_code, model_config)
+
+    # Read the input data file based on iso_code, config, CAM method, and source
     data = read_file(iso_code, config, cam_method=cam_method, source=source)
 
+    # If the source is "preds", adjust column names and formats for predictions
     if source == "preds":
         data = data.rename(columns={"prob": "predicted_proba"})
         data[uid] = data[uid].astype(str).str.pad(width=8, side="right", fillchar="0")
@@ -95,9 +103,10 @@ def standardize_data(
         data["name"] = "Unknown"
 
     if source != "master":
+        # For non-master sources, create a unique 'giga_id_school' identifier
         data["giga_id_school"] = data[uid]
-
     elif source == "master":
+        # For master sources, set source type and handle one-hot encoding for "clean" column
         data["source"] = "MASTER"
         one_hot = pd.get_dummies(data["clean"])
         data = data.drop("clean", axis=1)
@@ -105,28 +114,62 @@ def standardize_data(
         data = data.rename(columns={1: "uninhabited"})
         data = data.rename(columns={2: "is_duplicated"})
 
+    # Assign school_id based on UID, used for joining with other datasets
     data["school_id"] = data[uid]
+
+    # Add administrative fields based on configuration and country code
     data = add_admin_fields(config, iso_code, data)
+
+    # Get rural-urban classification based on the model configuration
     data = model_utils.get_rurban_classification(config, data)
+
+    # Transform the data to the standard coordinate system (EPSG:4326)
     data = data.to_crs("EPSG:4326")
     data["lon"] = data["geometry"].x
     data["lat"] = data["geometry"].y
 
+    # Drop records with missing values in admin fields if source is "preds"
     if source == "preds":
         data = data.dropna(subset=["admin1", "admin2"])
 
+    # Ensure 'giga_id_school' and 'school_id' columns are treated as strings
     data["giga_id_school"] = data["giga_id_school"].astype(str)
     data["school_id"] = data["school_id"].astype(str)
-    for column in COLUMNS:
+
+    # Add any missing columns from standard columns to the data as null values
+    for column in config["standard_columns"]:
         if column not in data.columns:
             data[column] = None
+    data = data[config["standard_columns"]]
 
-    data = data[COLUMNS]
     return data.reset_index(drop=True)
 
 
-def add_admin_fields(config, iso_code, data, crs="EPSG:4326"):
+def add_admin_fields(
+    config: dict, 
+    iso_code: str, 
+    data: gpd.GeoDataFrame, 
+    crs: str = "EPSG:4326"
+) -> gpd.GeoDataFrame:
+    """
+    Adds administrative fields (admin1 and admin2) to the data by spatially joining 
+    it with administrative boundaries.
+
+    Args:
+        config (dict): Configuration dictionary containing paths and other parameters, including:
+            - vectors_dir: Directory path for vector files, such as administrative boundaries.
+        iso_code (str): ISO code for the country.
+        data (gpd.GeoDataFrame): Input geospatial data to which admin fields are added.
+        crs (str, optional): Coordinate reference system for data. Default is "EPSG:4326".
+
+    Returns:
+        gpd.GeoDataFrame: Data with added administrative fields, cleaned of duplicates.
+    """
+
+    # Convert data to specified CRS for alignment with admin layers
     data = data.to_crs(crs)
+
+    # Load admin1 (first-level administrative boundaries) GeoJSON file
     admin1 = gpd.read_file(
         os.path.join(
             os.getcwd(),
@@ -135,6 +178,8 @@ def add_admin_fields(config, iso_code, data, crs="EPSG:4326"):
             f"{iso_code}_admin1.geojson",
         )
     )
+
+    # Load admin2 (second-level administrative boundaries) GeoJSON file
     admin2 = gpd.read_file(
         os.path.join(
             os.getcwd(),
@@ -143,19 +188,29 @@ def add_admin_fields(config, iso_code, data, crs="EPSG:4326"):
             f"{iso_code}_admin2.geojson",
         )
     )
+
+    # Rename 'name' column in admin1 to 'admin1' to represent first-level names
     admin1.rename(columns={"name": "admin1"}, inplace=True)
+
+    # Rename 'name' column in admin2 to 'admin2' to represent second-level names
     admin2.rename(columns={"name": "admin2"}, inplace=True)
+
+    # Extract admin1 ID from admin2 entries by slicing the first six characters
     admin2["admin1_id_giga"] = admin2["admin2_id_giga"].apply(lambda x: x[:6])
+
+    # Map admin1 names onto admin2 entries using admin1 IDs
     admin2["admin1"] = admin2["admin1_id_giga"].map(
         dict(zip(admin1["admin1_id_giga"], admin1["admin1"]))
     )
 
+    # Spatially join admin2 data to input data using 'intersects' predicate for matching
     data_joined = data.sjoin(
         admin2[["admin1", "admin1_id_giga", "admin2", "admin2_id_giga", "geometry"]],
         how="left",
         predicate="intersects",
     )
 
+    # Remove 'index_right' column from the joined data (artifact of spatial join)
     data = data_joined.drop(columns=["index_right"])
     data = data.drop_duplicates(subset=["giga_id_school"], keep="first")
 

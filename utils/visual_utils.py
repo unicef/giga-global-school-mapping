@@ -17,8 +17,27 @@ from utils import model_utils
 logging.basicConfig(level=logging.INFO)
 
 
-def get_filename(iso_code, config, category="school", name="clean"):
-    # Construct the full path to the GeoJSON file if not provided
+def get_filename(
+    iso_code: str, 
+    config: dict, 
+    category: str = "school", 
+    name: str = "clean"
+):
+    """
+    Constructs the file path for a GeoJSON file based on the specified parameters.
+
+    Args:
+        iso_code (str): ISO code for the country, used to identify the file.
+        config (dict): Configuration dictionary with directory paths and project details. Includes:
+            - vectors_dir: Directory path for vector files.
+            - project: Project-specific directory name.
+        category (str, optional): Category folder for the file, such as "school" or "admin". Default is "school".
+        name (str, optional): Base name for the file, e.g. clean. Default is "clean".
+
+    Returns:
+        str: Full file path for the specified GeoJSON file.
+    """
+    # Construct the full file path for the GeoJSON file based on the given parameters
     filename = os.path.join(
         os.getcwd(),
         config["vectors_dir"],
@@ -95,16 +114,43 @@ def map_coordinates(
     display(map)
 
 
-def generate_predictions(iso_code, model_iso_code, model_configs, category="school"):
+def generate_predictions(
+    iso_code: str, 
+    model_iso_code: str, 
+    model_configs: dict, 
+    category: str = "school"
+) -> gpd.GeoDataFrame:
+    """
+    Generates predictions by averaging the output probabilities from multiple models for a specified category.
+
+    Args:
+        iso_code (str): ISO code for the country for which predictions are generated.
+        model_iso_code (str): ISO code for the country associated with the model configurations.
+        model_configs (list): List of configuration dictionaries, each containing model settings. 
+            Each dictionary includes:
+            - rasters_dir: Directory containing raster files.
+            - maxar_dir: Directory for high-resolution imagery.
+            - project: Project directory name.
+        category (str, optional): Category of the predictions, such as "school" or "admin". 
+            Default is "school".
+
+    Returns:
+        gpd.GeoDataFrame: GeoDataFrame with prediction probabilities averaged across models.
+    """
+    # Retrieve configurations for the ensemble models
     model_configs = model_utils.get_ensemble_configs(model_iso_code, model_configs)
+
+    # Determine output file path for predictions
     out_file = get_filename(
         iso_code, model_configs[0], category="school", name="clean"
     )
 
+    # If predictions already exist, load and return them
     if os.path.exists(out_file):
         data = gpd.read_file(out_file)
         return data
 
+    # Define input directory and file path based on model configuration
     in_dir = os.path.join(
         os.getcwd(),
         model_configs[0]["rasters_dir"],
@@ -114,17 +160,25 @@ def generate_predictions(iso_code, model_iso_code, model_configs, category="scho
         category.lower(),
     )
     in_file = get_filename(iso_code, model_configs[0], category="school", name="clean")
+
+    # Read the input data
     data = gpd.read_file(in_file)
 
+    # Initialize probability sum for ensemble prediction
     probs = 0
+    # Loop through each model configuration to generate and accumulate probabilities
     for model_config in model_configs:
         model = pred_utils.load_model(model_iso_code, model_config, verbose=True)
         data = pred_utils.cnn_predict_images(
             data[data.clean == 0], model, model_config, in_dir
         )
+        # Add model probabilities to cumulative sum
         probs = probs + data["prob"].to_numpy()
 
+    # Calculate the average probability across models
     data["prob"] = probs / len(model_configs)
+
+    # Save the prediction data to the output file
     out_file = get_filename(
         iso_code, model_configs[0], category="school", name="clean"
     )
@@ -267,7 +321,33 @@ def validate_data(
     return grid
 
 
-def update_validation(config, iso_code, category, indexes=[], name="clean", filename=None):
+def update_validation(
+    config: dict, 
+    iso_code: str, 
+    category: str, 
+    indexes: list = [], 
+    name: str = "clean", 
+    filename: str = None
+) -> None:
+    """
+    Updates the validation status of specified entries in a GeoDataFrame by 
+    toggling their "validated" column value. This is an alternative to inspect_images().
+
+    Args:
+        config (dict): Configuration dictionary with required keys:
+            - vectors_dir: Directory where vector data is stored.
+            - project: Project name, used in directory structure.
+        iso_code (str): ISO code for the country.
+        category (str): Category of the data (e.g. :school").
+        indexes (list, optional): List of row indices to update. Default is an empty list.
+        name (str, optional): Specific name of the data subset, used to build the file path. 
+            Default is "clean".
+        filename (str, optional): Path to the GeoDataFrame file. 
+            If not provided, it will be generated from other parameters.
+
+    Returns:
+        None
+    """
     validated = {0: "VALID", -1: "INVALID"}
     if not filename:
         filename = get_filename(iso_code, config, category, name="clean")
