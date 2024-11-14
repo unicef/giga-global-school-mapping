@@ -13,7 +13,7 @@ iso_codes_url: "https://raw.githubusercontent.com/lukes/ISO-3166-Countries-with-
 overture_url: "s3://overturemaps-us-west-2/release/2023-07-26-alpha.0/theme=places/type=*/*"
 gbhumanitarian_url: "https://www.geoboundaries.org/api/current/gbHumanitarian/"
 gbopen_url: "https://www.geoboundaries.org/api/current/gbOpen/"
-microsoft_url: "https://minedbuildings.blob.core.windows.net/global-buildings/dataset-links.csv"
+microsoft_url: "https://minedbuildings.z5.web.core.windows.net/global-buildings/dataset-links.csv"
 ghsl_built_c_url: "https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/GHSL/GHS_BUILT_C_GLOBE_R2023A/GHS_BUILT_C_FUN_E2018_GLOBE_R2023A_54009_10/V1-0/GHS_BUILT_C_FUN_E2018_GLOBE_R2023A_54009_10_V1_0.zip"
 ghsl_smod_url: "https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/GHSL/GHS_SMOD_GLOBE_R2023A/GHS_SMOD_E2030_GLOBE_R2023A_54009_1000/V1-0/GHS_SMOD_E2030_GLOBE_R2023A_54009_1000_V1_0.zip"
 ghsl_built_c_file: "GHS_BUILT_C_FUN_E2018_GLOBE_R2023A_54009_10_V1_0.tif"
