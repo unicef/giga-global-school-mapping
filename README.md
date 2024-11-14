@@ -105,13 +105,20 @@ ipython kernel install --user --name=<env_name>
 ```
 
 
-### Fixing the Google Buildings URL Error
-Navigate to your site packages, e.g. `/anaconda/envs/envname/lib/python3.10/site-packages`.
-Under `leafmap/common.py`, find the function `download_google_buildings()` and replace the building URL as follows:
+### Updating Building URLs on Leafmap
+Navigate to your site packages, e.g. `/anaconda/envs/envname/lib/python3.10/site-packages` and edit the building URLs in `leafmap/common.py` as follows.
 
+#### Microsoft Building Footprints
+Find the function
+`download_ms_buildings()` and replace the building URL with following:
 ```
-#building_url = "https://sites.research.google/open-buildings/tiles.geojson"
-building_url = "https://openbuildings-public-dot-gweb-research.uw.r.appspot.com/public/tiles.geojson"
+https://minedbuildings.z5.web.core.windows.net/global-buildings/dataset-links.csv
+```
+#### Google Open Buildings
+Find the function
+`download_google_buildings()` and replace the building URL with following:
+```
+https://openbuildings-public-dot-gweb-research.uw.r.appspot.com/public/tiles.geojson
 ```
 
 ### Install GDAL/OGR: Follow these [instructions](https://ljvmiranda921.github.io/notebook/2019/04/13/install-gdal/).
@@ -120,9 +127,10 @@ building_url = "https://openbuildings-public-dot-gweb-research.uw.r.appspot.com/
 Code Design</h2>
 
 This repository is divided into the following files and folders:
-- **notebooks/**: contains all Jupyter notebooks for exploratory data analysis and model prediction.
+- **configs/**: contains the configuration files (data configs, satellite image configs, model configs, etc.)
+- **notebooks/**: contains all Jupyter notebooks for exploratory data analysis.
 - **utils/**: contains utility methods for loading datasets, building model, and performing training routines.
-- **src/**: contains scripts runnable scripts for automated data cleaning and model training/evaluation.
+- **src/**: contains scripts runnable scripts for automated data cleaning and model training, evaluation, and deployment.
 
 ## Data Download 
 To download the relevant datasets, run either of the following:
@@ -140,7 +148,7 @@ options:
 
 #### Sample usage
 ```s
-python src/data_download.py --config="configs/data_configs/data_config_ISO_AS.yaml" -- profile="configs/profile.share"
+python src/data_download.py --config="configs/data_configs/data_config_ISO_AS.yaml" --profile="configs/profile.share"
 ```
 
 #### Outputs
@@ -156,11 +164,13 @@ usage: data_preprocess.py [-h] [--config CONFIG] [--creds CREDS] [--clean_pos CL
 Data Cleaning Pipeline
 
 options:
-  -h, --help              show this help message and exit
-  --config CONFIG         Path to the configuration file
-  --sat_config SAT_CONFIG Path to the satellite config file
-  --sat_creds SAT_CREDS   Path to the satellite credentials file
-  --clean_neg CLEAN_NEG   Clean negative samples (bool, default: False)
+  -h, --help                      show this help message and exit
+  --config CONFIG                 Path to the configuration file
+  --sat_config SAT_CONFIG         Path to the satellite config file
+  --sat_creds SAT_CREDS           Path to the satellite credentials file
+  --clean_neg CLEAN_NEG           Clean negative samples (bool, default: False)
+  --sources SOURCES [SOURCES ...] Sources (string, default: unicef, osm, overture)
+  --imb_ratio IMB_RATIO           Imbalance ratio for negative samples (int, default: 2)
 ```
 
 ### Cleaning School Samples
@@ -254,7 +264,7 @@ python src/cam_evaluate.py --iso_code="MNG" --model_config="configs/best_models.
 The output will be saved in `exp/<project_name>/<iso_code><best_model_name>/cam_results.csv`.
 
 ## Download Nationwide Satellite Images
-To download nationwide satellite, run `src/sat_batch_download.py`. 
+To download nationwide satellite images, run `src/sat_batch_download.py`. 
 ```sh
 usage: sat_batch_download.py [-h] [--data_config DATA_CONFIG] [--sat_config SAT_CONFIG] [--sat_creds SAT_CREDS] [--iso_code ISO_CODE] [--adm_level ADM_LEVEL] [--sum_threshold SUM_THRESHOLD] [--buffer_size BUFFER_SIZE] [--spacing SPACING]
 
@@ -282,16 +292,25 @@ python src/sat_batch_download.py --data_config="configs/data_configs/data_config
 The satellite images are saved to `output/<iso_code>/images/`.
 
 ## Nationwide Model Deployment
-For model prediction, run:
-```s
-sh sat_predict.sh
-```
+For model prediction, run `python src/sat_predict.py`:
+```sh
+usage: sat_predict.py [-h] [--data_config DATA_CONFIG] [--model_config MODEL_CONFIG] [--sat_config SAT_CONFIG] [--sat_creds SAT_CREDS] [--shapename SHAPENAME] [--iso_code ISO_CODE]
 
-Alternatively, you can run `python src/sat_predict.py`:
+Model Prediction
+
+options:
+  -h, --help                    show this help message and exit
+  --data_config DATA_CONFIG     Data config file
+  --model_config MODEL_CONFIG   Model config file
+  --sat_config SAT_CONFIG       Maxar config file
+  --sat_creds SAT_CREDS         Credentials file
+  --shapename SHAPENAME         Model shapename
+  --iso_code ISO_CODE           ISO 3166-1 alpha-3
+```
 
 #### Sample usage
 ```sh
-python src/sat_predict.py --data_config="configs/data_configs/data_config_ISO_AF.yaml" --model_config="configs/best_models.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --sat_creds="configs/sat_configs/sat_creds.yaml" --threshold=0.344 --iso_code=RWA;
+python src/sat_predict.py --data_config="configs/data_configs/data_config_ISO_AF.yaml" --model_config="configs/best_models.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --sat_creds="configs/sat_configs/sat_creds.yaml" --iso_code=RWA;
 ```
 
 #### Outputs

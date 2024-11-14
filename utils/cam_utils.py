@@ -68,7 +68,24 @@ cams = {
 }
 
 
-def get_best_cam_method(iso_code, model_config):
+def get_best_cam_method(iso_code: str, model_config: dict) -> str:
+    """
+    Determines the best Class Activation Map (CAM) method for a specified model 
+    configuration and country, based on the minimum score in the CAM results file.
+
+    Args:
+        iso_code (str): The ISO code for the country of interest.
+        model_config (dict): Configuration dictionary for the model, which includes:
+            - model (str): The name of the model.
+            - project (str): The name of the project folder where results are stored.
+
+    Returns:
+        str: The name of the CAM method with the lowest score, indicating the 
+             best-performing method for the specified model and country.
+
+    Raises:
+        FileNotFoundError: If the CAM results file does not exist in the specified path.
+    """
     model_name = model_config["model"]
     cam_results_file = os.path.join(
         os.getcwd(),
@@ -87,7 +104,7 @@ def get_best_cam_method(iso_code, model_config):
         ]["method"].values[0]
         logging.info(f"Best cam method: {cam_method}")
     else:
-        logging.info(f"{cam_results_file} does not exist. Run src/cam_evaluate.py.")
+        raise FileNotFoundError(f"CAM results file not found at {cam_results_file}")
     return cam_method
 
 
@@ -167,16 +184,39 @@ def get_cam_extractor(config: dict, model: torch.nn.Module, cam_extractor):
 
 
 def cam_predict(
-    iso_code,
-    config,
-    data,
-    geotiff_dir,
-    shapename,
-    cam_method="gradcam",
-    buffer_size=50,
-    verbose=False,
-):
+    iso_code: str,
+    config: dict,
+    data: gpd.GeoDataFrame,
+    geotiff_dir: str,
+    shapename: str,
+    buffer_size: int = 50,
+    verbose: bool = False,
+) -> gpd.GeoDataFrame:
+
+    """
+    Runs the Class Activation Map (CAM) prediction process for a given region, model configuration, 
+    and dataset, and saves the results as a GeoJSON file. If results already exist, 
+    loads them directly.
+
+    Args:
+        iso_code (str): The ISO code representing the country.
+        config (dict): Configuration dictionary for the model, including:
+            - model (str): The model name used for CAM predictions.
+            - project (str): The project directory where output is stored.
+            - config_name (str): The configuration name used for naming output files.
+        data (gpd.GeoDataFrame): The geospatial data to be processed.
+        geotiff_dir (str): Directory containing GeoTIFF files needed for model predictions.
+        shapename (str): Identifier for the shapefile, used in naming the output file.
+        buffer_size (int, optional): Size of the buffer around points for CAM extraction. Default is 50.
+        verbose (bool, optional): Flag for verbosity in the prediction process. Default is False.
+
+    Returns:
+        gpd.GeoDataFrame: The results of the CAM prediction as a GeoDataFrame.
+    """
+    # Determine the best CAM method for the given iso_code and model config
     cam_method = get_best_cam_method(iso_code, config)
+
+    # Create the output directory for storing results if it doesn't already exist
     out_dir = data_utils.makedir(
         os.path.join(
             os.getcwd(),
@@ -190,24 +230,34 @@ def cam_predict(
             cam_method,
         )
     )
-    #out_file = os.path.join(
-    #    out_dir, f"{iso_code}_{shapename}_{config['config_name']}_{cam_method}.gpkg"
-    #)
+
+    # Define the path to the output file
     out_file = os.path.join(
         out_dir, f"{iso_code}_{shapename}_{config['config_name']}_{cam_method}.geojson"
     )
+
+    # If the output file already exists, load and return it
     if os.path.exists(out_file):
         return gpd.read_file(out_file)
+    
+    # Load the specified model for the country and configuration
     model = pred_utils.load_model(iso_code, config)
-    model.eval()
+    model.eval() # Set model to evaluation mode for inference
+
+    # Initialize the CAM extractor with the selected CAM method and model
     cam_extractor = get_cam_extractor(config, model, cam_method)
 
+    # Generate CAM points
     results = generate_cam_points(
         data, config, geotiff_dir, model, cam_extractor, buffer_size
     )
+
+    # Assign building pixel sum to CAM points 
     results = pred_utils.filter_by_buildings(iso_code, config, results)
-    #results.to_file(out_file, driver="GPKG")
+
+    # Save the resulting CAM points to a GeoJSON file
     results.to_file(out_file, driver="GeoJSON")
+    
     return results
 
 
@@ -221,7 +271,8 @@ def generate_cam_points(
     show: bool = False,
 ) -> gpd.GeoDataFrame:
     """
-    Generates Class Activation Map (CAM) points for each image in the dataset and returns them as a GeoDataFrame.
+    Generates Class Activation Map (CAM) points for each image in the dataset 
+    and returns them as a GeoDataFrame.
 
     Args:
         data (pd.DataFrame): DataFrame containing the metadata and information about the images.
@@ -230,7 +281,8 @@ def generate_cam_points(
         model (torch.nn.Module): The neural network model used for CAM extraction.
         cam_extractor (callable): Function or class used for extracting CAMs.
         buffer_size (int, optional): Buffer size around each CAM point in meters. Defaults to 50.
-        show (bool, optional): If True, displays the CAM points on top of the raster images. Defaults to False.
+        show (bool, optional): If True, displays the CAM points on top of the raster images. 
+            Defaults to False.
 
     Returns:
         gpd.GeoDataFrame: A GeoDataFrame containing the CAM points with their probabilities and UIDs.
@@ -270,9 +322,13 @@ def generate_cam_points(
 
     # Convert the results list to a GeoDataFrame
     results = gpd.GeoDataFrame(geometry=results, crs=crs)
+
+    # Create a square buffer around each point
     results = results.to_crs("EPSG:3857")
     results["geometry"] = results["geometry"].buffer(buffer_size, cap_style=3)
     results = results.to_crs(crs)
+
+    # Assign UID and probabilties
     results["prob"] = data.prob
     results["UID"] = data.UID
 

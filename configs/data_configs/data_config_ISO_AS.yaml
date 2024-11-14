@@ -1,6 +1,6 @@
 vectors_dir: 'data/vectors/'
 rasters_dir: 'data/rasters/'
-iso_codes: ['MNG', 'TJK']
+iso_codes: ['TJK']
 
 proximity: 300
 filter_buffer_size: 150

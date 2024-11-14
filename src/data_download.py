@@ -14,9 +14,9 @@ warnings.simplefilter("ignore")
 logging.basicConfig(level=logging.INFO)
 
 
-def download_data(config, profile):
+def download_data(config, profile, in_file):
     logging.info("Downloading UNICEF data...")
-    download_utils.download_unicef(config, profile)
+    download_utils.download_unicef(config, profile, in_file=in_file)
 
     logging.info("Downloading Overture Maps data...")
     download_utils.download_overture(config, category="school")
@@ -42,16 +42,16 @@ def main():
     parser = argparse.ArgumentParser(description="Data Download")
     parser.add_argument("--config", help="Path to the configuration file")
     parser.add_argument("--profile", help="Path to the profile file")
+    parser.add_argument("--in_file", help="Path to the profile file", default=None)
     args = parser.parse_args()
 
     # Load config file
-    cwd = os.path.dirname(os.getcwd())
-    config_file = os.path.join(cwd, args.config)
-    profile = os.path.join(cwd, args.profile)
+    config_file = os.path.join(os.getcwd(), args.config)
+    profile = os.path.join(os.getcwd(), args.profile)
     config = config_utils.load_config(config_file)
 
     # Commence data download
-    download_data(config, profile)
+    download_data(config, profile, args.in_file)
 
 
 if __name__ == "__main__":
