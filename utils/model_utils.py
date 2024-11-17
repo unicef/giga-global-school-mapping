@@ -1,4 +1,6 @@
 import os
+import yaml
+import operator
 import pandas as pd
 import geopandas as gpd
 import rasterio as rio
@@ -343,7 +345,61 @@ def get_model_output(
     return output
 
 
-def get_ensemble_configs(iso_code: str, config: dict) -> list:
+def get_best_models(
+    iso_code: str,
+    config_file: str = 'configs/config.yaml'
+):
+    config = config_utils.load_config(os.path.join(os.getcwd(), config_file))
+    config_results = dict()
+    for model_type in config["all_models"]:
+        config_results[model_type] = dict()
+        for model_file in config["all_models"][model_type]:
+            model_config = config_utils.load_config(model_file)
+            val_output = get_model_output(
+                iso_code, 
+                model_config, 
+                pretrained=None, 
+                phase="val"
+            )
+            test_output = get_model_output(
+                iso_code, 
+                model_config, 
+                pretrained=None, 
+                phase="test"
+            )
+            val_results = eval_utils.evaluate(
+                y_true=val_output["y_true"], 
+                y_pred=val_output["y_preds"], 
+                y_prob=val_output["y_probs"], 
+                beta=2
+            )
+            test_results = eval_utils.evaluate(
+                y_true=test_output["y_true"], 
+                y_pred=test_output["y_preds"], 
+                y_prob=test_output["y_probs"], 
+                beta=2,
+                optim_threshold=val_results["optim_threshold"]
+            )
+            config_results[model_type][model_file] = test_results["auprc"]
+
+    best_models = []
+    for model_type in config_results:
+        best_model = max(
+            config_results[model_type], 
+            key=config_results[model_type].get
+        )
+        best_models.append((
+            best_model, 
+            config_results[model_type][best_model]
+        ))
+    best_models.sort(key=operator.itemgetter(1), reverse=True)
+    best_models = [x[0] for x in best_models]
+
+    return best_models
+
+     
+    
+def get_ensemble_configs(iso_code: str) -> list:
     """
     Loads and returns a list of model configuration files for ensemble predictions.
 
@@ -357,16 +413,20 @@ def get_ensemble_configs(iso_code: str, config: dict) -> list:
     """
     model_configs = [] # Initialize list to hold each loaded model configuration
 
+    configs = get_best_models(iso_code)
+
     # Iterate over each model file associated with the given iso_code
-    for model_file in config[iso_code]:
+    for model_file in configs: #config[iso_code]:
         # Load the configuration file for the model
-        model_config = config_utils.load_config(os.path.join(os.getcwd(), model_file))
+        model_config = config_utils.load_config(
+            os.path.join(os.getcwd(), model_file)
+        )
         model_configs.append(model_config)# Add loaded configuration to the list
 
     return model_configs
 
 
-def ensemble_models(iso_code, config, prob_col="y_probs", phase="val", pretrained=None):
+def ensemble_models(iso_code, prob_col="y_probs", phase="val", pretrained=None):
     """
     Generates ensemble predictions by averaging the output probabilities of multiple models.
 
@@ -387,7 +447,7 @@ def ensemble_models(iso_code, config, prob_col="y_probs", phase="val", pretraine
     probs = 0 # Initialize cumulative probability sum
 
     # Load all model configurations for the specified iso_code
-    model_configs = get_ensemble_configs(iso_code, config)
+    model_configs = get_ensemble_configs(iso_code)
 
     # Loop through each model configuration to accumulate model output probabilities
     for model_config in model_configs:

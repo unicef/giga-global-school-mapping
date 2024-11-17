@@ -25,9 +25,6 @@ def main(args):
     data_config_file = os.path.join(cwd, args.data_config)
     data_config = config_utils.load_config(data_config_file)
 
-    model_config_file = os.path.join(cwd, args.model_config)
-    model_config = config_utils.load_config(model_config_file)
-
     sat_config_file = os.path.join(cwd, args.sat_config)
     sat_creds_file = os.path.join(cwd, args.sat_creds)
     sat_config = config_utils.load_config(sat_config_file)
@@ -37,7 +34,6 @@ def main(args):
         data_config, args.iso_code, adm_level="ADM2"
     )
     shapenames = [args.shapename] if args.shapename else geoboundary.shapeName.unique()
-    model_config["iso_codes"] = [args.iso_code]
 
     for shapename in shapenames:
         logging.info(f"Processing {shapename}...")
@@ -62,10 +58,10 @@ def main(args):
         )
 
         print(f"Generating predictions for {shapename}...")
-        model_configs = model_utils.get_ensemble_configs(args.iso_code, model_config)
+        model_configs = model_utils.get_ensemble_configs(args.iso_code)
 
         # Calculate the threshold that optimizes the F2 score of the validation set
-        val_output = model_utils.ensemble_models(args.iso_code, model_config, phase="val")
+        val_output = model_utils.ensemble_models(args.iso_code, phase="val")
         val_results = eval_utils.evaluate(
             y_true=val_output["y_true"], 
             y_pred=val_output["y_preds"], 
@@ -104,14 +100,12 @@ def main(args):
     preds = post_utils.load_preds(
         args.iso_code, 
         data_config, 
-        model_config, 
         sum_threshold=-1,
         buffer_size=args.overlap_buffer_size
     )
     post_utils.save_results(
         args.iso_code, 
         preds, 
-        model_config, 
         source="preds"
     )
     return results
@@ -120,7 +114,6 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Model Prediction")
     parser.add_argument("--data_config", help="Data config file")
-    parser.add_argument("--model_config", help="Model config file")
     parser.add_argument("--sat_config", help="Maxar config file")
     parser.add_argument("--sat_creds", help="Credentials file")
     parser.add_argument("--shapename", help="Model shapename", default=None)

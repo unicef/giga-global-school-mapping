@@ -212,35 +212,25 @@ python src/train_model.py --config="configs/cnn_configs/convnext_small.yaml" --i
 #### Outputs
 Model results will be saved to `exp/<project_name>/<iso_code>_<model_name>/` (e.g. `exp/GIGAv2/MNG_convnext_small/`) 
 
-## Model Ensemble
-Open `configs/best_models.yaml`. Add an entry for your country of interest (using the country's ISO code), and specify the best model variants for each ViT, Swin, and Convnext in order of model performance, i.e. the first entry is the best-performing model.
-
-```sh
-MNG:
-- "configs/vit_configs/vit_b_16.yaml"
-- "configs/cnn_configs/convnext_base.yaml"
-- "configs/vit_configs/swin_v2_b.yaml"
-```
-To evaluate the model ensemble, run `05_model_evaluation.ipynb`. 
+To evaluate the VSC model ensemble, run `05_model_evaluation.ipynb`. 
 
 ## CAM Evaluation
 To determine the best CAM method, run `src/cam_evaluate.py`:
 ```s
-usage: cam_evaluate.py [-h] [--model_config MODEL_CONFIG] [--iso_code ISO_CODE]
-                       [--percentile PERCENTILE]
+usage: cam_evaluate.py [-h] [--iso_code ISO_CODE] [--percentile PERCENTILE] [--model_config MODEL_CONFIG] 
 
 CAM Evaluation
 
 options:
   -h, --help                  show this help message and exit
-  --model_config MODEL_CONFIG Model config file
   --iso_code ISO_CODE         ISO 3166-1 alpha-3 code
   --percentile PERCENTILE     Percentile (float, default: 90)
+  --model_config MODEL_CONFIG Model config file (str, optional)
 ```
 
 #### Sample usage
 ```sh
-python src/cam_evaluate.py --iso_code="MNG" --model_config="configs/best_models.yaml"
+python src/cam_evaluate.py --iso_code="MNG"
 ```
 
 #### Outputs
@@ -277,14 +267,13 @@ The satellite images are saved to `output/<iso_code>/images/`.
 ## Nationwide Model Deployment
 For model prediction, run `python src/sat_predict.py`:
 ```sh
-usage: sat_predict.py [-h] [--data_config DATA_CONFIG] [--model_config MODEL_CONFIG] [--sat_config SAT_CONFIG] [--sat_creds SAT_CREDS] [--shapename SHAPENAME] [--iso_code ISO_CODE]
+usage: sat_predict.py [-h] [--data_config DATA_CONFIG] [--sat_config SAT_CONFIG] [--sat_creds SAT_CREDS] [--shapename SHAPENAME] [--iso_code ISO_CODE]
 
 Model Prediction
 
 options:
   -h, --help                    show this help message and exit
   --data_config DATA_CONFIG     Data config file
-  --model_config MODEL_CONFIG   Model config file
   --sat_config SAT_CONFIG       Maxar config file
   --sat_creds SAT_CREDS         Credentials file
   --shapename SHAPENAME         Model shapename
@@ -293,7 +282,7 @@ options:
 
 #### Sample usage
 ```sh
-python src/sat_predict.py --data_config="configs/data_configs/data_config_ISO_AF.yaml" --model_config="configs/best_models.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --sat_creds="configs/sat_configs/sat_creds.yaml" --iso_code=RWA;
+python src/sat_predict.py --data_config="configs/data_configs/data_config_ISO_AF.yaml" --sat_config="configs/sat_configs/sat_config_500x500_60cm.yaml" --sat_creds="configs/sat_configs/sat_creds.yaml" --iso_code=RWA;
 ```
 
 #### Outputs
