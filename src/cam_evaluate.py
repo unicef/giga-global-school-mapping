@@ -11,9 +11,7 @@ from utils import cam_utils
 
 
 def main(args):
-    best_model_config = args.model_config
-    if not best_model_config:
-        best_model_config = model_utils.get_best_models(args.iso_code)[0]
+    best_model_config = model_utils.get_best_models(args.iso_code)[0]
     model_config = config_utils.load_config(best_model_config)
     logging.info(f"Best model: {best_model_config}")
 
@@ -57,7 +55,6 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="CAM Evaluation")
     parser.add_argument("--iso_code", help="ISO 3166-1 alpha-3 code")
-    parser.add_argument("--model_config", help="Model config file", default=None)
     parser.add_argument("--percentile", help="Percentile", default=90)
     args = parser.parse_args()
 

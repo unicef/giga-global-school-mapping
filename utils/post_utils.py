@@ -479,15 +479,18 @@ def join_with_geoboundary(
         # Add the current administrative level to the list of columns
         columns = columns + [adm_level]
         # Retrieve geoboundary data for the current administrative level
-        admin = data_utils.get_geoboundaries(config, iso_code, adm_level=adm_level)
-        # Reproject the geoboundary data to match the CRS of the main dataset
-        admin = admin.to_crs(data.crs)
-        # Rename the shapeName column to match the administrative level
-        admin = admin.rename(columns={"shapeName": adm_level})
-        # Perform a spatial join with the main dataset to include administrative boundary information
-        data = gpd.sjoin(data, admin[["geometry", adm_level]], how="left")
-        # Keep only the columns that were in the original dataset plus the new administrative level
-        data = data[columns]
+        try:
+            admin = data_utils.get_geoboundaries(config, iso_code, adm_level=adm_level)
+            # Reproject the geoboundary data to match the CRS of the main dataset
+            admin = admin.to_crs(data.crs)
+            # Rename the shapeName column to match the administrative level
+            admin = admin.rename(columns={"shapeName": adm_level})
+            # Perform a spatial join with the main dataset to include administrative boundary information
+            data = gpd.sjoin(data, admin[["geometry", adm_level]], how="left")
+            # Keep only the columns that were in the original dataset plus the new administrative level
+            data = data[columns]
+        except:
+            print(f"ADM level {adm_level} does not exist for {iso_code}")
 
     return data
 
@@ -615,8 +618,8 @@ def load_preds(
     # Get the ensemble model configurations
     model_configs = model_utils.get_ensemble_configs(iso_code)
     best_models = model_utils.get_best_models(iso_code)
-    best_model_config = config_utils.load_config(best_models[0])
-    cam_method = cam_utils.get_best_cam_method(iso_code, best_model_config)
+    model_config = config_utils.load_config(best_models[0])
+    cam_method = cam_utils.get_best_cam_method(iso_code, model_config)
 
     # Construct the output directory path for the CAM results
     out_dir = os.path.join(
@@ -627,7 +630,7 @@ def load_preds(
         model_config["project"],
         "cams",
         "ensemble",
-        model_configs[0]["config_name"],
+        model_config["config_name"],
         cam_method,
     )
     # print(out_dir)

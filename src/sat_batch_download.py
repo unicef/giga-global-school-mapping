@@ -12,7 +12,7 @@ from utils import config_utils
 from utils import pred_utils
 
 
-def batch_download(args):
+def main(args):
     data_config = config_utils.load_config(
         os.path.join(
             os.getcwd(), args.data_config
@@ -39,8 +39,7 @@ def batch_download(args):
         args.adm_level
     )
 
-
-def main():
+if __name__ == "__main__":    
     # Load arguments from parser
     parser = argparse.ArgumentParser(description="Satellite Image Download")
     parser.add_argument("--data_config", help="Path to the data configuration file")
@@ -54,8 +53,4 @@ def main():
     args = parser.parse_args()
 
     # Download satellite images
-    batch_download(args)
-
-
-if __name__ == "__main__":    
-    main()
+    main(args)
