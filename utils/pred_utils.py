@@ -23,6 +23,7 @@ from shapely import geometry
 import rasterio as rio
 from rasterio.mask import mask
 import rasterio.plot
+from exactextract import exact_extract
 
 from src import sat_download
 from utils import cnn_utils
@@ -235,7 +236,7 @@ def load_model(iso_code: str, config: dict, verbose: bool = True) -> torch.nn.Mo
 
 
 def filter_by_buildings(
-    iso_code: str, config: dict, data: gpd.GeoDataFrame, n_seconds: int = 10
+    iso_code: str, config: dict, data: gpd.GeoDataFrame, in_vector: str = None, n_seconds: int = 10
 ) -> pd.DataFrame:
     """
     Filters the data based on building presence by summing pixel values from building raster files.
@@ -254,41 +255,33 @@ def filter_by_buildings(
     raster_dir = os.path.join(cwd, config["rasters_dir"])
     ms_path = os.path.join(raster_dir, "ms_buildings", f"{iso_code}_ms.tif")
     google_path = os.path.join(raster_dir, "google_buildings", f"{iso_code}_google.tif")
+    ghsl_path = os.path.join(raster_dir, "ghsl", config["ghsl_built_c_file"])
 
     pixel_sums = []
     data = data.reset_index(drop=True)
-    logging.info(f"Filtering buildings for {len(data)}")
-    for index in tqdm(list(data.index), total=len(data)):
-        # Extract the geometry for the current entry
-        subdata = data.iloc[[index]]
-        pixel_sum = 0
+    print(f"Filtering buildings for {len(data)}")
+    
+    if in_vector:
+        ms_sum = 0
+        if os.path.exists(ms_path):
+            ms_sum = exact_extract(
+                ms_path, in_vector, 'sum', output='pandas', progress=True
+            )["sum"]
 
-        # Try reading and processing the Microsoft buildings raster file
-        try:
-            with rio.open(ms_path) as ms_source:
-                geometry = [subdata.iloc[0]["geometry"]]
-                image, transform = rio.mask.mask(ms_source, geometry, crop=True)
-                image[image == 255] = 1
-                pixel_sum = np.sum(image)
-        except:
-            pass
+        google_sum = 0
+        if os.path.exists(google_path):
+            google_sum = exact_extract(
+                google_path, in_vector, 'sum', output='pandas', progress=True
+            )["sum"]
 
-        # If no building pixels found, try the Google buildings raster file
-        if pixel_sum == 0 and os.path.exists(google_path):
-            try:
-                with rio.open(google_path) as google_source:
-                    geometry = [subdata.iloc[0]["geometry"]]
-                    image, transform = rio.mask.mask(google_source, geometry, crop=True)
-                    image[image == 255] = 1
-                    pixel_sum = np.sum(image)
-            except:
-                pass
+        ghsl_sum = 0
+        if os.path.exists(google_path):
+            ghsl_sum = exact_extract(
+                ghsl_path, in_vector, 'sum', output='pandas', progress=True
+            )["sum"]
 
-        # Append the pixel sum to the list
-        pixel_sums.append(pixel_sum)
+        data["sum"] = ms_sum + google_sum + ghsl_sum
 
-    # Update the DataFrame with the pixel sums
-    data["sum"] = pixel_sums
     data = data.reset_index(drop=True)
 
     return data
@@ -344,12 +337,20 @@ def generate_pred_tiles(
     points["UID"] = list(points.index)
 
     # Filter points by building presence and select relevant columns
-    filtered = filter_by_buildings(iso_code, config, points)
-    filtered = filtered[["UID", "geometry", "shapeName", "sum"]]
+    columns = ["UID", "geometry", "shapeName"]
+    points = points[columns]
+
+    temp_file = os.path.join(out_dir, f"{iso_code}_{shapename}_temp.geojson")
+    points.to_file(temp_file, driver="GeoJSON", index=False)
+    #filtered = filter_by_buildings(iso_code, config, points)
+    
+    filtered = filter_by_buildings(iso_code, config, points, in_vector=temp_file)
+    filtered = filtered[columns + ["sum"]]
 
     # Save the filtered points to a GeoPackage file
     #filtered.to_file(out_file, driver="GPKG", index=False)
     filtered.to_file(out_file, driver="GeoJSON", index=False)
+    os.remove(temp_file)
 
     return filtered
 
