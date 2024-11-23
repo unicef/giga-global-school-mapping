@@ -14,7 +14,7 @@ warnings.simplefilter("ignore")
 logging.basicConfig(level=logging.INFO)
 
 
-def download_data(config, profile, in_file):
+def main(config, profile, in_file):
     logging.info("Downloading UNICEF data...")
     download_utils.download_unicef(config, profile, in_file=in_file)
 
@@ -37,7 +37,7 @@ def download_data(config, profile, in_file):
     download_utils.download_ghsl(config, type="smod")
 
 
-def main():
+if __name__ == "__main__":
     # Load arguments from parser
     parser = argparse.ArgumentParser(description="Data Download")
     parser.add_argument("--config", help="Path to the configuration file")
@@ -51,8 +51,4 @@ def main():
     config = config_utils.load_config(config_file)
 
     # Commence data download
-    download_data(config, profile, args.in_file)
-
-
-if __name__ == "__main__":
-    main()
+    main(config, profile, args.in_file)

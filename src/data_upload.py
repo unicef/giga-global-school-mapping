@@ -12,5 +12,5 @@ dir_path = "output/MOZ/results"
 blob_dir_path = f"project/Dell_HPC/{dir_path}"
 giga_store.upload_directory(dir_path, blob_dir_path)
 
-# blob_dir_path = "project/Dell_HPC/output/RWA/results/ARCHIVE"
-# giga_store.rmdir(blob_dir_path)
+blob_dir_path = "project/Dell_HPC/output/RWA/results/ARCHIVE"
+giga_store.rmdir(blob_dir_path)
