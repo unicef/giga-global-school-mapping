@@ -42,3 +42,4 @@ translators==5.8.9
 torchsummary
 scikit-image
 wandb
+exactextract
