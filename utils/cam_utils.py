@@ -251,6 +251,7 @@ def cam_predict(
     results = generate_cam_points(
         data, config, geotiff_dir, model, cam_extractor, buffer_size
     )
+    logging.info(results.shape)
 
     # Assign building pixel sum to CAM points 
     results = pred_utils.filter_by_buildings(iso_code, config, results)
@@ -303,22 +304,23 @@ def generate_cam_points(
     logging.info(f"Generating CAM points for {len(data)}")
     for index in tqdm(list(data.index), total=len(data)):
         # Generate CAM for the current image
-        _, point, _ = generate_cam(
-            config, filepaths[index], model, cam_extractor, metrics=False, show=False
-        )
-        # Open the image file and extract coordinates for the CAM point
-        with rio.open(filepaths[index]) as map_layer:
-            coord = [map_layer.xy(point[1], point[0])]
-            coord = geometry.Point(coord)
-            crs = map_layer.crs
-            results.append(coord)
+        if os.path.exists(filepaths[index]):
+            _, point, _ = generate_cam(
+                config, filepaths[index], model, cam_extractor, metrics=False, show=False
+            )
+            # Open the image file and extract coordinates for the CAM point
+            with rio.open(filepaths[index]) as map_layer:
+                coord = [map_layer.xy(point[1], point[0])]
+                coord = geometry.Point(coord)
+                crs = map_layer.crs
+                results.append(coord)
 
-            # Optionally show the CAM point on the image
-            if show:
-                fig, ax = plt.subplots(figsize=(6, 6))
-                rasterio.plot.show(map_layer, ax=ax)
-                geom = gpd.GeoDataFrame(geometry=[coord], crs=crs)
-                geom.plot(facecolor="none", edgecolor="blue", ax=ax)
+                # Optionally show the CAM point on the image
+                if show:
+                    fig, ax = plt.subplots(figsize=(6, 6))
+                    rasterio.plot.show(map_layer, ax=ax)
+                    geom = gpd.GeoDataFrame(geometry=[coord], crs=crs)
+                    geom.plot(facecolor="none", edgecolor="blue", ax=ax)
 
     # Convert the results list to a GeoDataFrame
     results = gpd.GeoDataFrame(geometry=results, crs=crs)
@@ -362,9 +364,12 @@ def georeference_images(
         if not os.path.exists(filename):
             # Open the input image file
             dataset = rio.open(filepaths[index], "r")
+            if dataset.read().shape[0] < 3:
+                continue
 
             # Read specific bands from the image
             bands = [1, 2, 3]
+            #logging.info(filepaths[index])
             dataset = dataset.read(bands)
 
             # Get bounding box from the DataFrame for georeferencing
