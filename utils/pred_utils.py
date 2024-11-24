@@ -229,8 +229,8 @@ def load_model(iso_code: str, config: dict, verbose: bool = True) -> torch.nn.Mo
 
     # Log information if verbose is True
     if verbose:
-        logging.info(f"Device: {device}")
-        logging.info("Model file {} successfully loaded.".format(model_file))
+        print(f"Device: {device}")
+        print("Model file {} successfully loaded.".format(model_file))
 
     return model
 
