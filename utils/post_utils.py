@@ -640,7 +640,8 @@ def load_preds(
     filenames = [
         filename 
         for filename in filenames 
-        if filename.split(".")[-1] in [".gpkg", "geojson"]
+        if (filename.split(".")[-1] in [".gpkg", "geojson"]) 
+        and ("_temp" not in filename)
     ]
 
     # Initialize a list to store data from each file
@@ -648,7 +649,7 @@ def load_preds(
 
     # Read and process each file
     for filename in (pbar := data_utils.create_progress_bar(filenames)):
-        pbar.set_description(f"Reading files for {iso_code}...")
+        pbar.set_description(f"Reading {filename}...")
         subdata = gpd.read_file(os.path.join(out_dir, filename))
         if len(subdata) > 0:
             subdata = subdata[subdata["sum"] > sum_threshold]

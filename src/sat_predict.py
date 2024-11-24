@@ -35,8 +35,8 @@ def main(args):
     )
     shapenames = [args.shapename] if args.shapename else geoboundary.shapeName.unique()
 
-    for shapename in shapenames:
-        logging.info(f"Processing {shapename}...")
+    for index, shapename in enumerate(shapenames):
+        print(f"\nProcessing {shapename} ({index+1}/{len(shapenames)})...")
         tiles = pred_utils.generate_pred_tiles(
             data_config,
             iso_code=args.iso_code,
@@ -47,12 +47,11 @@ def main(args):
         )
         tiles["points"] = tiles["geometry"].centroid
         tiles = tiles[tiles["sum"] > args.sum_threshold].reset_index(drop=True)
-        logging.info(f"Total tiles: {tiles.shape}")
 
         data = tiles.copy()
         data["geometry"] = data["points"]
         sat_dir = os.path.join(cwd, "output", args.iso_code, "images", shapename)
-        logging.info(f"Downloading satellite images for {shapename}...")
+        print(f"Downloading {tiles.shape[0]} satellite images for {shapename} ...")
         sat_download.download_sat_images(
             sat_creds, sat_config, data=data, out_dir=sat_dir
         )

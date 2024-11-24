@@ -102,7 +102,7 @@ def get_best_cam_method(iso_code: str, model_config: dict) -> str:
         cam_method = cam_results[
             cam_results["score"] == cam_results["score"].min()
         ]["method"].values[0]
-        logging.info(f"Best cam method: {cam_method}")
+        print(f"Best cam method: {cam_method}")
     else:
         raise FileNotFoundError(f"CAM results file not found at {cam_results_file}")
     return cam_method
@@ -251,10 +251,14 @@ def cam_predict(
     results = generate_cam_points(
         data, config, geotiff_dir, model, cam_extractor, buffer_size
     )
-    logging.info(results.shape)
 
     # Assign building pixel sum to CAM points 
-    results = pred_utils.filter_by_buildings(iso_code, config, results)
+    print(f"Filtering buildings for {len(results)}")
+    temp_file = os.path.join(
+        out_dir, f"{iso_code}_{shapename}_{config['config_name']}_{cam_method}_temp.geojson"
+    )
+    results.to_file(temp_file, driver="GeoJSON")
+    results = pred_utils.filter_by_buildings(iso_code, config, results, in_vector=temp_file)
 
     # Save the resulting CAM points to a GeoJSON file
     results.to_file(out_file, driver="GeoJSON")
@@ -301,7 +305,7 @@ def generate_cam_points(
     crs = data.crs
 
     # Iterate over each row in the DataFrame
-    logging.info(f"Generating CAM points for {len(data)}")
+    print(f"Generating CAM points for {len(data)}")
     for index in tqdm(list(data.index), total=len(data)):
         # Generate CAM for the current image
         if os.path.exists(filepaths[index]):
