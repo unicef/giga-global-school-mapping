@@ -64,14 +64,14 @@ def read_file(
 
 
 def standardize_data(
-    config: dict, 
-    iso_code: str, 
-    cam_method: str = None, 
-    source: str = "preds", 
-    uid: str = "PUID"
+    config: dict,
+    iso_code: str,
+    cam_method: str = None,
+    source: str = "preds",
+    uid: str = "PUID",
 ) -> gpd.GeoDataFrame:
     """
-    Standardizes data for a given country and model configuration. This includes renaming columns, 
+    Standardizes data for a given country and model configuration. This includes renaming columns,
     generating unique IDs, adding administrative fields, and transforming to a standard coordinate system.
 
     Args:
@@ -146,13 +146,10 @@ def standardize_data(
 
 
 def add_admin_fields(
-    config: dict, 
-    iso_code: str, 
-    data: gpd.GeoDataFrame, 
-    crs: str = "EPSG:4326"
+    config: dict, iso_code: str, data: gpd.GeoDataFrame, crs: str = "EPSG:4326"
 ) -> gpd.GeoDataFrame:
     """
-    Adds administrative fields (admin1 and admin2) to the data by spatially joining 
+    Adds administrative fields (admin1 and admin2) to the data by spatially joining
     it with administrative boundaries.
 
     Args:
@@ -616,10 +613,13 @@ def load_preds(
             and joined administrative boundaries.
     """
     # Get the ensemble model configurations
-    model_configs = model_utils.get_ensemble_configs(iso_code, data_config)
     best_models = model_utils.get_best_models(iso_code, data_config)
     model_config = config_utils.load_config(best_models[0])
+
+    # Update project name to match config
     model_config["project"] = data_config["project"]
+
+    # Retrieve the best CAM method
     cam_method = cam_utils.get_best_cam_method(iso_code, model_config)
 
     # Construct the output directory path for the CAM results
@@ -634,14 +634,13 @@ def load_preds(
         model_config["config_name"],
         cam_method,
     )
-    # print(out_dir)
 
     # Retrieve the list of filenames from the output directory
     filenames = next(os.walk(out_dir), (None, None, []))[2]
     filenames = [
-        filename 
-        for filename in filenames 
-        if (filename.split(".")[-1] in [".gpkg", "geojson"]) 
+        filename
+        for filename in filenames
+        if (filename.split(".")[-1] in [".gpkg", "geojson"])
         and ("_temp" not in filename)
     ]
 
@@ -686,12 +685,7 @@ def load_preds(
     return data
 
 
-def save_results(
-    iso_code: str,
-    data: gpd.GeoDataFrame,
-    source: str,
-    config
-):
+def save_results(iso_code: str, data: gpd.GeoDataFrame, source: str, config):
     """
     Saves the provided data to a GeoJSON file in the specified output directory.
 
@@ -711,9 +705,14 @@ def save_results(
         "results",
         config["project"],
     )
+    # Load best model config
     best_models = model_utils.get_best_models(iso_code, config)
     best_config = config_utils.load_config(best_models[0])
+
+    # Overwrite project name to match config
     best_config["project"] = config["project"]
+
+    # Get best CAM method
     cam_method = cam_utils.get_best_cam_method(iso_code, best_config)
 
     # Determine the output file name based on the source type and CAM method
