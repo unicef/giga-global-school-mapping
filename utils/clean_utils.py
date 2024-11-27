@@ -37,8 +37,7 @@ def sample_points(
     config: dict,
     buffer_size: float,
     spacing: float,
-    name: str = "clean",
-    suffix: str = "_prob",
+    name: str = "clean"
 ) -> gpd.GeoDataFrame:
     """
     Sample points for augmentation, filtering out those overlapping with positive class geometries.
@@ -61,7 +60,7 @@ def sample_points(
     points = data_utils.generate_samples(config, iso_code, buffer_size, spacing)
 
     # Read positive data and perform buffer operation on geometries
-    filename = f"{iso_code}_{name}{suffix}.geojson"
+    filename = f"{iso_code}_{name}.geojson"
     vector_dir = os.path.join(os.getcwd(), config["vectors_dir"], config["project"])
     pos_file = os.path.join(vector_dir, config["pos_class"], name, filename)
     pos_df = gpd.read_file(pos_file).to_crs("EPSG:3857")
@@ -114,8 +113,7 @@ def augment_negative_samples(
     iso_code: str,
     config: dict,
     imb_ratio: int = 2,
-    name: str = "clean",
-    suffix: str = "_prob",
+    name: str = "clean"
 ) -> gpd.GeoDataFrame:
     """
     Augments negative samples to balance with positive samples.
@@ -146,7 +144,7 @@ def augment_negative_samples(
         config["project"],
         config["pos_class"],
         name,
-        f"{iso_code}_{name}{suffix}.geojson",
+        f"{iso_code}_{name}.geojson",
     )
     logging.info(f"Reading {pos_file}...")
     positives = gpd.read_file(pos_file)
@@ -261,7 +259,7 @@ def filter_uninhabited_locations(
                     image[image == 255] = 1
                     pixel_sum = np.sum(image)
                 except Exception as e:
-                    logging.info(e)
+                    #logging.info(e)
                     pass
 
         # If no building pixels found, attempt with Google Open Buildings
@@ -274,7 +272,7 @@ def filter_uninhabited_locations(
                         image[image == 255] = 1
                         pixel_sum = np.sum(image)
                     except Exception as e:
-                        logging.info(e)
+                        #logging.info(e)
                         pass
 
         # If no building pixels found, attempt with GHSL data
@@ -302,8 +300,7 @@ def filter_pois_within_object_proximity(
     config: dict,
     proximity: float,
     sources: list,
-    name: str = "clean",
-    suffix: str = "_prob",
+    name: str = "clean"
 ) -> gpd.GeoDataFrame:
     """
     Filters points of interest (POIs) within a specified proximity of school locations.
@@ -325,7 +322,7 @@ def filter_pois_within_object_proximity(
     """
     # Set the data directory and file paths
     data_dir = os.path.join(os.getcwd(), config["vectors_dir"], config["project"])
-    filename = f"{iso_code}_{name}{suffix}.geojson"
+    filename = f"{iso_code}_{name}.geojson"
 
     # Read positive class data (e.g., school locations)
     pos_file = os.path.join(os.getcwd(), data_dir, config["pos_class"], name, filename)
