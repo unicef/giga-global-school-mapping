@@ -116,8 +116,8 @@ def map_coordinates(
 
 def generate_predictions(
     iso_code: str, 
+    config: dict,
     model_iso_code: str, 
-    model_configs: dict, 
     category: str = "school"
 ) -> gpd.GeoDataFrame:
     """
@@ -138,28 +138,29 @@ def generate_predictions(
         gpd.GeoDataFrame: GeoDataFrame with prediction probabilities averaged across models.
     """
     # Retrieve configurations for the ensemble models
-    model_configs = model_utils.get_ensemble_configs(model_iso_code, model_configs)
+    model_configs = model_utils.get_ensemble_configs(model_iso_code)
 
     # Determine output file path for predictions
     out_file = get_filename(
-        iso_code, model_configs[0], category="school", name="clean"
+        iso_code, config, category="school", name="clean"
     )
 
     # If predictions already exist, load and return them
     if os.path.exists(out_file):
         data = gpd.read_file(out_file)
-        return data
+        if 'prob' in data.columns:
+            return data
 
     # Define input directory and file path based on model configuration
     in_dir = os.path.join(
         os.getcwd(),
-        model_configs[0]["rasters_dir"],
-        model_configs[0]["maxar_dir"],
-        model_configs[0]["project"],
+        config["rasters_dir"],
+        config["maxar_dir"],
+        config["project"],
         iso_code,
         category.lower(),
     )
-    in_file = get_filename(iso_code, model_configs[0], category="school", name="clean")
+    in_file = get_filename(iso_code, config, category="school", name="clean")
 
     # Read the input data
     data = gpd.read_file(in_file)
@@ -180,7 +181,7 @@ def generate_predictions(
 
     # Save the prediction data to the output file
     out_file = get_filename(
-        iso_code, model_configs[0], category="school", name="clean"
+        iso_code, config, category="school", name="clean"
     )
     data.to_file(out_file)
     return data
