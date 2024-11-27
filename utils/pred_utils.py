@@ -104,7 +104,6 @@ def cnn_predict(
     )
 
     name = f"{iso_code}_{shapename}"
-    #out_file = os.path.join(out_dir, f"{name}_{config['config_name']}_results.gpkg")
     out_file = os.path.join(out_dir, f"{name}_{config['config_name']}_results.geojson")
 
     # If the results file already exists, read and return it
@@ -118,7 +117,6 @@ def cnn_predict(
     # Prepare and save the results as a GeoDataFrame
     results = results[["UID", "geometry", "prob"]]
     results = gpd.GeoDataFrame(results, geometry="geometry")
-    #results.to_file(out_file, driver="GPKG")
     results.to_file(out_file, driver="GeoJSON")
 
     return results
@@ -163,7 +161,6 @@ def ensemble_predict(
     )
     # Define the output file path
     name = f"{iso_code}_{shapename}"
-    #out_file = os.path.join(out_dir, f"{name}_ensemble_results.gpkg")
     out_file = os.path.join(out_dir, f"{name}_ensemble_results.geojson")
 
     # Initialize an array to accumulate probabilities from each model
@@ -191,7 +188,6 @@ def ensemble_predict(
     results["pred"] = preds
 
     # Save the results to a GeoPackage file
-    #results.to_file(out_file, driver="GPKG")
     results.to_file(out_file, driver="GeoJSON")
     return results
 
@@ -275,7 +271,7 @@ def filter_by_buildings(
             )["sum"]
 
         ghsl_sum = 0
-        if os.path.exists(google_path):
+        if os.path.exists(ghsl_path):
             ghsl_sum = exact_extract(
                 ghsl_path, in_vector, 'sum', output='pandas', progress=True
             )["sum"]
@@ -348,7 +344,6 @@ def generate_pred_tiles(
     filtered = filtered[columns + ["sum"]]
 
     # Save the filtered points to a GeoPackage file
-    #filtered.to_file(out_file, driver="GPKG", index=False)
     filtered.to_file(out_file, driver="GeoJSON", index=False)
     os.remove(temp_file)
 
