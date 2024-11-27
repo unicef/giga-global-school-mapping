@@ -344,7 +344,7 @@ def download_unicef(
         # Check if the file already exists to avoid redundant processing
         if not os.path.exists(out_subfile):
             if in_file:
-                subdata = pd.read_csv(os.path.join(data_dir, in_file))
+                subdata = pd.read_csv(os.path.join(os.getcwd(), in_file))
             else:
                 # Initialize Delta Sharing client
                 try:
