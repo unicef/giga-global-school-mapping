@@ -347,14 +347,14 @@ def get_model_output(
 
 def get_best_models(
     iso_code: str,
-    config_file: str = 'configs/config.yaml'
+    config
 ):
-    config = config_utils.load_config(os.path.join(os.getcwd(), config_file))
     config_results = dict()
     for model_type in config["all_models"]:
         config_results[model_type] = dict()
         for model_file in config["all_models"][model_type]:
             model_config = config_utils.load_config(model_file)
+            model_config["project"] = config["project"]
             val_output = get_model_output(
                 iso_code, 
                 model_config, 
@@ -399,7 +399,7 @@ def get_best_models(
 
      
     
-def get_ensemble_configs(iso_code: str) -> list:
+def get_ensemble_configs(iso_code: str, config: dict) -> list:
     """
     Loads and returns a list of model configuration files for ensemble predictions.
 
@@ -413,7 +413,7 @@ def get_ensemble_configs(iso_code: str) -> list:
     """
     model_configs = [] # Initialize list to hold each loaded model configuration
 
-    configs = get_best_models(iso_code)
+    configs = get_best_models(iso_code, config)
 
     # Iterate over each model file associated with the given iso_code
     for model_file in configs: #config[iso_code]:
@@ -421,12 +421,13 @@ def get_ensemble_configs(iso_code: str) -> list:
         model_config = config_utils.load_config(
             os.path.join(os.getcwd(), model_file)
         )
+        model_config["project"] = config["project"]
         model_configs.append(model_config)# Add loaded configuration to the list
 
     return model_configs
 
 
-def ensemble_models(iso_code, prob_col="y_probs", phase="val", pretrained=None):
+def ensemble_models(iso_code, config, prob_col="y_probs", phase="val", pretrained=None):
     """
     Generates ensemble predictions by averaging the output probabilities of multiple models.
 
@@ -447,7 +448,7 @@ def ensemble_models(iso_code, prob_col="y_probs", phase="val", pretrained=None):
     probs = 0 # Initialize cumulative probability sum
 
     # Load all model configurations for the specified iso_code
-    model_configs = get_ensemble_configs(iso_code)
+    model_configs = get_ensemble_configs(iso_code, config)
 
     # Loop through each model configuration to accumulate model output probabilities
     for model_config in model_configs:

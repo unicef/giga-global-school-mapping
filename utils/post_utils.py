@@ -616,9 +616,10 @@ def load_preds(
             and joined administrative boundaries.
     """
     # Get the ensemble model configurations
-    model_configs = model_utils.get_ensemble_configs(iso_code)
-    best_models = model_utils.get_best_models(iso_code)
+    model_configs = model_utils.get_ensemble_configs(iso_code, data_config)
+    best_models = model_utils.get_best_models(iso_code, data_config)
     model_config = config_utils.load_config(best_models[0])
+    model_config["project"] = data_config["project"]
     cam_method = cam_utils.get_best_cam_method(iso_code, model_config)
 
     # Construct the output directory path for the CAM results
@@ -689,7 +690,7 @@ def save_results(
     iso_code: str,
     data: gpd.GeoDataFrame,
     source: str,
-    config_file: str = 'configs/config.yaml'
+    config
 ):
     """
     Saves the provided data to a GeoJSON file in the specified output directory.
@@ -703,7 +704,6 @@ def save_results(
             Default is None.
     """
     # Construct the base output directory path based on the configuration and ISO code
-    config = config_utils.load_config(os.path.join(os.getcwd(), config_file))
     out_dir = os.path.join(
         os.getcwd(),
         "output",
@@ -711,17 +711,19 @@ def save_results(
         "results",
         config["project"],
     )
-    best_models = model_utils.get_best_models(iso_code)
+    best_models = model_utils.get_best_models(iso_code, config)
     best_config = config_utils.load_config(best_models[0])
+    best_config["project"] = config["project"]
     cam_method = cam_utils.get_best_cam_method(iso_code, best_config)
 
     # Determine the output file name based on the source type and CAM method
     out_file = f"{iso_code}_{source}.geojson"
     if source == "preds":
         out_dir = os.path.join(out_dir, "cams")
-        model_config = model_utils.get_ensemble_configs(iso_code)[0]
+        model_config = model_utils.get_ensemble_configs(iso_code, config)[0]
         out_file = f"{iso_code}_{model_config['config_name']}_{cam_method}.geojson"
 
     # Construct the full path for the output file
     out_file = os.path.join(out_dir, out_file)
     data.to_file(out_file, driver="GeoJSON")
+    print(f"Output saved to {out_file}")

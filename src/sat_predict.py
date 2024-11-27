@@ -27,8 +27,13 @@ def main(args):
 
     sat_config_file = os.path.join(cwd, args.sat_config)
     sat_creds_file = os.path.join(cwd, args.sat_creds)
+
     sat_config = config_utils.load_config(sat_config_file)
     sat_creds = config_utils.create_config(sat_creds_file)
+
+    if args.project:
+        data_config["project"] = args.project
+        sat_config["project"] = args.project
 
     geoboundary = data_utils.get_geoboundaries(
         data_config, args.iso_code, adm_level="ADM2"
@@ -57,10 +62,10 @@ def main(args):
         )
 
         print(f"Generating predictions for {shapename}...")
-        model_configs = model_utils.get_ensemble_configs(args.iso_code)
+        model_configs = model_utils.get_ensemble_configs(args.iso_code, data_config)
 
         # Calculate the threshold that optimizes the F2 score of the validation set
-        val_output = model_utils.ensemble_models(args.iso_code, phase="val")
+        val_output = model_utils.ensemble_models(args.iso_code, data_config, phase="val")
         val_results = eval_utils.evaluate(
             y_true=val_output["y_true"], 
             y_pred=val_output["y_preds"], 
@@ -105,7 +110,8 @@ def main(args):
     post_utils.save_results(
         args.iso_code, 
         preds, 
-        source="preds"
+        source="preds",
+        config=data_config
     )
     return results
 
@@ -121,6 +127,7 @@ if __name__ == "__main__":
     parser.add_argument("--buffer_size", help="Buffer size", default=150)
     parser.add_argument("--overlap_buffer_size", help="Buffer size", default=25)
     parser.add_argument("--sum_threshold", help="Pixel sum threshold", default=5)
+    parser.add_argument("--project", help="Overwrite project name", default=None)
     parser.add_argument("--iso_code", help="ISO code")
     args = parser.parse_args()
     logging.info(args)
