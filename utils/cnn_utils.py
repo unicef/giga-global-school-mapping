@@ -1,4 +1,5 @@
 import os
+import time
 from tqdm import tqdm
 import pandas as pd
 import numpy as np
@@ -48,7 +49,7 @@ import logging
 
 SEED = 42
 logging.basicConfig(level=logging.INFO)
-ImageFile.LOAD_TRUNCATED_IMAGES=True
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 imagenet_mean = [0.485, 0.456, 0.406]
 imagenet_std = [0.229, 0.224, 0.225]
@@ -110,7 +111,6 @@ class SchoolDataset(Dataset):
             return_uid (bool): Flag to determine if UID should be returned.
         """
         self.return_uid = return_uid
-
 
     def __getitem__(self, index: int):
         """

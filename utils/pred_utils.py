@@ -232,7 +232,11 @@ def load_model(iso_code: str, config: dict, verbose: bool = True) -> torch.nn.Mo
 
 
 def filter_by_buildings(
-    iso_code: str, config: dict, data: gpd.GeoDataFrame, in_vector: str = None, n_seconds: int = 10
+    iso_code: str,
+    config: dict,
+    data: gpd.GeoDataFrame,
+    in_vector: str = None,
+    n_seconds: int = 10,
 ) -> pd.DataFrame:
     """
     Filters the data based on building presence by summing pixel values from building raster files.
@@ -253,27 +257,26 @@ def filter_by_buildings(
     google_path = os.path.join(raster_dir, "google_buildings", f"{iso_code}_google.tif")
     ghsl_path = os.path.join(raster_dir, "ghsl", config["ghsl_built_c_file"])
 
-    pixel_sums = []
     data = data.reset_index(drop=True)
     print(f"Filtering buildings for {len(data)}")
-    
+
     if in_vector:
         ms_sum = 0
         if os.path.exists(ms_path):
             ms_sum = exact_extract(
-                ms_path, in_vector, 'sum', output='pandas', progress=True
+                ms_path, in_vector, "sum", output="pandas", progress=True
             )["sum"]
 
         google_sum = 0
         if os.path.exists(google_path):
             google_sum = exact_extract(
-                google_path, in_vector, 'sum', output='pandas', progress=True
+                google_path, in_vector, "sum", output="pandas", progress=True
             )["sum"]
 
         ghsl_sum = 0
         if os.path.exists(ghsl_path):
             ghsl_sum = exact_extract(
-                ghsl_path, in_vector, 'sum', output='pandas', progress=True
+                ghsl_path, in_vector, "sum", output="pandas", progress=True
             )["sum"]
 
         data["sum"] = ms_sum + google_sum + ghsl_sum
@@ -338,8 +341,8 @@ def generate_pred_tiles(
 
     temp_file = os.path.join(out_dir, f"{iso_code}_{shapename}_temp.geojson")
     points.to_file(temp_file, driver="GeoJSON", index=False)
-    #filtered = filter_by_buildings(iso_code, config, points)
-    
+    # filtered = filter_by_buildings(iso_code, config, points)
+
     filtered = filter_by_buildings(iso_code, config, points, in_vector=temp_file)
     filtered = filtered[columns + ["sum"]]
 

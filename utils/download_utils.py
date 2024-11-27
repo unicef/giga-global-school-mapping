@@ -643,7 +643,7 @@ def download_google_buildings(
 
     Args:
         location: The location name for which to download the dataset.
-        out_dir: The output directory to save the downloaded files. 
+        out_dir: The output directory to save the downloaded files.
             If not provided, the current working directory is used.
         merge_output: Optional. The output file path for merging the downloaded files into a single GeoDataFrame.
         head: Optional. The number of files to download. If not provided, all files will be downloaded.

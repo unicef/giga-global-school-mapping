@@ -33,11 +33,7 @@ def filter_keywords(
 
 
 def sample_points(
-    iso_code: str,
-    config: dict,
-    buffer_size: float,
-    spacing: float,
-    name: str = "clean"
+    iso_code: str, config: dict, buffer_size: float, spacing: float, name: str = "clean"
 ) -> gpd.GeoDataFrame:
     """
     Sample points for augmentation, filtering out those overlapping with positive class geometries.
@@ -110,10 +106,7 @@ def sample_points(
 
 
 def augment_negative_samples(
-    iso_code: str,
-    config: dict,
-    imb_ratio: int = 2,
-    name: str = "clean"
+    iso_code: str, config: dict, imb_ratio: int = 2, name: str = "clean"
 ) -> gpd.GeoDataFrame:
     """
     Augments negative samples to balance with positive samples.
@@ -258,8 +251,7 @@ def filter_uninhabited_locations(
                     image, transform = rio.mask.mask(src, geometry, crop=True)
                     image[image == 255] = 1
                     pixel_sum = np.sum(image)
-                except Exception as e:
-                    #logging.info(e)
+                except:
                     pass
 
         # If no building pixels found, attempt with Google Open Buildings
@@ -271,8 +263,7 @@ def filter_uninhabited_locations(
                         image, transform = rio.mask.mask(src, geometry, crop=True)
                         image[image == 255] = 1
                         pixel_sum = np.sum(image)
-                    except Exception as e:
-                        #logging.info(e)
+                    except:
                         pass
 
         # If no building pixels found, attempt with GHSL data
@@ -296,11 +287,7 @@ def filter_uninhabited_locations(
 
 
 def filter_pois_within_object_proximity(
-    iso_code: str,
-    config: dict,
-    proximity: float,
-    sources: list,
-    name: str = "clean"
+    iso_code: str, config: dict, proximity: float, sources: list, name: str = "clean"
 ) -> gpd.GeoDataFrame:
     """
     Filters points of interest (POIs) within a specified proximity of school locations.
