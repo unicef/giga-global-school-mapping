@@ -252,7 +252,6 @@ def cam_predict(
     )
 
     # Assign building pixel sum to CAM points
-    print(f"Filtering buildings for {len(results)}")
     temp_file = os.path.join(
         out_dir,
         f"{iso_code}_{shapename}_{config['config_name']}_{cam_method}_temp.geojson",

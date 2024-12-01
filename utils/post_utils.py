@@ -587,7 +587,6 @@ def load_osm_overture(
 def load_preds(
     iso_code: str,
     data_config: dict,
-    sum_threshold: float = 0,
     buffer_size: float = 25,
     calibrator=None,
     source: str = "pred",
@@ -652,7 +651,6 @@ def load_preds(
         pbar.set_description(f"Reading {filename}...")
         subdata = gpd.read_file(os.path.join(out_dir, filename))
         if len(subdata) > 0:
-            subdata = subdata[subdata["sum"] > sum_threshold]
             data.append(subdata)
 
     # Concatenate data from all files, remove duplicates, and reset index
@@ -685,7 +683,7 @@ def load_preds(
     return data
 
 
-def save_results(iso_code: str, data: gpd.GeoDataFrame, source: str, config):
+def save_results(iso_code: str, data: gpd.GeoDataFrame, source: str, config: dict):
     """
     Saves the provided data to a GeoJSON file in the specified output directory.
 
