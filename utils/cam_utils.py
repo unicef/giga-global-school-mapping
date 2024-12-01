@@ -70,7 +70,7 @@ cams = {
 
 def get_best_cam_method(iso_code: str, model_config: dict) -> str:
     """
-    Determines the best Class Activation Map (CAM) method for a specified model 
+    Determines the best Class Activation Map (CAM) method for a specified model
     configuration and country, based on the minimum score in the CAM results file.
 
     Args:
@@ -80,7 +80,7 @@ def get_best_cam_method(iso_code: str, model_config: dict) -> str:
             - project (str): The name of the project folder where results are stored.
 
     Returns:
-        str: The name of the CAM method with the lowest score, indicating the 
+        str: The name of the CAM method with the lowest score, indicating the
              best-performing method for the specified model and country.
 
     Raises:
@@ -92,16 +92,16 @@ def get_best_cam_method(iso_code: str, model_config: dict) -> str:
         "exp",
         model_config["project"],
         f"{iso_code}_{model_name}",
-        "cam_results.csv"
+        "cam_results.csv",
     )
     if os.path.exists(cam_results_file):
         cam_results = pd.read_csv(cam_results_file)
         cam_results["method"] = cam_results["method"].replace(
-            {"gradcam++" : "gradcamplusplus"}
+            {"gradcam++": "gradcamplusplus"}
         )
-        cam_method = cam_results[
-            cam_results["score"] == cam_results["score"].min()
-        ]["method"].values[0]
+        cam_method = cam_results[cam_results["score"] == cam_results["score"].min()][
+            "method"
+        ].values[0]
         print(f"Best cam method: {cam_method}")
     else:
         raise FileNotFoundError(f"CAM results file not found at {cam_results_file}")
@@ -192,10 +192,9 @@ def cam_predict(
     buffer_size: int = 50,
     verbose: bool = False,
 ) -> gpd.GeoDataFrame:
-
     """
-    Runs the Class Activation Map (CAM) prediction process for a given region, model configuration, 
-    and dataset, and saves the results as a GeoJSON file. If results already exist, 
+    Runs the Class Activation Map (CAM) prediction process for a given region, model configuration,
+    and dataset, and saves the results as a GeoJSON file. If results already exist,
     loads them directly.
 
     Args:
@@ -239,10 +238,10 @@ def cam_predict(
     # If the output file already exists, load and return it
     if os.path.exists(out_file):
         return gpd.read_file(out_file)
-    
+
     # Load the specified model for the country and configuration
     model = pred_utils.load_model(iso_code, config)
-    model.eval() # Set model to evaluation mode for inference
+    model.eval()  # Set model to evaluation mode for inference
 
     # Initialize the CAM extractor with the selected CAM method and model
     cam_extractor = get_cam_extractor(config, model, cam_method)
@@ -252,17 +251,19 @@ def cam_predict(
         data, config, geotiff_dir, model, cam_extractor, buffer_size
     )
 
-    # Assign building pixel sum to CAM points 
-    print(f"Filtering buildings for {len(results)}")
+    # Assign building pixel sum to CAM points
     temp_file = os.path.join(
-        out_dir, f"{iso_code}_{shapename}_{config['config_name']}_{cam_method}_temp.geojson"
+        out_dir,
+        f"{iso_code}_{shapename}_{config['config_name']}_{cam_method}_temp.geojson",
     )
     results.to_file(temp_file, driver="GeoJSON")
-    results = pred_utils.filter_by_buildings(iso_code, config, results, in_vector=temp_file)
+    results = pred_utils.filter_by_buildings(
+        iso_code, config, results, in_vector=temp_file
+    )
 
     # Save the resulting CAM points to a GeoJSON file
     results.to_file(out_file, driver="GeoJSON")
-    
+
     return results
 
 
@@ -276,7 +277,7 @@ def generate_cam_points(
     show: bool = False,
 ) -> gpd.GeoDataFrame:
     """
-    Generates Class Activation Map (CAM) points for each image in the dataset 
+    Generates Class Activation Map (CAM) points for each image in the dataset
     and returns them as a GeoDataFrame.
 
     Args:
@@ -286,7 +287,7 @@ def generate_cam_points(
         model (torch.nn.Module): The neural network model used for CAM extraction.
         cam_extractor (callable): Function or class used for extracting CAMs.
         buffer_size (int, optional): Buffer size around each CAM point in meters. Defaults to 50.
-        show (bool, optional): If True, displays the CAM points on top of the raster images. 
+        show (bool, optional): If True, displays the CAM points on top of the raster images.
             Defaults to False.
 
     Returns:
@@ -310,7 +311,12 @@ def generate_cam_points(
         # Generate CAM for the current image
         if os.path.exists(filepaths[index]):
             _, point, _ = generate_cam(
-                config, filepaths[index], model, cam_extractor, metrics=False, show=False
+                config,
+                filepaths[index],
+                model,
+                cam_extractor,
+                metrics=False,
+                show=False,
             )
             # Open the image file and extract coordinates for the CAM point
             with rio.open(filepaths[index]) as map_layer:
@@ -373,7 +379,7 @@ def georeference_images(
 
             # Read specific bands from the image
             bands = [1, 2, 3]
-            #logging.info(filepaths[index])
+            # logging.info(filepaths[index])
             dataset = dataset.read(bands)
 
             # Get bounding box from the DataFrame for georeferencing

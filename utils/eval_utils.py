@@ -364,7 +364,7 @@ def evaluate(
 
 def plot_results(results: dict, plot: str = "det"):
     """
-    Plots Precision-Recall (PR) or Detection Error Tradeoff (DET) 
+    Plots Precision-Recall (PR) or Detection Error Tradeoff (DET)
     results based on a given threshold.
 
     Args:
@@ -378,7 +378,7 @@ def plot_results(results: dict, plot: str = "det"):
         plot (str, optional): Type of plot to display. Default is "det".
             - "pr" for Precision-Recall
             - "det" for Detection Error Tradeoff
-    
+
     Returns:
         None
     """

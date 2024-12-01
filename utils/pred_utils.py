@@ -104,7 +104,6 @@ def cnn_predict(
     )
 
     name = f"{iso_code}_{shapename}"
-    #out_file = os.path.join(out_dir, f"{name}_{config['config_name']}_results.gpkg")
     out_file = os.path.join(out_dir, f"{name}_{config['config_name']}_results.geojson")
 
     # If the results file already exists, read and return it
@@ -118,7 +117,6 @@ def cnn_predict(
     # Prepare and save the results as a GeoDataFrame
     results = results[["UID", "geometry", "prob"]]
     results = gpd.GeoDataFrame(results, geometry="geometry")
-    #results.to_file(out_file, driver="GPKG")
     results.to_file(out_file, driver="GeoJSON")
 
     return results
@@ -163,7 +161,6 @@ def ensemble_predict(
     )
     # Define the output file path
     name = f"{iso_code}_{shapename}"
-    #out_file = os.path.join(out_dir, f"{name}_ensemble_results.gpkg")
     out_file = os.path.join(out_dir, f"{name}_ensemble_results.geojson")
 
     # Initialize an array to accumulate probabilities from each model
@@ -191,7 +188,6 @@ def ensemble_predict(
     results["pred"] = preds
 
     # Save the results to a GeoPackage file
-    #results.to_file(out_file, driver="GPKG")
     results.to_file(out_file, driver="GeoJSON")
     return results
 
@@ -236,7 +232,11 @@ def load_model(iso_code: str, config: dict, verbose: bool = True) -> torch.nn.Mo
 
 
 def filter_by_buildings(
-    iso_code: str, config: dict, data: gpd.GeoDataFrame, in_vector: str = None, n_seconds: int = 10
+    iso_code: str,
+    config: dict,
+    data: gpd.GeoDataFrame,
+    in_vector: str = None,
+    n_seconds: int = 10,
 ) -> pd.DataFrame:
     """
     Filters the data based on building presence by summing pixel values from building raster files.
@@ -250,38 +250,74 @@ def filter_by_buildings(
     Returns:
         pd.DataFrame: Filtered DataFrame containing only entries with building presence.
     """
-    # Define paths to the multispectral and Google building raster files
+
+    def count_points(data, path):
+        points = gpd.GeoDataFrame.from_file(ms_path)
+        points["geometry"] = points.centroid
+
+        pixel_sum = gpd.tools.sjoin(data, points, how="left")
+        pixel_sum = pixel_sum.groupby("UID")["type"].agg(["count"])
+        return pixel_sum["count"]
+
+    # Get the current working directory
     cwd = os.getcwd()
+
+    # Define the path to the raster directory
     raster_dir = os.path.join(cwd, config["rasters_dir"])
-    ms_path = os.path.join(raster_dir, "ms_buildings", f"{iso_code}_ms.tif")
-    google_path = os.path.join(raster_dir, "google_buildings", f"{iso_code}_google.tif")
+    vector_dir = os.path.join(cwd, config["vectors_dir"])
+
+    # Define the file paths for different building datasets (e.g., Microsoft, Google, GHSL)
+    # ms_path = os.path.join(raster_dir, "ms_buildings", f"{iso_code}_ms.tif")
+    # google_path = os.path.join(raster_dir, "google_buildings", f"{iso_code}_google.tif")
+    ms_path = os.path.join(
+        vector_dir, "ms_buildings", f"{iso_code}_ms_EPSG3857.geojson"
+    )
+    google_path = os.path.join(
+        vector_dir, "google_buildings", f"{iso_code}_google_EPSG3857.geojson"
+    )
     ghsl_path = os.path.join(raster_dir, "ghsl", config["ghsl_built_c_file"])
 
-    pixel_sums = []
+    # Reset the index of the data to ensure consistency
     data = data.reset_index(drop=True)
+
+    # Log the number of records being processed
     print(f"Filtering buildings for {len(data)}")
-    
+
+    # Check if an input vector (`in_vector`) is provided
     if in_vector:
+
+        # Initialize sum for Microsoft building data
         ms_sum = 0
+        # If the Microsoft building data exists, extract the sum of building areas within the vector
         if os.path.exists(ms_path):
-            ms_sum = exact_extract(
-                ms_path, in_vector, 'sum', output='pandas', progress=True
-            )["sum"]
+            # ms_sum = exact_extract(
+            #    ms_path, in_vector, "sum", output="pandas", progress=True
+            # )["sum"]
+            ms_sum = count_points(data, ms_path)
 
+        # Initialize sum for Google building data
         google_sum = 0
+        # If the Google building data exists, extract the sum of building areas within the vector
         if os.path.exists(google_path):
-            google_sum = exact_extract(
-                google_path, in_vector, 'sum', output='pandas', progress=True
-            )["sum"]
+            # google_sum = exact_extract(
+            #    google_path, in_vector, "sum", output="pandas", progress=True
+            # )["sum"]
+            google_sum = count_points(data, google_path)
 
+        # Initialize sum for GHSL building data
         ghsl_sum = 0
-        if os.path.exists(google_path):
+        # If the GHSL building data exists, extract the sum of building areas within the vector
+        if os.path.exists(ghsl_path):
+            in_vector = in_vector.replace(".geojson", "_esri.geojson")
+            data.to_crs("ESRI:54009").to_file(in_vector)
             ghsl_sum = exact_extract(
-                ghsl_path, in_vector, 'sum', output='pandas', progress=True
+                ghsl_path, in_vector, "sum", output="pandas", progress=True
             )["sum"]
 
+        # Compute the total sum of building areas from all sources and add it as a new column
         data["sum"] = ms_sum + google_sum + ghsl_sum
 
+    # Reset the index again to ensure the data is clean and ready for further processing
     data = data.reset_index(drop=True)
 
     return data
@@ -342,15 +378,14 @@ def generate_pred_tiles(
 
     temp_file = os.path.join(out_dir, f"{iso_code}_{shapename}_temp.geojson")
     points.to_file(temp_file, driver="GeoJSON", index=False)
-    #filtered = filter_by_buildings(iso_code, config, points)
-    
+    # filtered = filter_by_buildings(iso_code, config, points)
+
     filtered = filter_by_buildings(iso_code, config, points, in_vector=temp_file)
     filtered = filtered[columns + ["sum"]]
 
     # Save the filtered points to a GeoPackage file
-    #filtered.to_file(out_file, driver="GPKG", index=False)
     filtered.to_file(out_file, driver="GeoJSON", index=False)
-    os.remove(temp_file)
+    # os.remove(temp_file)
 
     return filtered
 
@@ -380,6 +415,7 @@ def batch_process_tiles(
     """
     # Retrieve geoboundaries for the specified administrative level
     geoboundary = data_utils.get_geoboundaries(config, iso_code, adm_level=adm_level)
+
     for i, shapename in enumerate(geoboundary.shapeName.unique()):
         logging.info(f"{shapename} {i}/{len(geoboundary.shapeName.unique())}")
 
@@ -428,9 +464,17 @@ def batch_download_sat_images(
     # Retrieve geoboundaries for the specified administrative level
     geoboundary = data_utils.get_geoboundaries(
         data_config, iso_code, adm_level=adm_level
-    )
+    ).to_crs("EPSG:3857")
+    geoboundary["area"] = geoboundary["geometry"].area
+    geoboundary = geoboundary.sort_values(["area"], ascending=True)
+    shapenames_all = geoboundary.shapeName.values
 
-    for i, shapename in enumerate(geoboundary.shapeName.unique()):
+    shapenames = []
+    for shapename in shapenames_all:
+        if shapename not in shapenames:
+            shapenames.append(shapename)
+
+    for i, shapename in enumerate(shapenames):
         # Generate prediction tiles for the current shape
         tiles = generate_pred_tiles(
             data_config, iso_code, spacing, buffer_size, shapename, adm_level

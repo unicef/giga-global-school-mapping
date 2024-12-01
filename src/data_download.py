@@ -43,12 +43,15 @@ if __name__ == "__main__":
     parser.add_argument("--config", help="Path to the configuration file")
     parser.add_argument("--profile", help="Path to the profile file")
     parser.add_argument("--in_file", help="Path to the profile file", default=None)
+    parser.add_argument("--project", help="Overwrite project", default=None)
     args = parser.parse_args()
 
     # Load config file
     config_file = os.path.join(os.getcwd(), args.config)
     profile = os.path.join(os.getcwd(), args.profile)
     config = config_utils.load_config(config_file)
+    if args.project:
+        config["project"] = args.project
 
     # Commence data download
     main(config, profile, args.in_file)

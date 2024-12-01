@@ -345,61 +345,77 @@ def get_model_output(
     return output
 
 
-def get_best_models(
-    iso_code: str,
-    config_file: str = 'configs/config.yaml'
-):
-    config = config_utils.load_config(os.path.join(os.getcwd(), config_file))
+def get_best_models(iso_code: str, config: dict) -> list:
+    """
+    Identifies the best-performing models based on their Area Under the Precision-Recall Curve (AUPRC).
+
+    Args:
+        iso_code (str): ISO code for the region being evaluated.
+        config (dict): Configuration dictionary containing:
+            - "all_models": A dictionary of model types and corresponding file paths.
+            - "project": Name of the current project.
+
+    Returns:
+        list: A sorted list of the best model file paths, ranked by AUPRC.
+    """
+    # Initialize a dictionary to store AUPRC results for each model type
     config_results = dict()
+
+    # Loop through each model type and its corresponding files
     for model_type in config["all_models"]:
         config_results[model_type] = dict()
+
         for model_file in config["all_models"][model_type]:
+            # Load the configuration for the current model
             model_config = config_utils.load_config(model_file)
+            # Update project name to match config
+            model_config["project"] = config["project"]
+
+            # Get validation and test outputs
             val_output = get_model_output(
-                iso_code, 
-                model_config, 
-                pretrained=None, 
-                phase="val"
+                iso_code, model_config, pretrained=None, phase="val"
             )
             test_output = get_model_output(
-                iso_code, 
-                model_config, 
-                pretrained=None, 
-                phase="test"
+                iso_code, model_config, pretrained=None, phase="test"
             )
+
+            # Evaluate model performance on validation data
             val_results = eval_utils.evaluate(
-                y_true=val_output["y_true"], 
-                y_pred=val_output["y_preds"], 
-                y_prob=val_output["y_probs"], 
-                beta=2
-            )
-            test_results = eval_utils.evaluate(
-                y_true=test_output["y_true"], 
-                y_pred=test_output["y_preds"], 
-                y_prob=test_output["y_probs"], 
+                y_true=val_output["y_true"],
+                y_pred=val_output["y_preds"],
+                y_prob=val_output["y_probs"],
                 beta=2,
-                optim_threshold=val_results["optim_threshold"]
             )
+            # Evaluate model performance on test data using the
+            # optimal threshold from validation
+            test_results = eval_utils.evaluate(
+                y_true=test_output["y_true"],
+                y_pred=test_output["y_preds"],
+                y_prob=test_output["y_probs"],
+                beta=2,
+                optim_threshold=val_results["optim_threshold"],
+            )
+
+            # Store the test AUPRC for the current model
             config_results[model_type][model_file] = test_results["auprc"]
 
+    # Identify the best model for each model type
     best_models = []
     for model_type in config_results:
-        best_model = max(
-            config_results[model_type], 
-            key=config_results[model_type].get
-        )
-        best_models.append((
-            best_model, 
-            config_results[model_type][best_model]
-        ))
+        # Select the model with the highest AUPRC within the type
+        best_model = max(config_results[model_type], key=config_results[model_type].get)
+        best_models.append((best_model, config_results[model_type][best_model]))
+
+    # Sort all best models across types by AUPRC in descending order
     best_models.sort(key=operator.itemgetter(1), reverse=True)
+
+    # Extract just the model file paths
     best_models = [x[0] for x in best_models]
 
     return best_models
 
-     
-    
-def get_ensemble_configs(iso_code: str) -> list:
+
+def get_ensemble_configs(iso_code: str, config: dict) -> list:
     """
     Loads and returns a list of model configuration files for ensemble predictions.
 
@@ -411,43 +427,50 @@ def get_ensemble_configs(iso_code: str) -> list:
     Returns:
         list: A list of model configuration dictionaries for each model file.
     """
-    model_configs = [] # Initialize list to hold each loaded model configuration
+    model_configs = []  # Initialize list to hold each loaded model configuration
 
-    configs = get_best_models(iso_code)
+    configs = get_best_models(iso_code, config)
 
     # Iterate over each model file associated with the given iso_code
-    for model_file in configs: #config[iso_code]:
+    for model_file in configs:  # config[iso_code]:
         # Load the configuration file for the model
-        model_config = config_utils.load_config(
-            os.path.join(os.getcwd(), model_file)
-        )
-        model_configs.append(model_config)# Add loaded configuration to the list
+        model_config = config_utils.load_config(os.path.join(os.getcwd(), model_file))
+        # Update project name to match config
+        model_config["project"] = config["project"]
+        # Add loaded configuration to the list
+        model_configs.append(model_config)
 
     return model_configs
 
 
-def ensemble_models(iso_code, prob_col="y_probs", phase="val", pretrained=None):
+def ensemble_models(
+    iso_code: str,
+    config: dict,
+    prob_col: str = "y_probs",
+    phase: str = "val",
+    pretrained: bool = None,
+) -> pd.DataFrame:
     """
     Generates ensemble predictions by averaging the output probabilities of multiple models.
 
     Args:
         iso_code (str): ISO code for the country, used to identify the relevant models in the configuration.
-        config (dict): Configuration dictionary containing model file paths for each country ISO code. 
+        config (dict): Configuration dictionary containing model file paths for each country ISO code.
             The dictionary includes:
             - Each ISO code as a key, associated with a list of model configuration files.
-        prob_col (str, optional): Column name containing model output probabilities to be ensembled. 
+        prob_col (str, optional): Column name containing model output probabilities to be ensembled.
             Default is "y_probs".
-        phase (str, optional): Phase of the model (e.g., "train", "val", "test") to determine the data subset. 
+        phase (str, optional): Phase of the model (e.g., "train", "val", "test") to determine the data subset.
             Default is "val".
         pretrained (bool, optional): Flag to indicate if pretrained weights should be loaded. Default is None.
 
     Returns:
         pd.DataFrame: A DataFrame with ensemble-averaged probabilities in the specified probability column.
     """
-    probs = 0 # Initialize cumulative probability sum
+    probs = 0  # Initialize cumulative probability sum
 
     # Load all model configurations for the specified iso_code
-    model_configs = get_ensemble_configs(iso_code)
+    model_configs = get_ensemble_configs(iso_code, config)
 
     # Loop through each model configuration to accumulate model output probabilities
     for model_config in model_configs:
@@ -460,5 +483,5 @@ def ensemble_models(iso_code, prob_col="y_probs", phase="val", pretrained=None):
 
     # Calculate the average probabilities across all models
     output[prob_col] = probs / len(model_configs)
-    
+
     return output

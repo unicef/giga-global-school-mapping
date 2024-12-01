@@ -304,7 +304,7 @@ def get_geoboundaries(
         except Exception as e:
             logging.info(e)
             logging.info(url)
-            #logging.info("Defaulting to ADM0...")
+            # logging.info("Defaulting to ADM0...")
             url = f"{config['gbopen_url']}{iso_code}/{adm_level}/"
             r = requests.get(url)
             download_path = r.json()["gjDownloadURL"]

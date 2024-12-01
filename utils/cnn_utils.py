@@ -1,9 +1,12 @@
+import os
+import time
 from tqdm import tqdm
 import pandas as pd
 import numpy as np
 
 import matplotlib.pyplot as plt
 from PIL import Image
+from PIL import ImageFile
 
 import timm
 import torch
@@ -46,6 +49,7 @@ import logging
 
 SEED = 42
 logging.basicConfig(level=logging.INFO)
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 imagenet_mean = [0.485, 0.456, 0.406]
 imagenet_std = [0.229, 0.224, 0.225]
@@ -127,7 +131,15 @@ class SchoolDataset(Dataset):
         filepath = item["filepath"]
 
         # Open the image and convert to RGB
-        image = Image.open(filepath).convert("RGB")
+        if os.path.exists(filepath):
+            while True:
+                try:
+                    image = Image.open(filepath).convert("RGB")
+                except:
+                    time.sleep(1)
+                else:
+                    break
+
         # Apply transformations if any
         if self.transform:
             x = self.transform(image)

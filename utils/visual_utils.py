@@ -18,10 +18,7 @@ logging.basicConfig(level=logging.INFO)
 
 
 def get_filename(
-    iso_code: str, 
-    config: dict, 
-    category: str = "school", 
-    name: str = "clean"
+    iso_code: str, config: dict, category: str = "school", name: str = "clean"
 ):
     """
     Constructs the file path for a GeoJSON file based on the specified parameters.
@@ -59,7 +56,7 @@ def map_coordinates(
     max_zoom: int = 20,
     name: str = "clean",
     col_uid: str = "UID",
-    col_name: str = "name"
+    col_name: str = "name",
 ) -> None:
     """
     Display a folium map centered on a specific feature from a GeoJSON file.
@@ -115,10 +112,7 @@ def map_coordinates(
 
 
 def generate_predictions(
-    iso_code: str, 
-    model_iso_code: str, 
-    model_configs: dict, 
-    category: str = "school"
+    iso_code: str, config: dict, model_iso_code: str, category: str = "school"
 ) -> gpd.GeoDataFrame:
     """
     Generates predictions by averaging the output probabilities from multiple models for a specified category.
@@ -126,40 +120,39 @@ def generate_predictions(
     Args:
         iso_code (str): ISO code for the country for which predictions are generated.
         model_iso_code (str): ISO code for the country associated with the model configurations.
-        model_configs (list): List of configuration dictionaries, each containing model settings. 
+        model_configs (list): List of configuration dictionaries, each containing model settings.
             Each dictionary includes:
             - rasters_dir: Directory containing raster files.
             - maxar_dir: Directory for high-resolution imagery.
             - project: Project directory name.
-        category (str, optional): Category of the predictions, such as "school" or "admin". 
+        category (str, optional): Category of the predictions, such as "school" or "admin".
             Default is "school".
 
     Returns:
         gpd.GeoDataFrame: GeoDataFrame with prediction probabilities averaged across models.
     """
     # Retrieve configurations for the ensemble models
-    model_configs = model_utils.get_ensemble_configs(model_iso_code, model_configs)
+    model_configs = model_utils.get_ensemble_configs(model_iso_code)
 
     # Determine output file path for predictions
-    out_file = get_filename(
-        iso_code, model_configs[0], category="school", name="clean"
-    )
+    out_file = get_filename(iso_code, config, category="school", name="clean")
 
     # If predictions already exist, load and return them
     if os.path.exists(out_file):
         data = gpd.read_file(out_file)
-        return data
+        if "prob" in data.columns:
+            return data
 
     # Define input directory and file path based on model configuration
     in_dir = os.path.join(
         os.getcwd(),
-        model_configs[0]["rasters_dir"],
-        model_configs[0]["maxar_dir"],
-        model_configs[0]["project"],
+        config["rasters_dir"],
+        config["maxar_dir"],
+        config["project"],
         iso_code,
         category.lower(),
     )
-    in_file = get_filename(iso_code, model_configs[0], category="school", name="clean")
+    in_file = get_filename(iso_code, config, category="school", name="clean")
 
     # Read the input data
     data = gpd.read_file(in_file)
@@ -179,9 +172,7 @@ def generate_predictions(
     data["prob"] = probs / len(model_configs)
 
     # Save the prediction data to the output file
-    out_file = get_filename(
-        iso_code, model_configs[0], category="school", name="clean"
-    )
+    out_file = get_filename(iso_code, config, category="school", name="clean")
     data.to_file(out_file)
     return data
 
@@ -322,15 +313,15 @@ def validate_data(
 
 
 def update_validation(
-    config: dict, 
-    iso_code: str, 
-    category: str, 
-    indexes: list = [], 
-    name: str = "clean", 
-    filename: str = None
+    config: dict,
+    iso_code: str,
+    category: str,
+    indexes: list = [],
+    name: str = "clean",
+    filename: str = None,
 ) -> None:
     """
-    Updates the validation status of specified entries in a GeoDataFrame by 
+    Updates the validation status of specified entries in a GeoDataFrame by
     toggling their "validated" column value. This is an alternative to inspect_images().
 
     Args:
@@ -340,9 +331,9 @@ def update_validation(
         iso_code (str): ISO code for the country.
         category (str): Category of the data (e.g. :school").
         indexes (list, optional): List of row indices to update. Default is an empty list.
-        name (str, optional): Specific name of the data subset, used to build the file path. 
+        name (str, optional): Specific name of the data subset, used to build the file path.
             Default is "clean".
-        filename (str, optional): Path to the GeoDataFrame file. 
+        filename (str, optional): Path to the GeoDataFrame file.
             If not provided, it will be generated from other parameters.
 
     Returns:
@@ -351,11 +342,11 @@ def update_validation(
     validated = {0: "VALID", -1: "INVALID"}
     if not filename:
         filename = get_filename(iso_code, config, category, name="clean")
-    data = gpd.read_file(filename) 
+    data = gpd.read_file(filename)
 
     if "validated" not in data.columns:
         data["validated"] = 0
-    
+
     for index in indexes:
         item = data.iloc[index]
         change_value = -1
@@ -363,7 +354,9 @@ def update_validation(
             change_value = 0
 
         data.loc[index, "validated"] = change_value
-        logging.info(f"Item {index} changed to {validated[data.iloc[index]['validated']]}.")
+        logging.info(
+            f"Item {index} changed to {validated[data.iloc[index]['validated']]}."
+        )
 
     data.to_file(filename, driver="GeoJSON")
 
@@ -382,7 +375,7 @@ def inspect_images(
     figsize: tuple = (15, 15),
     min_prob: float = 0,
     max_prob: float = 1.0,
-    show_validated=False
+    show_validated=False,
 ) -> None:
     """
     Inspect and visualize satellite images associated with geographic data.
@@ -451,8 +444,8 @@ def inspect_images(
         )
         axes[row_index, col_index].set_axis_off()
         axes[row_index, col_index].set_title(
-            f"Index: {idx}\nName: {item[col_name]}\nSource: {item['source']}\n{validated[item['validated']]}", 
-            fontdict={"fontsize": 11}
+            f"Index: {idx}\nName: {item[col_name]}\nSource: {item['source']}\n{validated[item['validated']]}",
+            fontdict={"fontsize": 11},
         )
 
         col_index += 1
@@ -461,5 +454,5 @@ def inspect_images(
             col_index = 0
         if row_index >= n_rows:
             break
-            
-    fig.tight_layout() 
+
+    fig.tight_layout()

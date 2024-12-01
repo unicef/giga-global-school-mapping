@@ -27,16 +27,33 @@ def main(args):
 
     sat_config_file = os.path.join(cwd, args.sat_config)
     sat_creds_file = os.path.join(cwd, args.sat_creds)
+
     sat_config = config_utils.load_config(sat_config_file)
     sat_creds = config_utils.create_config(sat_creds_file)
 
+    if args.project:
+        data_config["project"] = args.project
+        sat_config["project"] = args.project
+
     geoboundary = data_utils.get_geoboundaries(
         data_config, args.iso_code, adm_level="ADM2"
-    )
-    shapenames = [args.shapename] if args.shapename else geoboundary.shapeName.unique()
+    ).to_crs("EPSG:3857")
+    geoboundary["area"] = geoboundary["geometry"].area
+    geoboundary = geoboundary.sort_values(["area"], ascending=True)
 
-    for index, shapename in enumerate(shapenames):
-        print(f"\nProcessing {shapename} ({index+1}/{len(shapenames)})...")
+    # Start with the smallest region
+    shapenames_all = (
+        [args.shapename] if args.shapename else geoboundary.shapeName.values
+    )
+    shapenames = []
+    for shapename in shapenames_all:
+        if shapename not in shapenames:
+            shapenames.append(shapename)
+
+    for index, shapename in enumerate(shapenames[int(args.start_index) :]):
+        print(
+            f"\nProcessing {shapename} ({int(args.start_index)+index}/{len(shapenames)})..."
+        )
         tiles = pred_utils.generate_pred_tiles(
             data_config,
             iso_code=args.iso_code,
@@ -57,15 +74,17 @@ def main(args):
         )
 
         print(f"Generating predictions for {shapename}...")
-        model_configs = model_utils.get_ensemble_configs(args.iso_code)
+        model_configs = model_utils.get_ensemble_configs(args.iso_code, data_config)
 
         # Calculate the threshold that optimizes the F2 score of the validation set
-        val_output = model_utils.ensemble_models(args.iso_code, phase="val")
+        val_output = model_utils.ensemble_models(
+            args.iso_code, data_config, phase="val"
+        )
         val_results = eval_utils.evaluate(
-            y_true=val_output["y_true"], 
-            y_pred=val_output["y_preds"], 
+            y_true=val_output["y_true"],
+            y_pred=val_output["y_preds"],
             y_prob=val_output["y_probs"],
-            beta=2
+            beta=2,
         )
         threshold = val_results["optim_threshold"]
         threshold = min(0.5, threshold)
@@ -89,24 +108,13 @@ def main(args):
 
         print(f"Generating CAMs for {shapename}...")
         results = cam_utils.cam_predict(
-            args.iso_code,
-            model_configs[0],
-            subdata,
-            geotiff_dir,
-            shapename
+            args.iso_code, model_configs[0], subdata, geotiff_dir, shapename
         )
 
     preds = post_utils.load_preds(
-        args.iso_code, 
-        data_config, 
-        sum_threshold=-1,
-        buffer_size=args.overlap_buffer_size
+        args.iso_code, data_config, buffer_size=args.overlap_buffer_size
     )
-    post_utils.save_results(
-        args.iso_code, 
-        preds, 
-        source="preds"
-    )
+    post_utils.save_results(args.iso_code, preds, source="preds", config=data_config)
     return results
 
 
@@ -120,7 +128,9 @@ if __name__ == "__main__":
     parser.add_argument("--spacing", help="Tile spacing", default=150)
     parser.add_argument("--buffer_size", help="Buffer size", default=150)
     parser.add_argument("--overlap_buffer_size", help="Buffer size", default=25)
-    parser.add_argument("--sum_threshold", help="Pixel sum threshold", default=5)
+    parser.add_argument("--sum_threshold", help="Pixel sum threshold", default=0)
+    parser.add_argument("--project", help="Overwrite project name", default=None)
+    parser.add_argument("--start_index", help="Starting index", default=0)
     parser.add_argument("--iso_code", help="ISO code")
     args = parser.parse_args()
     logging.info(args)
