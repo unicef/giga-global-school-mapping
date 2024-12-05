@@ -35,20 +35,12 @@ def main(args):
         data_config["project"] = args.project
         sat_config["project"] = args.project
 
-    geoboundary = data_utils.get_geoboundaries(
-        data_config, args.iso_code, adm_level="ADM2"
-    ).to_crs("EPSG:3857")
-    geoboundary["area"] = geoboundary["geometry"].area
-    geoboundary = geoboundary.sort_values(["area"], ascending=True)
-
-    # Start with the smallest region
-    shapenames_all = (
-        [args.shapename] if args.shapename else geoboundary.shapeName.values
-    )
-    shapenames = []
-    for shapename in shapenames_all:
-        if shapename not in shapenames:
-            shapenames.append(shapename)
+    if args.shapename:
+        shapenames = [args.shapename]
+    else:
+        shapenames = pred_utils.get_shapenames(
+            data_config, args.iso_code, adm_level=args.adm_level
+        )
 
     for index, shapename in enumerate(shapenames[int(args.start_index) :]):
         print(
