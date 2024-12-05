@@ -51,6 +51,7 @@ import PIL
 
 import cv2
 import skimage.feature
+from rasterio.enums import Resampling
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 logging.basicConfig(level=logging.INFO)
@@ -257,7 +258,7 @@ def cam_predict(
         f"{iso_code}_{shapename}_{config['config_name']}_{cam_method}_temp.geojson",
     )
     results.to_file(temp_file, driver="GeoJSON")
-    results = pred_utils.filter_by_buildings(
+    results = pred_utils.filter_uninhabited(
         iso_code, config, results, in_vector=temp_file
     )
 
@@ -306,7 +307,7 @@ def generate_cam_points(
     crs = data.crs
 
     # Iterate over each row in the DataFrame
-    print(f"Generating CAM points for {len(data)}")
+    print(f"Generating CAM points for {len(data)} tiles...")
     for index in tqdm(list(data.index), total=len(data)):
         # Generate CAM for the current image
         if os.path.exists(filepaths[index]):
