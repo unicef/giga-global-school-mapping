@@ -231,12 +231,8 @@ def load_model(iso_code: str, config: dict, verbose: bool = True) -> torch.nn.Mo
     return model
 
 
-def filter_by_buildings(
-    iso_code: str,
-    config: dict,
-    data: gpd.GeoDataFrame,
-    in_vector: str = None,
-    n_seconds: int = 10,
+def filter_uninhabited(
+    iso_code: str, config: dict, data: gpd.GeoDataFrame, in_vector: str = None
 ) -> pd.DataFrame:
     """
     Filters the data based on building presence by summing pixel values from building raster files.
@@ -244,20 +240,39 @@ def filter_by_buildings(
     Args:
         iso_code (str): ISO code for the region, used to locate the raster files.
         config (dict): Configuration dictionary containing paths to raster directories.
-        data (gpd.GeoDataFrame): DataFrame containing the data with geometries to be processed.
-        n_seconds (int, optional): Interval in seconds to update the progress bar. Default is 10.
+        data (gpd.GeoDataFrame): DataFrame containing the data with geometries to be processed
 
     Returns:
         pd.DataFrame: Filtered DataFrame containing only entries with building presence.
     """
 
-    def count_points(data, path):
-        points = gpd.GeoDataFrame.from_file(ms_path)
+    def count_points(tiles: gpd.GeoDataFrame, path: str):
+        """
+        Counts the number of points from a given file that intersect with each polygon
+        in the provided GeoDataFrame.
+
+        Args:
+            tiles (gpd.GeoDataFrame): A GeoDataFrame containing polygons with a "UID" column to group by.
+            path (str): File path to a GeoJSON or similar file containing point geometries.
+
+        Returns:
+            Series: A pandas Series indexed by "UID", where each value represents the count
+            of points intersecting with the corresponding polygon.
+        """
+        # Read the input file containing point data as a GeoDataFrame
+        tiles_ = tiles.copy()
+        points = gpd.GeoDataFrame.from_file(path)
+
+        # Convert the geometry of the points to their centroids
         points["geometry"] = points.centroid
 
-        pixel_sum = gpd.tools.sjoin(data, points, how="left")
-        pixel_sum = pixel_sum.groupby("UID")["type"].agg(["count"])
-        return pixel_sum["count"]
+        bldg_sum = tiles_.join(
+            gpd.sjoin(points, tiles).groupby("UID").size().rename("sum"),
+            how="left",
+        )
+        bldg_sum["sum"] = bldg_sum["sum"].fillna(0)
+
+        return bldg_sum["sum"].values
 
     # Get the current working directory
     cwd = os.getcwd()
@@ -267,8 +282,6 @@ def filter_by_buildings(
     vector_dir = os.path.join(cwd, config["vectors_dir"])
 
     # Define the file paths for different building datasets (e.g., Microsoft, Google, GHSL)
-    # ms_path = os.path.join(raster_dir, "ms_buildings", f"{iso_code}_ms.tif")
-    # google_path = os.path.join(raster_dir, "google_buildings", f"{iso_code}_google.tif")
     ms_path = os.path.join(
         vector_dir, "ms_buildings", f"{iso_code}_ms_EPSG3857.geojson"
     )
@@ -281,38 +294,28 @@ def filter_by_buildings(
     data = data.reset_index(drop=True)
 
     # Log the number of records being processed
-    print(f"Filtering buildings for {len(data)}")
+    print(f"Filtering uninhabited locations for {len(data)} tiles...")
 
-    # Check if an input vector (`in_vector`) is provided
-    if in_vector:
+    # If the Microsoft building data exists, extract the sum of building areas within the vector
+    ms_sum = 0
+    if os.path.exists(ms_path):
+        print("Filtering with Microsoft building footprints...")
+        ms_sum = count_points(data, ms_path)
 
-        # Initialize sum for Microsoft building data
-        ms_sum = 0
-        # If the Microsoft building data exists, extract the sum of building areas within the vector
-        if os.path.exists(ms_path):
-            # ms_sum = exact_extract(
-            #    ms_path, in_vector, "sum", output="pandas", progress=True
-            # )["sum"]
-            ms_sum = count_points(data, ms_path)
+    # If the Google building data exists, extract the sum of building areas within the vector
+    google_sum = 0
+    if os.path.exists(google_path):
+        print("Filtering with Google Open Buildings...")
+        google_sum = count_points(data, google_path)
 
-        # Initialize sum for Google building data
-        google_sum = 0
-        # If the Google building data exists, extract the sum of building areas within the vector
-        if os.path.exists(google_path):
-            # google_sum = exact_extract(
-            #    google_path, in_vector, "sum", output="pandas", progress=True
-            # )["sum"]
-            google_sum = count_points(data, google_path)
-
-        # Initialize sum for GHSL building data
-        ghsl_sum = 0
-        # If the GHSL building data exists, extract the sum of building areas within the vector
-        if os.path.exists(ghsl_path):
-            in_vector = in_vector.replace(".geojson", "_esri.geojson")
-            data.to_crs("ESRI:54009").to_file(in_vector)
-            ghsl_sum = exact_extract(
-                ghsl_path, in_vector, "sum", output="pandas", progress=True
-            )["sum"]
+    # If the GHSL building data exists, extract the sum of building areas within the vector
+    ghsl_sum = 0
+    if os.path.exists(ghsl_path) and in_vector:
+        print("Filtering with Global Human Settlements Layer (GHSL)...")
+        data.to_crs("ESRI:54009").to_file(in_vector)
+        ghsl_sum = exact_extract(
+            ghsl_path, in_vector, "sum", output="pandas", progress=True
+        )["sum"].values
 
         # Compute the total sum of building areas from all sources and add it as a new column
         data["sum"] = ms_sum + google_sum + ghsl_sum
@@ -352,8 +355,8 @@ def generate_pred_tiles(
 
     # Return the existing file if it already exists
     if os.path.exists(out_file):
-        data = gpd.read_file(out_file)
-        return data
+        points = gpd.read_file(out_file)
+        return points
 
     # Generate sample points based on the configuration and parameters
     points = data_utils.generate_samples(
@@ -365,8 +368,6 @@ def generate_pred_tiles(
         shapename=shapename,
     )
 
-    logging.info(f"Shapename: {shapename}")
-
     # Create a buffer around each point and add a unique identifier
     points["points"] = points["geometry"]
     points["geometry"] = points.buffer(buffer_size, cap_style=3)
@@ -377,62 +378,52 @@ def generate_pred_tiles(
     points = points[columns]
 
     temp_file = os.path.join(out_dir, f"{iso_code}_{shapename}_temp.geojson")
-    points.to_file(temp_file, driver="GeoJSON", index=False)
-    # filtered = filter_by_buildings(iso_code, config, points)
+    if not os.path.exists(temp_file):
+        points.to_file(temp_file, driver="GeoJSON", index=False)
 
-    filtered = filter_by_buildings(iso_code, config, points, in_vector=temp_file)
+    filtered = filter_uninhabited(iso_code, config, points, in_vector=temp_file)
     filtered = filtered[columns + ["sum"]]
+    filtered = filtered[filtered["sum"] > 0]
 
     # Save the filtered points to a GeoPackage file
+    print(f"Saving {out_file}...")
     filtered.to_file(out_file, driver="GeoJSON", index=False)
-    # os.remove(temp_file)
 
     return filtered
 
 
-def batch_process_tiles(
-    config: dict,
-    iso_code: str,
-    spacing: float,
-    buffer_size: float,
-    sum_threshold: float,
-    adm_level: str,
-) -> gpd.GeoDataFrame:
+def get_shapenames(data_config: dict, iso_code: str, adm_level: str) -> list:
     """
-    Processes multiple tiles by generating prediction tiles for each shape,
-        filtering by building presence, and applying a sum threshold.
+    Retrieves unique shape names for geographic boundaries at a specified administrative level.
 
     Args:
-        config (dict): Configuration dictionary containing paths and parameters for tile generation.
-        iso_code (str): ISO code for the region, used to locate and save the output files.
-        spacing (float): Spacing between sample points for tile generation.
-        buffer_size (float): Buffer size around each sample point.
-        sum_threshold (float): Threshold value for filtering tiles based on building pixel sum.
-        adm_level (str): Administrative level for sample generation.
+        data_config (dict): Configuration dictionary containing data-related settings.
+        iso_code (str): ISO country code for the geographic region of interest.
+        adm_level (str): Administrative level (e.g., "admin1" or "admin2") for the boundaries.
 
     Returns:
-        gpd.GeoDataFrame: A GeoDataFrame containing all processed tiles that meet the sum threshold criteria.
+        list: A list of unique shape names sorted by geographic area in ascending order.
     """
-    # Retrieve geoboundaries for the specified administrative level
-    geoboundary = data_utils.get_geoboundaries(config, iso_code, adm_level=adm_level)
 
-    for i, shapename in enumerate(geoboundary.shapeName.unique()):
-        logging.info(f"{shapename} {i}/{len(geoboundary.shapeName.unique())}")
+    # Retrieve geographic boundaries for the specified country and administrative level
+    geoboundary = data_utils.get_geoboundaries(
+        data_config, iso_code, adm_level=adm_level
+    ).to_crs(
+        "EPSG:3857"
+    )  # Convert to metric CRS for accurate area calculations
 
-        # Generate prediction tiles for the current shape
-        tiles = generate_pred_tiles(
-            config, iso_code, spacing, buffer_size, shapename, adm_level
-        )
+    # Dissolve boundaries by 'shapeName' to group features with the same name
+    geoboundary = geoboundary.dissolve(by="shapeName").reset_index()
 
-        # Reset index and compute centroid of each tile's geometry
-        tiles = tiles.reset_index(drop=True)
-        tiles["points"] = tiles["geometry"].centroid
+    # Calculate the area of each shape and sort by area in ascending order
+    geoboundary["area"] = geoboundary["geometry"].area
+    geoboundary = geoboundary.sort_values(["area"], ascending=True)
 
-        # Filter tiles based on the sum threshold and reset index
-        tiles = tiles[tiles["sum"] > sum_threshold].reset_index(drop=True)
-        logging.info(f"Total tiles: {tiles.shape}")
+    # Extract all shape names as an ordered list
+    shapenames = geoboundary.shapeName.values
 
-    return tiles
+    # Return the list of unique shape names
+    return shapenames
 
 
 def batch_download_sat_images(
@@ -462,19 +453,10 @@ def batch_download_sat_images(
         None: This function performs side effects by downloading images and does not return a value.
     """
     # Retrieve geoboundaries for the specified administrative level
-    geoboundary = data_utils.get_geoboundaries(
-        data_config, iso_code, adm_level=adm_level
-    ).to_crs("EPSG:3857")
-    geoboundary["area"] = geoboundary["geometry"].area
-    geoboundary = geoboundary.sort_values(["area"], ascending=True)
-    shapenames_all = geoboundary.shapeName.values
+    shapenames = get_shapenames(data_config, iso_code, adm_level)
 
-    shapenames = []
-    for shapename in shapenames_all:
-        if shapename not in shapenames:
-            shapenames.append(shapename)
-
-    for i, shapename in enumerate(shapenames):
+    for index, shapename in enumerate(shapenames):
+        print(f"\nProcessing {shapename} ({index+1}/{len(shapenames)})...")
         # Generate prediction tiles for the current shape
         tiles = generate_pred_tiles(
             data_config, iso_code, spacing, buffer_size, shapename, adm_level
@@ -483,9 +465,7 @@ def batch_download_sat_images(
         # Compute centroid of each tile's geometry and filter by sum threshold
         tiles["points"] = tiles["geometry"].centroid
         tiles = tiles[tiles["sum"] > sum_threshold].reset_index(drop=True)
-        print(
-            f"{shapename} {i+1}/{len(geoboundary.shapeName.unique())} total tiles: {tiles.shape}"
-        )
+        print(f"{shapename} {index+1}/{len(shapenames)} total tiles: {tiles.shape}")
 
         # Prepare data for satellite image download
         data = tiles.copy()
