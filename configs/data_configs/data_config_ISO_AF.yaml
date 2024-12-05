@@ -1,3 +1,4 @@
+project: "GIGAv1"
 vectors_dir: 'data/vectors/'
 rasters_dir: 'data/rasters/'
 iso_codes: ['BEN', 'BWA', 'GHA', 'KEN', 'MWI', 'NAM', 'RWA', 'SEN', 'SSD', 'ZWE']

@@ -1,6 +1,7 @@
+project: "GIGAv2"
 vectors_dir: 'data/vectors/'
 rasters_dir: 'data/rasters/'
-iso_codes: ['TJK', 'MNG']
+iso_codes: ['MNG']
 
 proximity: 300
 filter_buffer_size: 150
