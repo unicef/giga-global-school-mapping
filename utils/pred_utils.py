@@ -160,8 +160,7 @@ def ensemble_predict(
         )
     )
     # Define the output file path
-    name = f"{iso_code}_{shapename}"
-    out_file = os.path.join(out_dir, f"{name}_ensemble_results.geojson")
+    out_file = os.path.join(out_dir, f"{iso_code}_{shapename}_ensemble_results.geojson")
 
     # Initialize an array to accumulate probabilities from each model
     probs = 0
@@ -266,6 +265,7 @@ def filter_uninhabited(
         # Convert the geometry of the points to their centroids
         points["geometry"] = points.centroid
 
+        # Count number of points in each tile
         bldg_sum = tiles_.join(
             gpd.sjoin(points, tiles).groupby("UID").size().rename("sum"),
             how="left",
@@ -377,10 +377,12 @@ def generate_pred_tiles(
     columns = ["UID", "geometry", "shapeName"]
     points = points[columns]
 
+    # Create temporary file for exact_extract
     temp_file = os.path.join(out_dir, f"{iso_code}_{shapename}_temp.geojson")
     if not os.path.exists(temp_file):
         points.to_file(temp_file, driver="GeoJSON", index=False)
 
+    # Filter tiles by uninhabited locations
     filtered = filter_uninhabited(iso_code, config, points, in_vector=temp_file)
     filtered = filtered[columns + ["sum"]]
     filtered = filtered[filtered["sum"] > 0]
