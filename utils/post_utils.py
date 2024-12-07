@@ -53,7 +53,7 @@ def read_file(
         # Update output directory for CAM results
         out_dir = os.path.join(out_dir, "cams")
         # Construct filename with CAM method and config name
-        filename = f"{iso_code}_{config[iso_code][0].split('/')[-1].split('.')[0]}_{cam_method}.geojson"
+        filename = f"{iso_code}_{config['model'].split('/')[-1].split('.')[0]}_{cam_method}.geojson"
         out_file = os.path.join(out_dir, filename)
     else:
         out_file = os.path.join(out_dir, f"{iso_code}_{source}.geojson")
@@ -76,7 +76,6 @@ def standardize_data(
 
     Args:
         config (dict): Configuration dictionary for the model, including:
-            - model (str): Name of the model used.
             - project (str): Project directory for storing outputs.
             - config_name (str): Configuration name used in naming files.
         iso_code (str): The ISO code for the country.
@@ -87,12 +86,16 @@ def standardize_data(
     Returns:
         gpd.GeoDataFrame: Standardized geospatial data ready for further analysis.
     """
+    # Load configuration files
+    best_models = model_utils.get_best_models(iso_code, config)
+    model_config = config_utils.load_config(best_models[0])
+    model_config["project"] = config["project"]
+
     # Get best CAM method
-    model_config = config_utils.load_config(config)
     cam_method = cam_utils.get_best_cam_method(iso_code, model_config)
 
     # Read the input data file based on iso_code, config, CAM method, and source
-    data = read_file(iso_code, config, cam_method=cam_method, source=source)
+    data = read_file(iso_code, model_config, cam_method=cam_method, source=source)
 
     # If the source is "preds", adjust column names and formats for predictions
     if source == "preds":

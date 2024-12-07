@@ -1,12 +1,11 @@
+project: "GIGAv3"
 vectors_dir: 'data/vectors/'
 rasters_dir: 'data/rasters/'
-iso_codes: ['BRA']
+iso_codes: ['TJK']
 
-proximity: 50
+proximity: 300
 filter_buffer_size: 150
 sample_spacing: 300
 object_proximity: 300
-name_match_threshold: 85
-name_match_proximity: 300
 priority: ["UNICEF", "OSM", "OVERTURE"]
 

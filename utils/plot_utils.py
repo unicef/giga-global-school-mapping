@@ -36,7 +36,9 @@ font = {"family": "serif", "weight": "normal", "size": 12}
 mpl.rc("font", **font)
 
 
-def plot_heatmap(config: dict, exp_dir: str, project: str = "GIGAv1") -> None:
+def plot_heatmap(
+    config: dict, exp_dir: str, project: str = "GIGAv1", regional_code: str = "AF"
+) -> None:
     """
     Plots a heatmap of AUPRC scores for model performance across different ISO codes.
 
@@ -46,14 +48,16 @@ def plot_heatmap(config: dict, exp_dir: str, project: str = "GIGAv1") -> None:
     """
     data = dict()
 
+    iso_codes = config["iso_codes"] + [regional_code]
+
     # Iterate over each ISO code in the configuration
-    for iso_code in config:
+    for iso_code in iso_codes:
         iso_dir = os.path.join(exp_dir, project, iso_code)
         iso_code_name = "Regional" if len(iso_code) < 3 else iso_code
         data[iso_code_name] = dict()
 
         # Compare performance with all other ISO codes
-        for iso_code_test in list(config)[:-1]:
+        for iso_code_test in list(iso_codes)[:-1]:
             if len(iso_code) < 3:
                 # For regional codes, use ensemble models for test results
                 results = model_utils.ensemble_models(iso_code, config, phase="test")
@@ -86,7 +90,7 @@ def plot_heatmap(config: dict, exp_dir: str, project: str = "GIGAv1") -> None:
 
     # Create and save the heatmap
     s = sns.heatmap(data, cmap="viridis", annot=True, annot_kws={"fontsize": 8})
-    for i in range(len(list(config)[:-1])):
+    for i in range(len(list(iso_codes)[:-1])):
         s.add_patch(Rectangle((i, i), 1, 1, fill=False, edgecolor="red", lw=2))
     s.set(ylabel="Train country")
     s.set(xlabel="Test country")
@@ -94,7 +98,7 @@ def plot_heatmap(config: dict, exp_dir: str, project: str = "GIGAv1") -> None:
     figure.savefig("assets/heatmap.pdf", dpi=500, bbox_inches="tight")
 
 
-def plot_regional_vs_country(config: dict) -> dict:
+def plot_regional_vs_country(config: dict, regional_code: str) -> dict:
     """
     Plots AUPRC scores for regional versus country-specific models.
 
@@ -105,8 +109,8 @@ def plot_regional_vs_country(config: dict) -> dict:
         dict: A dictionary with AUPRC scores for regional and country-specific models.
     """
     # List of ISO codes excluding the last one (usually regional)
-    iso_codes = list(config)[:-1]
-    country_auprc = {"regional": [], "country-specific": []}
+    iso_codes = iso_codes = config["iso_codes"]
+    country_auprc = {"regional": [], "local": []}
 
     # Iterate over each ISO code to compute AUPRC scores
     for iso_code in iso_codes:
@@ -117,12 +121,10 @@ def plot_regional_vs_country(config: dict) -> dict:
             y_pred=country_test["y_preds"],
             y_prob=country_test["y_probs"],
         )["auprc"]
-        country_auprc["country-specific"].append(auprc)
+        country_auprc["local"].append(auprc)
 
         # Evaluate regional model performance for the current ISO code
-        regional_test = model_utils.ensemble_models(
-            list(config)[-1], config, phase="test"
-        )
+        regional_test = model_utils.ensemble_models(regional_code, config, phase="test")
         regional_test = regional_test[regional_test["iso"] == iso_code]
         auprc = eval_utils.evaluate(
             y_true=regional_test["y_true"],
@@ -138,7 +140,7 @@ def plot_regional_vs_country(config: dict) -> dict:
 
     # Create the plot
     fig, ax = plt.subplots(figsize=(7, 1.5), layout="constrained", dpi=300)
-    colors = {"regional": "#277aff", "country-specific": "#ff9f40"}
+    colors = {"regional": "#277aff", "local": "#ff9f40"}
 
     # Plot bars for regional and country-specific AUPRC scores
     for label, auprc in country_auprc.items():
@@ -149,8 +151,8 @@ def plot_regional_vs_country(config: dict) -> dict:
     # Customize plot
     ax.set_ylabel("AUPRC")
     ax.set_xticks(x + width, iso_codes)
-    ax.set_ylim(0, 1.75)
-    ax.legend(loc="upper left", ncols=2)
+    # ax.set_ylim(0, 1.75)
+    ax.legend(loc="upper left", bbox_to_anchor=(0, 1.5), ncols=2)
 
     # Display and save the plot
     plt.show()
@@ -170,11 +172,12 @@ def plot_rurban(config: dict) -> None:
         None
     """
     # List of ISO codes excluding the last one (usually regional)
-    iso_codes = list(config)[:-1]
+    iso_codes = config["iso_codes"]
     rurban_auprc = {"rural": [], "urban": []}
 
     # Iterate over each ISO code to compute AUPRC scores for rural and urban classifications
     for iso_code in iso_codes:
+        # configs = model_utils.get_best_models(iso_code, config)
         # model_config = config_utils.load_config(os.path.join(os.getcwd(), config[iso_code]))
         # test_output = calib_utils.get_model_output(iso_code, model_config, phase="test")
 
@@ -209,10 +212,10 @@ def plot_rurban(config: dict) -> None:
     # Customize plot
     ax.set_ylabel("AUPRC")
     ax.set_xticks(x + width, iso_codes)
-    ax.set_ylim(0, 1.75)
+    # ax.set_ylim(0, 1.75)
 
     # Display and save the plot
-    ax.legend(loc="upper left", ncols=2)
+    ax.legend(loc="upper left", bbox_to_anchor=(0, 1.5), ncols=2)
     plt.show()
     fig.savefig("assets/rurban_auprc.pdf", bbox_inches="tight")
 
