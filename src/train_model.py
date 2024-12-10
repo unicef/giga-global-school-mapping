@@ -13,6 +13,8 @@ from utils import eval_utils
 from utils import model_utils
 
 
+torch.cuda.empty_cache()
+
 # Get device
 cwd = os.getcwd()
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -25,7 +27,7 @@ def main(c, wandb):
         exp_name = f"{c['iso_code']}_{c['config_name']}_{c['pretrained']}"
     else:
         exp_name = f"{c['iso_code']}_{c['config_name']}"
-    #logging.info()
+    # logging.info()
 
     exp_dir = os.path.join(cwd, c["exp_dir"], c["project"], exp_name)
     logging.info(f"Experiment directory: {exp_dir}")

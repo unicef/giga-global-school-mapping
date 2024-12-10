@@ -258,7 +258,7 @@ def cam_predict(
         f"{iso_code}_{shapename}_{config['config_name']}_{cam_method}_temp.geojson",
     )
     results.to_file(temp_file, driver="GeoJSON")
-    results = pred_utils.filter_uninhabited(
+    results = data_utils.filter_uninhabited(
         iso_code, config, results, in_vector=temp_file
     )
 

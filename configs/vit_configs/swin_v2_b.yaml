@@ -1,8 +1,8 @@
 beta: 2
 test_size: 0.1
-batch_size: 32
+batch_size: 8
 n_workers: 4
-n_epochs: 60
+n_epochs: 30
 scorer: "auprc"
 
 model: "swin_v2_b"

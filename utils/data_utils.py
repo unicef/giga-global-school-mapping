@@ -9,6 +9,7 @@ import geopandas as gpd
 from tqdm import tqdm
 from pyproj import Transformer
 from scipy.sparse.csgraph import connected_components
+from exactextract import exact_extract
 
 import logging
 
@@ -414,6 +415,102 @@ def connect_components(data: gpd.GeoDataFrame, buffer_size: float) -> gpd.GeoDat
     # Find connected components using scipy.sparse.csgraph.connected_components
     n, groups = connected_components(overlap_matrix, directed=False)
     data["group"] = groups
+
+    return data
+
+
+def filter_uninhabited(
+    iso_code: str, config: dict, data: gpd.GeoDataFrame, in_vector: str = None
+) -> pd.DataFrame:
+    """
+    Filters the data based on building presence by summing pixel values from building raster files.
+
+    Args:
+        iso_code (str): ISO code for the region, used to locate the raster files.
+        config (dict): Configuration dictionary containing paths to raster directories.
+        data (gpd.GeoDataFrame): DataFrame containing the data with geometries to be processed
+
+    Returns:
+        pd.DataFrame: Filtered DataFrame containing only entries with building presence.
+    """
+
+    def count_points(tiles: gpd.GeoDataFrame, path: str):
+        """
+        Counts the number of points from a given file that intersect with each polygon
+        in the provided GeoDataFrame.
+
+        Args:
+            tiles (gpd.GeoDataFrame): A GeoDataFrame containing polygons with a "UID" column to group by.
+            path (str): File path to a GeoJSON or similar file containing point geometries.
+
+        Returns:
+            Series: A pandas Series indexed by "UID", where each value represents the count
+            of points intersecting with the corresponding polygon.
+        """
+        # Read the input file containing point data as a GeoDataFrame
+        tiles_ = tiles.copy()
+        points = gpd.GeoDataFrame.from_file(path)
+
+        # Convert the geometry of the points to their centroids
+        points["geometry"] = points.centroid
+
+        # Count number of points in each tile
+        bldg_sum = tiles_.join(
+            gpd.sjoin(points, tiles).groupby("UID").size().rename("sum"),
+            how="left",
+        )
+        bldg_sum["sum"] = bldg_sum["sum"].fillna(0)
+
+        return bldg_sum["sum"].values
+
+    # Get the current working directory
+    cwd = os.getcwd()
+
+    # Define the path to the raster directory
+    raster_dir = os.path.join(cwd, config["rasters_dir"])
+    vector_dir = os.path.join(cwd, config["vectors_dir"])
+
+    # Define the file paths for different building datasets (e.g., Microsoft, Google, GHSL)
+    ms_path = os.path.join(
+        vector_dir, "ms_buildings", f"{iso_code}_ms_EPSG3857.geojson"
+    )
+    google_path = os.path.join(
+        vector_dir, "google_buildings", f"{iso_code}_google_EPSG3857.geojson"
+    )
+    ghsl_path = os.path.join(raster_dir, "ghsl", config["ghsl_built_c_file"])
+
+    # Reset the index of the data to ensure consistency
+    data = data.reset_index(drop=True)
+
+    # Log the number of records being processed
+    print(f"Filtering uninhabited locations for {len(data)} tiles...")
+
+    # If the Microsoft building data exists, extract the sum of building areas within the vector
+    ms_sum = 0
+    if os.path.exists(ms_path):
+        print("Filtering with Microsoft building footprints...")
+        ms_sum = count_points(data, ms_path)
+
+    # If the Google building data exists, extract the sum of building areas within the vector
+    google_sum = 0
+    if os.path.exists(google_path):
+        print("Filtering with Google Open Buildings...")
+        google_sum = count_points(data, google_path)
+
+    # If the GHSL building data exists, extract the sum of building areas within the vector
+    ghsl_sum = 0
+    if os.path.exists(ghsl_path) and in_vector:
+        print("Filtering with Global Human Settlements Layer (GHSL)...")
+        data.to_crs("ESRI:54009").to_file(in_vector)
+        ghsl_sum = exact_extract(
+            ghsl_path, in_vector, "sum", output="pandas", progress=True
+        )["sum"].values
+
+        # Compute the total sum of building areas from all sources and add it as a new column
+        data["sum"] = ms_sum + google_sum + ghsl_sum
+
+    # Reset the index again to ensure the data is clean and ready for further processing
+    data = data.reset_index(drop=True)
 
     return data
 

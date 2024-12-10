@@ -469,6 +469,7 @@ def download_buildings(config: dict, source: str = "ms", verbose: bool = False) 
                 if source == "ms":
                     download_ms_buildings(
                         country,
+                        config["microsoft_url"],
                         out_dir=temp_dir,
                         merge_output=out_file,
                         quiet=quiet,
@@ -477,6 +478,7 @@ def download_buildings(config: dict, source: str = "ms", verbose: bool = False) 
                 elif source == "google":
                     download_google_buildings(
                         country,
+                        config["google_url"],
                         out_dir=temp_dir,
                         merge_output=out_file,
                         quiet=quiet,
@@ -558,6 +560,7 @@ def download_ghsl(config: dict, type: str = "built_c") -> None:
 
 def download_ms_buildings(
     location: str,
+    building_url: str,
     out_dir: Optional[str] = None,
     merge_output: Optional[str] = None,
     head=None,
@@ -570,7 +573,9 @@ def download_ms_buildings(
 
     Args:
         location: The location name for which to download the dataset.
-        out_dir: The output directory to save the downloaded files. If not provided, the current working directory is used.
+        building_url: Building URL for Microsoft Buildings.
+        out_dir: The output directory to save the downloaded files.
+            If not provided, the current working directory is used.
         merge_output: Optional. The output file path for merging the downloaded files into a single GeoDataFrame.
         head: Optional. The number of files to download. If not provided, all files will be downloaded.
         quiet: Optional. If True, suppresses the download progress messages.
@@ -591,9 +596,7 @@ def download_ms_buildings(
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    dataset_links = pd.read_csv(
-        "https://minedbuildings.z5.web.core.windows.net/global-buildings/dataset-links.csv"
-    )
+    dataset_links = pd.read_csv(building_url)
     country_links = dataset_links[dataset_links.Location == location]
 
     if not quiet:
@@ -629,6 +632,7 @@ def download_ms_buildings(
 
 def download_google_buildings(
     location: str,
+    building_url: str,
     out_dir: Optional[str] = None,
     merge_output: Optional[str] = None,
     head: Optional[int] = None,
@@ -643,6 +647,7 @@ def download_google_buildings(
 
     Args:
         location: The location name for which to download the dataset.
+        building_url: Building URL for Google Open Buildings.
         out_dir: The output directory to save the downloaded files.
             If not provided, the current working directory is used.
         merge_output: Optional. The output file path for merging the downloaded files into a single GeoDataFrame.
@@ -656,7 +661,6 @@ def download_google_buildings(
         A list of file paths of the downloaded files.
 
     """
-    building_url = "https://openbuildings-public-dot-gweb-research.uw.r.appspot.com/public/tiles.geojson"
     country_url = (
         "https://naciscdn.org/naturalearth/110m/cultural/ne_110m_admin_0_countries.zip"
     )
