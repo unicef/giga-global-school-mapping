@@ -11,7 +11,8 @@ from utils import cam_utils
 
 
 def main(args):
-    best_model_config = model_utils.get_best_models(args.iso_code)[0]
+    config = config_utils.load_config(args.config)
+    best_model_config = model_utils.get_best_models(args.iso_code, config)[0]
     model_config = config_utils.load_config(best_model_config)
     logging.info(f"Best model: {best_model_config}")
 
@@ -33,9 +34,7 @@ def main(args):
         verbose=False,
     )
     filepaths = data_utils.get_image_filepaths(
-        model_config, data[
-            (data["dataset"] == "test") & (data["class"] == "school")
-        ]
+        model_config, data[(data["dataset"] == "test") & (data["class"] == "school")]
     )
     cam_scores_all, cam_scores_mean = cam_utils.compare_cams(
         args.iso_code,
@@ -55,6 +54,9 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="CAM Evaluation")
     parser.add_argument("--iso_code", help="ISO 3166-1 alpha-3 code")
+    parser.add_argument(
+        "--config", default="configs/config.yaml", help="ISO 3166-1 alpha-3 code"
+    )
     parser.add_argument("--percentile", help="Percentile", default=90)
     args = parser.parse_args()
 
