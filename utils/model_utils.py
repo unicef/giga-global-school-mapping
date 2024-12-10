@@ -345,7 +345,7 @@ def get_model_output(
     return output
 
 
-def get_best_models(iso_code: str, config: dict) -> list:
+def get_best_models(iso_code: str, config: dict = None) -> list:
     """
     Identifies the best-performing models based on their Area Under the Precision-Recall Curve (AUPRC).
 
@@ -369,7 +369,8 @@ def get_best_models(iso_code: str, config: dict) -> list:
             # Load the configuration for the current model
             model_config = config_utils.load_config(model_file)
             # Update project name to match config
-            model_config["project"] = config["project"]
+            if config:
+                model_config["project"] = config["project"]
 
             # Get validation and test outputs
             val_output = get_model_output(
