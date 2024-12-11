@@ -235,8 +235,8 @@ def prepare_data(
         pd.DataFrame: Processed DataFrame with added columns, generated UIDs, and filtered columns.
     """
     # Add 'giga_id_school' column with unique identifiers if not already present
-    if "giga_id_school" not in data.columns:
-        data["giga_id_school"] = data.reset_index().index
+    if "school_id_giga" not in data.columns:
+        data["school_id_giga"] = data.reset_index().index
 
     # Ensure all specified columns exist in the DataFrame, initializing with None if missing
     for column in columns:
