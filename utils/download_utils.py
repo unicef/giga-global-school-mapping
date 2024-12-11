@@ -1,5 +1,6 @@
 import re
 import os
+import ast
 import duckdb
 import geojson
 import overpass
@@ -277,6 +278,8 @@ def download_overture(
         if len(subdata) > 0:
             # Extract name from Overture data
             if "names" in subdata.columns:
+                subdata["names"] = subdata["names"].astype(str)
+                subdata["names"] = subdata["names"].apply(lambda x: ast.literal_eval(x))
                 geoboundary = data_utils.get_geoboundaries(config, iso_code)
                 subdata["name"] = subdata["names"].apply(
                     lambda x: x["common"][0]["value"]
@@ -359,6 +362,7 @@ def download_unicef(
             subdata["geometry"] = gpd.GeoSeries.from_xy(
                 subdata["longitude"], subdata["latitude"]
             )
+            subdata["name"] = subdata["school_name"]
             # Prepare the data with additional processing
             subdata = data_utils.prepare_data(
                 config=config,
