@@ -173,10 +173,9 @@ def download_sat_images(
                 # command = f"gdalwarp -t_srs {target_crs} {image_file} {image_file}"
                 # subprocess.Popen(command, shell=True)
 
-            except Exception as e:
-                print(e)
-                break
-                # pass
+            except:
+                # print(e)
+                pass
 
 
 def main():

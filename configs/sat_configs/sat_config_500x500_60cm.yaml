@@ -2,11 +2,11 @@ digitalglobe_url: "https://evwhs.digitalglobe.com/mapservice/wmsaccess?"
 size: 150
 width: 500
 height: 500
-srs: 'EPSG:3857'
+srs: 'EPSG:4326'
 styles: ''
 transparent: True
 request: 'GetMap'
-format: 'image/png'
+format: 'image/geotiff'
 layers: ['DigitalGlobe:Imagery']
 exceptions: 'application/vnd.ogc.se_xml'
 featureprofile: 'Most_Aesthetic_Mosaic_Profile'
