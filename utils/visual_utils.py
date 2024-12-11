@@ -132,7 +132,7 @@ def generate_predictions(
         gpd.GeoDataFrame: GeoDataFrame with prediction probabilities averaged across models.
     """
     # Retrieve configurations for the ensemble models
-    model_configs = model_utils.get_ensemble_configs(model_iso_code)
+    model_configs = model_utils.get_ensemble_configs(model_iso_code, config)
 
     # Determine output file path for predictions
     out_file = get_filename(iso_code, config, category="school", name="clean")
