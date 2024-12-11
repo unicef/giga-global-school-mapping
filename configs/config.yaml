@@ -8,7 +8,7 @@ rasters_dir: 'data/rasters/'
 vectors_dir: 'data/vectors/'
 maxar_dir: 'maxar/500x500_60cm'
 
-columns: ['UID', 'source', 'iso', 'country', 'region', 'subregion', 'name', 'geometry', 'giga_id_school']
+columns: ['UID', 'source', 'iso', 'country', 'region', 'subregion', 'name', 'geometry', 'school_id_giga']
 iso_codes_url: "https://raw.githubusercontent.com/lukes/ISO-3166-Countries-with-Regional-Codes/master/all/all.csv"
 overture_url: "s3://overturemaps-us-west-2/release/2023-07-26-alpha.0/theme=places/type=*/*"
 gbhumanitarian_url: "https://www.geoboundaries.org/api/current/gbHumanitarian/"
