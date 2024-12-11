@@ -1,8 +1,10 @@
 import os
 import logging
 import argparse
+import subprocess
 
 from tqdm import tqdm
+import pandas as pd
 import geopandas as gpd
 from owslib.wms import WebMapService
 
@@ -20,12 +22,13 @@ def download_sat_images(
     iso_code: str = None,
     sample_size: int = None,
     src_crs: str = "EPSG:4326",
+    target_crs: str = "EPSG:3857",
     id_col: str = "UID",
     name: str = "clean",
     data: gpd.GeoDataFrame = None,
     filename: str = None,
     out_dir: str = None,
-    download_validated: bool = True
+    download_validated: bool = True,
 ) -> None:
     """
     Download satellite images based on provided configurations and credentials.
@@ -89,7 +92,7 @@ def download_sat_images(
         data = data.iloc[:sample_size]
 
     # Convert data CRS
-    data = data_utils.convert_crs(data, data.crs, config["srs"])
+    data = data_utils.convert_crs(data, data.crs, target_crs)
     logging.info(f"Data dimensions: {data.shape}, CRS: {data.crs}")
 
     # Determine output directory
@@ -103,7 +106,6 @@ def download_sat_images(
             category,
         )
     out_dir = data_utils.makedir(out_dir)
-    # logging.info(out_dir)
 
     # Check if all images already exist
     all_exists = True
@@ -126,17 +128,37 @@ def download_sat_images(
         while not os.path.exists(image_file):
             try:
                 # Define bounding box for the image request
+                bbox = {
+                    "lon": [
+                        data.lon[index] - config["size"],
+                        data.lon[index] + config["size"],
+                    ],
+                    "lat": [
+                        data.lat[index] - config["size"],
+                        data.lat[index] + config["size"],
+                    ],
+                }
+                bbox = pd.DataFrame(bbox)
+                bbox = gpd.GeoDataFrame(
+                    bbox,
+                    geometry=gpd.points_from_xy(
+                        x=bbox.lon,
+                        y=bbox.lat,
+                        crs=target_crs,
+                    ),
+                )
+                bbox = bbox.to_crs(src_crs)
                 bbox = (
-                    data.lon[index] - config["size"],
-                    data.lat[index] - config["size"],
-                    data.lon[index] + config["size"],
-                    data.lat[index] + config["size"],
+                    bbox.geometry.x[0],
+                    bbox.geometry.y[0],
+                    bbox.geometry.x[1],
+                    bbox.geometry.y[1],
                 )
                 # Request image from WMS
                 img = wms.getmap(
                     bbox=bbox,
                     layers=config["layers"],
-                    srs=config["srs"],
+                    srs=src_crs,
                     size=(config["width"], config["height"]),
                     featureProfile=config["featureprofile"],
                     coverage_cql_filter=config["coverage_cql_filter"],
@@ -147,9 +169,14 @@ def download_sat_images(
                 # Save the image to file
                 with open(image_file, "wb") as file:
                     file.write(img.read())
+
+                # command = f"gdalwarp -t_srs {target_crs} {image_file} {image_file}"
+                # subprocess.Popen(command, shell=True)
+
             except Exception as e:
-                #logging.info(e)
-                pass
+                print(e)
+                break
+                # pass
 
 
 def main():
