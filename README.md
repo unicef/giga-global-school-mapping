@@ -288,51 +288,6 @@ python src/sat_predict.py --data_config="configs/data_configs/data_config_ISO_AF
 #### Outputs
 The outputs are saved to `output/<iso_code>/results/<project_name>/cams/<iso_code>_<best_model_name>_<cam_method>.geojson`.
 
-## File Organization 
-The datasets are organized as follows:
-```
-data
-├── rasters
-│   ├── maxar
-│   │   ├── ISO
-│   │   │   ├── school
-│   │   │   │    ├── UNICEF-ISO-SCHOOL-00000001.tiff
-│   │   │   │    └── ...
-│   │   │   ├── non_school
-│   │   │   │    ├── UNICEF-ISO-NON_SCHOOL-00000001.tiff
-│   │   │   │    └── ...
-│   │   │   └── ...
-│   │   └── ...
-└── vectors
-│   ├── school
-│   │   ├── unicef
-│   │   │   ├──ISO_unicef.geojson
-│   │   │   └── ...
-│   │   ├── osm
-│   │   │   ├──ISO_osm.geojson
-│   │   │   └── ...
-│   │   ├── overture
-│   │   │   ├──ISO_overture.geojson
-│   │   │   └── ...
-│   └── non_school
-│       ├── osm
-│       │   ├──ISO_osm.geojson
-│       │   └── ...
-│       └── overture
-│           ├──ISO_overture.geojson
-│           └── ...
-output
-├── ISO
-│   ├── geotiff
-│   ├── images
-│   ├── results
-│   │     └──<project_name>
-│   │        ├── cams
-│   │        └── tiles
-│   └── tiles
-└── ...   
-```
-
 <h2><a id="contribution-guidelines" class="anchor" aria-hidden="true" href="#contribution-guidelines"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"></path></svg></a>
 Contribution Guidelines</h2>
 
