@@ -207,6 +207,7 @@ def download_overture(
 ) -> gpd.GeoDataFrame:
     """
     Download geospatial data from the Overture dataset based on the provided configuration and category.
+    For more info, see: https://til.simonwillison.net/overture-maps/overture-maps-parquet
 
     Args:
         config (dict): Configuration dictionary containing necessary parameters.
