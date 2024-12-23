@@ -50,10 +50,20 @@ def read_file(
 
     # Determine the file path based on the source
     if source == "preds":
+        # Load best model config
+        best_models = model_utils.get_best_models(iso_code, config)
+        model_config = config_utils.load_config(best_models[0])
+
+        # Overwrite project name to match config
+        model_config["project"] = config["project"]
+
+        # Get best CAM method
+        cam_method = cam_utils.get_best_cam_method(iso_code, model_config)
+
         # Update output directory for CAM results
         out_dir = os.path.join(out_dir, "cams")
         # Construct filename with CAM method and config name
-        filename = f"{iso_code}_{config['model'].split('/')[-1].split('.')[0]}_{cam_method}.geojson"
+        filename = f"{iso_code}_{model_config['model'].split('/')[-1].split('.')[0]}_{cam_method}.geojson"
         out_file = os.path.join(out_dir, filename)
     else:
         out_file = os.path.join(out_dir, f"{iso_code}_{source}.geojson")
@@ -642,7 +652,7 @@ def load_preds(
     filenames = [
         filename
         for filename in filenames
-        if (filename.split(".")[-1] in [".gpkg", "geojson"])
+        if (filename.split(".")[-1] in ["gpkg", "geojson"])
         and ("_temp" not in filename)
     ]
 
