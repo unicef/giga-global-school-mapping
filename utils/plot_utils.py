@@ -555,12 +555,15 @@ def calculate_stats_per_geoboundary(
     geoboundaries = data_utils.get_geoboundaries(config, iso_code, adm_level=adm_level)
 
     # Calculate statistics for the master and prediction data
-    statistics = calculate_stats(master, preds, threshold_dist=threshold_dist)
-    master_filtered, preds_filtered = statistics[0], statistics[1]
+    # statistics = calculate_stats(master, preds, threshold_dist=threshold_dist)
+    # master_filtered, preds_filtered = statistics[0], statistics[1]
 
     # Get counts of master and prediction data points within each geographical boundary
-    geoboundaries = get_counts(geoboundaries, master_filtered, name="master")
-    geoboundaries = get_counts(geoboundaries, preds_filtered, name="preds")
+    # geoboundaries = get_counts(geoboundaries, master_filtered, name="master")
+    # geoboundaries = get_counts(geoboundaries, preds_filtered, name="preds")
+    master_clean = master[master["clean"] == 0]
+    geoboundaries = get_counts(geoboundaries, master_clean, name="master")
+    geoboundaries = get_counts(geoboundaries, preds, name="preds")
 
     # Calculate the difference between prediction and master counts
     geoboundaries["diff"] = (
