@@ -22,6 +22,19 @@ AI-enabled School Mapping Model Results  </h1>
 
 <h2><a id="model-results" class="anchor" aria-hidden="true" href="#overview"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"></path></svg></a>Model Results</h2>
 
+This document provides a detailed summary of the performance metrics for models used in our AI-enabled school mapping work.
+
+#### Key Metrics
+- <b>Area Under the Precision-Recall Curve (AUPRC)</b>: Measures the model's precision and recall performance, particularly important for datasets with class imbalances.
+- <b>F2 Score:</b> Emphasizes recall more than precision, prioritizing the identification of all relevant instances.
+
+
+The models are trained to maximize the AUPRC, ensuring robust performance in distinguishing between relevant and irrelevant predictions.
+
+Using the best (non-ensemble) model, best Class Activation Mapping (CAM) method is selected based on the largest confidence drop following perturbation of the top 10% of pixels, as evaluated using the ROAD framework. 
+
+CAMs are generated only for images with probability scores exceeding the threshold that optimizes the validation set F2 score. The final F2 scores on the test set are reported below.
+
 <h3><a id="benin" class="anchor" aria-hidden="true" href="#overview"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"></path></svg></a>Benin (BEN)</h3>
 <ul>
 <li> <b>Project:</b> <code>GIGAv1</code> </li>
