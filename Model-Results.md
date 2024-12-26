@@ -25,11 +25,11 @@ AI-enabled School Mapping Model Results  </h1>
 This document provides a detailed summary of the performance metrics for models used in our AI-enabled school mapping work.
 
 #### Key Metrics
-- <b>Area Under the Precision-Recall Curve (AUPRC)</b>: Measures the model's precision and recall performance, particularly important for datasets with class imbalances.
-- <b>F2 Score:</b> Emphasizes recall more than precision, prioritizing the identification of all relevant instances.
+- <b>Area Under the Precision-Recall Curve (AUPRC)</b>: Optimizes the model's precision and recall performance at all thresholds
+- <b>F2 Score:</b> Emphasizes recall more than precision, prioritizing the identification of all schools.
 
 
-The models are trained to maximize the AUPRC, ensuring robust performance in distinguishing between relevant and irrelevant predictions.
+The models are trained to maximize the AUPRC, ensuring robust performance at all possible thresholds.
 
 Using the best (non-ensemble) model, best Class Activation Mapping (CAM) method is selected based on the largest confidence drop following perturbation of the top 10% of pixels, as evaluated using the ROAD framework. 
 
