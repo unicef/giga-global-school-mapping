@@ -33,6 +33,8 @@ UNICEF Giga: AI-enabled School Mapping  </h1>
 	<li>
       <a href="#getting-started">Getting Started</a>
     </li>
+    <li><a href="#file-organization">File Organization</a></li>
+    <li><a href="#model-results">Model Results</a></li>
     <li><a href="#contribution-guidelines">Contribution Guidelines</a></li>
     <li><a href="#code-design">Code Design</a></li>
     <li><a href="#code-of-conduct">Code of Conduct</a></li>
@@ -292,6 +294,11 @@ The outputs are saved to `output/<iso_code>/results/<project_name>/cams/<iso_cod
 File Organization</h2>
 
 For the detailed documentation on file organization, see the [File Organization Documentation](https://github.com/unicef/giga-global-school-mapping/blob/master/File-Organization.md).
+
+<h2><a id="model-results" class="anchor" aria-hidden="true" href="#file-organization"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"></path></svg></a>
+Model Results</h2>
+
+For more info on the model results, see the [Model Results Documentation](https://github.com/unicef/giga-global-school-mapping/blob/master/Model-Results.md).
 
 <h2><a id="contribution-guidelines" class="anchor" aria-hidden="true" href="#contribution-guidelines"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"></path></svg></a>
 Contribution Guidelines</h2>
