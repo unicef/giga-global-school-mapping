@@ -410,8 +410,9 @@ This file integrates data from GigaMaps (for schools), OpenStreetMap (OSM), and 
 <b>Additional Columns Added During Automated Data Cleaning</b>:
 - `clean`: Classifies each data point based on its validity:
   - `0`: Valid point.
-  - `1`: Located in an unpopulated/uninhabited area.
+  - `1`: Contains a keyword in the keyword exclusion list (see `configs/config.yaml`)
   - `2`: Duplicate of another school location (i.e., within the vicinity of an existing school point).
+  - `3`: Located in an unpopulated/uninhabite/invalid area.
 
 <h5>Manual Cleaning</h5>
 
