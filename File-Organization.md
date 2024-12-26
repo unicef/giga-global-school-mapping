@@ -15,6 +15,9 @@ File Organization </h1>
 
 <h2><a id="overview" class="anchor" aria-hidden="true" href="#overview"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"></path></svg></a>Overview</h2>
 
+
+The <a href="https://github.com/unicef/giga-global-school-mapping/blob/master/File-Organization.md">File Organization document</a> provides a structured overview of how files and directories are arranged for the project. It details the naming conventions, folder hierarchy, and organizational principles used to manage data, scripts, and outputs effectively, ensuring streamlined collaboration and accessibility for team members. This guidance helps maintain consistency and clarity in the project workflow.
+
 <h2><a id="top-level-dir" class="anchor" aria-hidden="true" href="#overview"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"></path></svg></a>Top-level Directory</h2>
 
 ```
