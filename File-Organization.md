@@ -15,6 +15,9 @@ File Organization </h1>
 
 <h2><a id="overview" class="anchor" aria-hidden="true" href="#overview"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"></path></svg></a>Overview</h2>
 
+
+The <a href="https://github.com/unicef/giga-global-school-mapping/blob/master/File-Organization.md">File Organization document</a> provides a structured overview of how files and directories are arranged for the project. It details the naming conventions, folder hierarchy, and organizational principles used to manage data, scripts, and outputs effectively, ensuring streamlined collaboration and accessibility for team members. This guidance helps maintain consistency and clarity in the project workflow.
+
 <h2><a id="top-level-dir" class="anchor" aria-hidden="true" href="#overview"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"></path></svg></a>Top-level Directory</h2>
 
 ```
@@ -407,8 +410,9 @@ This file integrates data from GigaMaps (for schools), OpenStreetMap (OSM), and 
 <b>Additional Columns Added During Automated Data Cleaning</b>:
 - `clean`: Classifies each data point based on its validity:
   - `0`: Valid point.
-  - `1`: Located in an unpopulated/uninhabited area.
+  - `1`: Contains a keyword in the keyword exclusion list (see `configs/config.yaml`)
   - `2`: Duplicate of another school location (i.e., within the vicinity of an existing school point).
+  - `3`: Located in an unpopulated/uninhabite/invalid area.
 
 <h5>Manual Cleaning</h5>
 
