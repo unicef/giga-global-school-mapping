@@ -412,7 +412,7 @@ This file integrates data from GigaMaps (for schools), OpenStreetMap (OSM), and 
   - `0`: Valid point.
   - `1`: Contains a keyword in the keyword exclusion list (see `configs/config.yaml`)
   - `2`: Duplicate of another school location (i.e., within the vicinity of an existing school point).
-  - `3`: Located in an unpopulated/uninhabite/invalid area.
+  - `3`: Located in an unpopulated/uninhabited/invalid area.
 
 <h5>Manual Cleaning</h5>
 
@@ -520,6 +520,12 @@ Each experiment folder will contain the following files and subdirectories:
 ```
 
 <b>Note:</b> We recommend running `notebooks/05_model_evaluation.ipynb` to generate the final model performance results.
+
+<h4>Cross-country Cross Validation </h4>
+
+<b>Path:</b> `/cv`
+
+This directory stores the experiment outputs for cross-country cross validation experiments.
 
 <h2><a id="output-dir" class="anchor" aria-hidden="true" href="#overview"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"></path></svg></a>Outputs</h2>
 
@@ -688,3 +694,16 @@ Files include GeoJSON outputs for administrative level 2 (ADM2) regions.
 The final results includes the merged admin2 level outputs and is stored in:
 
 `/output/<ISO>/results/<project_name>/cams/<ISO_<best_model>_<best_cam_method>.geojson`
+
+This file contains the merged nationwide model outputs with the following fields:
+- `UID` : the unique ID for each tile (numerical)
+- `PUID` : the unique ID for each tile (string) with ADM2 level information
+- `prob` : model's predicted probability
+- `sum` : the number of buildings/settlement pixels within 50 meters of the model prediction
+- `ADM1` : Administrative level 1 geoboundary
+- `ADM2` : Administrative level 2 geoboundary
+
+<b>Example</b>
+`/output/TJK/results/GIGAv3/cams/TJK_convnext_large_gradcamelementwise.geojson`
+
+- Contains the nationwide model outputs (CAMs) for Tajikistan.
