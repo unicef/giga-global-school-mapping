@@ -112,10 +112,10 @@ ipython kernel install --user --name=<env_name>
 Code Design</h2>
 
 This repository is divided into the following files and folders:
-- **configs/**: contains the configuration files (data configs, satellite image configs, model configs, etc.)
-- **notebooks/**: contains all Jupyter notebooks for exploratory data analysis.
-- **utils/**: contains utility methods for loading datasets, building model, and performing training routines.
-- **src/**: contains scripts runnable scripts for automated data cleaning and model training, evaluation, and deployment.
+- `configs/`: contains the configuration files (data configs, satellite image configs, model configs, etc.)
+- `notebooks/`: contains all Jupyter notebooks for exploratory data analysis.
+- `utils/`: contains utility methods for loading datasets, building model, and performing training routines.
+- `src/`: contains scripts runnable scripts for automated data cleaning and model training, evaluation, and deployment.
 
 ## Data Download 
 To download the relevant datasets, run either of the following:
