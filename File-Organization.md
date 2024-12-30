@@ -525,7 +525,20 @@ Each experiment folder will contain the following files and subdirectories:
 
 <b>Path:</b> `/cv`
 
-This directory stores the experiment outputs for cross-country cross validation experiments.
+This directory stores the experiment outputs for cross-country cross validation experiments. 
+
+```
+├── ...
+├── cv                               
+│   └── <project_name> 
+│       ├── <ISO>						# Train country                   
+│       │   ├── <ISO>_ensemble					# Test country
+│       │   │	   ├── <ISO>_<best_convnext_model_name>.csv	# Best convnext model results
+│       │   │	   ├── <ISO>_<best_vit_model_name>.csv		# Best vit model results
+│       │   │	   ├── <ISO>_<best_swin_model_name>.csv		# Best swin model results
+│       │   │	   └── results.json				# Test set ensemble results
+└── ...
+```
 
 <h2><a id="output-dir" class="anchor" aria-hidden="true" href="#overview"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"></path></svg></a>Outputs</h2>
 
